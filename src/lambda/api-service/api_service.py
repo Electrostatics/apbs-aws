@@ -17,7 +17,12 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
                                           )
     return url
 
-def generate_id_and_tokens(bucket_name: str, file_list: List[str], job_id:str=None) -> dict:
+def generate_id_and_tokens(event: dict, context) -> dict:
+    
+    # Assign object variables from Lambda event 
+    bucket_name : str     = event['bucket_name']
+    file_list : List[str] = event['file_list']
+    job_id : str          = event['job_id']
 
     # Generate new job ID if not provided
     if job_id is None:
