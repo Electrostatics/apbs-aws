@@ -21,20 +21,22 @@ def create_s3_url(file_name, prefix_name):
     
     return url
 
-# TODO 2021/02/15 - Add support for asking for multiple tokens at once
-def generate_id_and_token(file_name: str, job_id:str=None):
+def generate_id_and_tokens(file_list: List[str], job_id:str=None):
 
     # Generate new job ID if not provided
     if job_id is None:
         job_id = ''.join( choices(ascii_lowercase+digits, k=10) ) # Random 10-character alphanumeric string
 
-    # Create S3 token URL
-    token_url = create_s3_url(file_name, job_id)
+    # Create URLs with S3 tokens
+    url_dict = {}
+    for file_name in file_list:
+        token_url = create_s3_url(file_name, job_id)
+        url_dict[file_name] = token_url
 
     # Generate JSON response
     response = {
         'job_id': job_id,
-        's3_url': token_url,
+        'urls': url_dict,
     }
     
     return response
