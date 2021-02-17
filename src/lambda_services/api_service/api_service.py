@@ -22,10 +22,12 @@ def generate_id_and_tokens(event: dict, context) -> dict:
     # Assign object variables from Lambda event 
     bucket_name : str     = event['bucket_name']
     file_list : List[str] = event['file_list']
-    job_id : str          = event['job_id']
+    job_id : str
 
     # Generate new job ID if not provided
-    if job_id is None:
+    if 'job_id' in event:
+        job_id = event['job_id']
+    else:
         job_id = ''.join( choices(ascii_lowercase+digits, k=10) ) # Random 10-character alphanumeric string
 
     # Create URLs with S3 tokens
