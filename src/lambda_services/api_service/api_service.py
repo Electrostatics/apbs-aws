@@ -3,6 +3,8 @@ from random import choices
 from typing import List
 import boto3
 
+# TODO 2020/17/20, Elvis - Establish specific logging format to be used in Lambda functions
+
 def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
     object_name = f'{prefix_name}/{file_name}'
     s3_client = boto3.client('s3')
@@ -17,7 +19,7 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
                                           )
     return url
 
-def generate_id_and_tokens(event: dict, context) -> dict:
+def generate_id_and_tokens(event: dict, context=None) -> dict:
     
     # Assign object variables from Lambda event 
     bucket_name : str     = event['bucket_name']
