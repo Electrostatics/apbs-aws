@@ -1,0 +1,94 @@
+--- 
+# Create the codebuild service role
+# Create the encryption key
+
+- name:  Create codebuild
+  aws_codebuild:
+    name: my_project
+    description: My nice little project
+    service_role: "arn:aws:iam::123123:role/service-role/code-build-service-role"
+    source:
+        # Possible values: BITBUCKET, CODECOMMIT, CODEPIPELINE, GITHUB, S3
+        type: CODEPIPELINE
+        buildspec: ''
+    artifacts:
+        namespaceType: NONE
+        packaging: NONE
+        type: CODEPIPELINE
+        name: my_project
+    environment:
+        computeType: BUILD_GENERAL1_SMALL
+        privilegedMode: "true"
+        image: "aws/codebuild/docker:17.09.0"
+        type: LINUX_CONTAINER
+        environmentVariables:
+            - { name: 'PROFILE', value: 'staging' }
+    encryption_key: "arn:aws:kms:us-east-1:123123:alias/aws/s3"
+    region: us-east-1
+    state: present
+
+- name: Create codepipeline
+  aws_codepipeline:
+    name: my_deploy_pipeline
+    role_arn: arn:aws:iam::123456:role/AWS-CodePipeline-Service
+    artifact_store:
+      type: S3
+      location: my_s3_codepipline_bucket
+    stages:
+      - name: Get_source
+        actions:
+          -
+            name: Git_pull
+            actionTypeId:
+              category: Source
+              owner: ThirdParty
+              provider: GitHub
+              version: '1'
+            outputArtifacts:
+              - { name: my-app-source }
+            configuration:
+              Owner: mediapeers
+              Repo: my_gh_repo
+              PollForSourceChanges: 'true'
+              Branch: master
+              # Generate token like this:
+              # https://docs.aws.amazon.com/codepipeline/latest/userguide/GitHub-rotate-personal-token-CLI.html
+              # GH Link: https://github.com/settings/tokens
+              OAuthToken: 'abc123def456'
+            runOrder: 1
+      - name: Build
+        actions:
+          -
+            name: CodeBuild
+            actionTypeId:
+              category: Build
+              owner: AWS
+              provider: CodeBuild
+              version: '1'
+            inputArtifacts:
+              - { name: my-app-source }
+            outputArtifacts:
+              - { name: my-app-build }
+            configuration:
+              # A project with that name needs to be setup on AWS CodeBuild already (use code_build module).
+              ProjectName: codebuild-project-name
+            runOrder: 1
+      - name: ECS_deploy
+        actions:
+          -
+            name: ECS_deploy
+            actionTypeId:
+              category: Deploy
+              owner: AWS
+              provider: ECS
+              version: '1'
+            inputArtifacts:
+              - { name: vod-api-app-build }
+            configuration:
+              # an ECS cluster with that name needs to be setup on AWS ECS already (use ecs_cluster and ecs_service module)
+              ClusterName: ecs-cluster-name
+              ServiceName: ecs-cluster-service-name
+              FileName: imagedefinitions.json
+    region: us-east-1
+    state: present
+

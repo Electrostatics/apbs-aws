@@ -1,0 +1,36 @@
+---
+ansible_ssh_private_key_file: "~/.ssh/APBS.pem"
+aws_this: all
+aws_profile: default
+aws_account_id: 746517574931
+key_name: APBS
+aws_region: us-west-2
+vpc_id: vpc-e4cfdd9d
+vpc_subnet_id: subnet-808016cb
+vpc_subnet_id2: subnet-240cc30f
+ami_id: ami-032509850cf9ee54e
+aws_zone: us-west-2a
+my_local_cidr_ip: 130.20.0.0/16
+#
+# variable for destroy all
+delete_all: "{{ (destroy == 'true') | ternary('yes','no') }}"
+#
+# portal
+instance_type: t3.small
+portal_server_name: "{{ env_portal_server_name }}"
+#
+# deployment
+project: apbs
+deployment_group: "{{ env_deployment_group }}"
+#
+#loadbalancer_target_group: 
+loadbalancer_securitygroup: 
+ssh_securitygroup: sg-02e741cc306fcb48b
+#
+nessus_agent_package: NessusAgent-7.3.2-es7.x86_64.rpm
+nessus_agent_key: 
+nessus_agent_port: 8834
+nessus_agent_host: nessusmanager.pnl.gov
+nessus_agent_group: "ConnectedLinux" 
+#
+

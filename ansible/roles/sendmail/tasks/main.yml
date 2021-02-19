@@ -1,0 +1,25 @@
+- name: install sendmail
+  yum: name=sendmail state=latest
+  notify: restart sendmail
+  when: ansible_distribution=='Amazon'
+  tags: sendmail
+
+- name: install sendmail-cf
+  yum: name=sendmail-cf state=latest
+  when: ansible_distribution=='Amazon'
+  tags: sendmail
+
+- name: sendmail access file
+  template: src=access.j2 dest=/etc/mail/access
+  notify: make authinfo
+  tags: sendmail
+
+- name: sendmail authinfo file
+  template: src=authinfo.j2 dest=/etc/mail/authinfo
+  notify: make access
+  tags: sendmail
+
+- name: sendmail sendmail.mc file
+  template: src=sendmail.mc.j2 dest=/etc/mail/sendmail.mc
+  notify: make sendmail.cf
+  tags: sendmail

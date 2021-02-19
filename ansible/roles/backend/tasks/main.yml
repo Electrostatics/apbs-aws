@@ -1,0 +1,220 @@
+---
+# DAP provisioning
+  - name: Create input S3 bucket
+    s3_bucket:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-input"
+      state: present
+      tags:
+         Deployment: "{{ deployment_group }}"
+    register: s3
+    tags: s3
+
+  - name: Debug s3
+    debug: var=s3
+    tags: s3
+  
+  - name: Add s3 CORS
+    aws_s3_cors:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-input"
+      state: present
+      rules:
+        - allowed_origins:
+            - '*'
+          allowed_methods:
+            - HEAD
+            - GET
+          allowed_headers:
+            - '*'
+          expose_headers: 
+            - Content-Length
+          max_age_seconds: 3000
+    tags: 
+      - s3
+      - cors
+      
+  - name: Create output S3 bucket
+    s3_bucket:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-output"
+      state: present
+      tags:
+         Deployment: "{{ deployment_group }}"
+    register: s3
+    tags: s3
+
+  - name: Debug s3
+    debug: var=s3
+    tags: s3
+  
+  - name: Add s3 CORS
+    aws_s3_cors:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-output"
+      state: present
+      rules:
+        - allowed_origins:
+            - '*'
+          allowed_methods:
+            - HEAD
+            - GET
+          allowed_headers:
+            - '*'
+          expose_headers: 
+            - Content-Length
+          max_age_seconds: 3000
+    tags: 
+      - s3
+      - cors
+
+
+  - name: Create IAM role for fargate apbs instance
+    iam_role: 
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-apbs-role"
+      description: Role for "{{ project }}-{{ deployment_group }}-apbs-role"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy.json') }}"
+    register: iam_role_apbs
+    tags: iam
+
+  - name: Update archive IAM role
+    iam_policy:
+      profile: "{{ aws_profile }}"
+      iam_type: role
+      iam_name: "{{ project }}-{{ deployment_group }}-apbs-role"
+      policy_name: "{{ project }}-{{ deployment_group }}-apbs-policy"
+      state: present
+      policy_json: "{{ lookup('template','files/iam-policy-apbs-role.json.j2') }}"
+    tags: iam
+
+  - name: Create SQS queue
+    sqs_queue:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-job-q"
+      default_visibility_timeout: 60
+      message_retention_period: 1209600
+      maximum_message_size: 4096
+      delivery_delay: 0
+      receive_message_wait_time: 0
+    tags: sqs
+
+
+  - name: Create Lambda IAM role 
+    iam_role: 
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-lambda-id-role"
+      description: Role for "{{ project }}-{{ deployment_group }}-lambda-id-role"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
+    tags: 
+      - lambda
+    register: iam_role_lambda_receive
+
+  - name: Update Lambda IAM role
+    iam_policy:
+      profile: "{{ aws_profile }}"
+      iam_type: role
+      iam_name: "{{ project }}-{{ deployment_group }}-lambda-id-role"
+      policy_name: "{{ project }}-{{ deployment_group }}-lambda-id-policy"
+      state: present
+      policy_json: "{{ lookup('template', 'files/iam-policy-lambda-id.json.j2') }}"
+    tags: 
+      - lambda
+      - lambdarole
+   
+   - name: Create Lambda IAM role 
+     iam_role: 
+       profile: "{{ aws_profile }}"
+       region: "{{ aws_region }}"
+       name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
+       description: Role for "{{ project }}-{{ deployment_group }}-lambda-job-role"
+       assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
+     tags: 
+       - lambda
+     register: iam_role_lambda_receive
+   
+   - name: Update Lambda IAM role
+     iam_policy:
+       profile: "{{ aws_profile }}"
+       iam_type: role
+       iam_name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
+       policy_name: "{{ project }}-{{ deployment_group }}-lambda-job-policy"
+       state: present
+       policy_json: "{{ lookup('template', 'files/iam-policy-lambda-job.json.j2') }}"
+     tags: 
+       - lambda
+       - lambdarole
+
+
+  - name: Create job-L lambda function
+    lambda:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-job-L"
+      state: present
+      runtime: 'python3.6'
+      role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
+      handler: "{{ project }}-{{ deployment_group }}-job-L.lambda_handler"
+      memory_size: 512
+      timeout: 360 
+      environment_variables: 
+        JOB-Q: "{{ project }}-{{ deployment_group }}-job-q"
+      tags:
+        Deployment: "{{ deployment_group }}"
+    tags: 
+      - lambda2
+      - lambda
+      - update
+
+
+  - name: Create SNS put topic
+    sns_topic:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-s3put"
+      state: present
+      display_name: "{{ project }}-{{ deployment_group }}-s3put"
+      policy: "{{ lookup('template', 'files/sns_s3put.json.j2') }}"
+      delivery_policy:
+        http:
+          defaultHealthyRetryPolicy:
+              minDelayTarget: 20
+              maxDelayTarget: 20
+              numRetries: 3
+              numMaxDelayRetries: 0
+              backoffFunction: "linear"
+          disableSubscriptionOverrides: False
+          defaultThrottlePolicy:
+              maxReceivesPerSecond: 10
+      subscriptions:
+        - endpoint: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
+          protocol: "lambda"
+    tags: 
+      - sns
+      - policy
+
+
+  - name: Create s3 bucket notification
+    # Ansible 2.9 - October release
+    #s3_bucket_notification:
+      #profile: "{{ aws_profile }}"
+      #region: "{{ aws_region }}"
+      #state: present
+      #event_name: "{{ project }}-{{ deployment_group }}-put"
+      #bucket_name: "{{ project }}-{{ deployment_group }}-input"
+      #function_name: "arn:aws:sns:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-s3put"
+      #events: ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
+      ##prefix: images/
+      ##suffix: .jpg
+    command: >
+      aws s3api put-bucket-notification-configuration --profile "{{ aws_profile }}" 
+      --region "{{ aws_region }}" --bucket "{{ project }}-{{ deployment_group }}-input" 
+      --cli-input-json '{{ lookup('template', 'files/s3-notification.json.j2') }}'
+    tags: s3notif
