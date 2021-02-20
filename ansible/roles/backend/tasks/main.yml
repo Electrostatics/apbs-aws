@@ -129,29 +129,48 @@
       - lambda
       - lambdarole
    
-   - name: Create Lambda IAM role 
-     iam_role: 
-       profile: "{{ aws_profile }}"
-       region: "{{ aws_region }}"
-       name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
-       description: Role for "{{ project }}-{{ deployment_group }}-lambda-job-role"
-       assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
-     tags: 
-       - lambda
-     register: iam_role_lambda_receive
+  - name: Create Lambda IAM role 
+    iam_role: 
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
+      description: Role for "{{ project }}-{{ deployment_group }}-lambda-job-role"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
+    tags: 
+      - lambda
+    register: iam_role_lambda_receive
    
-   - name: Update Lambda IAM role
-     iam_policy:
-       profile: "{{ aws_profile }}"
-       iam_type: role
-       iam_name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
-       policy_name: "{{ project }}-{{ deployment_group }}-lambda-job-policy"
-       state: present
-       policy_json: "{{ lookup('template', 'files/iam-policy-lambda-job.json.j2') }}"
-     tags: 
-       - lambda
-       - lambdarole
+  - name: Update Lambda IAM role
+    iam_policy:
+      profile: "{{ aws_profile }}"
+      iam_type: role
+      iam_name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
+      policy_name: "{{ project }}-{{ deployment_group }}-lambda-job-policy"
+      state: present
+      policy_json: "{{ lookup('template', 'files/iam-policy-lambda-job.json.j2') }}"
+    tags: 
+      - lambda
+      - lambdarole
 
+  - name: Create id-L lambda bundle
+    archive:
+      path: "../src/lambda_services/api_service/"
+      dest: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
+      format: zip
+    tags: 
+      - bundle
+      - archive
+      - update
+      
+  - name: Create job-L lambda bundle
+    archive:
+      path: "../src/lambda_services/job_service/"
+      dest: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
+      format: zip
+    tags: 
+      - bundle
+      - archive
+      - update
 
   - name: Create job-L lambda function
     lambda:
@@ -159,6 +178,7 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-job-L"
       state: present
+      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
       handler: "{{ project }}-{{ deployment_group }}-job-L.lambda_handler"
@@ -166,6 +186,27 @@
       timeout: 360 
       environment_variables: 
         JOB-Q: "{{ project }}-{{ deployment_group }}-job-q"
+      tags:
+        Deployment: "{{ deployment_group }}"
+    tags: 
+      - lambda2
+      - lambda
+      - update
+     
+  - name: Create id-L lambda function
+    lambda:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-id-L"
+      state: present
+      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
+      runtime: 'python3.6'
+      role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-id-role"
+      handler: "{{ project }}-{{ deployment_group }}-id-L.lambda_handler"
+      memory_size: 512
+      timeout: 360 
+      environment_variables: 
+        INPUT_BUCKET: "{{ project }}-{{ deployment_group }}-input"
       tags:
         Deployment: "{{ deployment_group }}"
     tags: 
