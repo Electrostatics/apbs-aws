@@ -178,14 +178,14 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-job-L"
       state: present
-      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
+      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
-      handler: "{{ project }}-{{ deployment_group }}-job-L.lambda_handler"
+      handler: "job_service.lambda_handler"
       memory_size: 512
       timeout: 360 
       environment_variables: 
-        JOB-Q: "{{ project }}-{{ deployment_group }}-job-q"
+        JOBQ: "{{ project }}-{{ deployment_group }}-job-q"
       tags:
         Deployment: "{{ deployment_group }}"
     tags: 
@@ -202,7 +202,7 @@
       zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-id-role"
-      handler: "{{ project }}-{{ deployment_group }}-id-L.lambda_handler"
+      handler: "api_service.generate_id_and_tokens"
       memory_size: 512
       timeout: 360 
       environment_variables: 
