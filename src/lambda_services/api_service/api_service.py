@@ -1,6 +1,7 @@
 from string import ascii_lowercase, digits
 from random import choices
 from typing import List
+import os
 import boto3
 
 # TODO 2020/17/20, Elvis - Establish specific logging format to be used in Lambda functions
@@ -22,7 +23,7 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
 def generate_id_and_tokens(event: dict, context=None) -> dict:
     
     # Assign object variables from Lambda event 
-    bucket_name : str     = event['bucket_name']
+    bucket_name : str     = os.environ['INPUT_BUCKET']
     file_list : List[str] = event['file_list']
     job_id : str
 
