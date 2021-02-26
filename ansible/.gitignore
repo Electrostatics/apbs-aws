@@ -1,0 +1,15 @@
+*.retry
+*out
+*swp
+ansible.cfg
+ec2*
+#inventories/*/group_vars/all/vault_*
+#inventories/*/*/group_vars/all/vault_*
+playbooks
+roles/*/checkout
+ssm/
+env/
+#*vault*
+vault_password
+.DS_Store
+

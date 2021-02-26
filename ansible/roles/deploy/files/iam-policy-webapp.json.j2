@@ -1,0 +1,70 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "cognito-identity:*",
+                "cognito-idp:*",
+                "cognito-sync:*"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        },
+        {
+            "Action": [
+                "kms:Decrypt",
+                "kms:DescribeKey",
+                "ssm:GetParametersByPath",
+                "ssm:GetParameters",
+                "ssm:GetParameter"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:kms:{{ aws_region }}:*:key/parameter_store_key",
+                "arn:aws:ssm:{{ aws_region }}:*:parameter/{{ project }}/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "kms:ListKeys",
+                "kms:ListAliases"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:logs:{{ aws_region }}:{{ aws_account_id }}:log-group:/aws/codebuild/portal-build-ntest",
+                "arn:aws:logs:{{ aws_region }}:{{ aws_account_id }}:log-group:/aws/codebuild/portal-build-ntest:*"
+            ],
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:s3:::codepipeline-{{ aws_region }}-*"
+            ],
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:GetObjectVersion",
+                "s3:GetBucketAcl",
+                "s3:GetBucketLocation"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:codecommit:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-inventory-server"
+            ],
+            "Action": [
+                "codecommit:GitPull"
+            ]
+        }
+    ]
+}

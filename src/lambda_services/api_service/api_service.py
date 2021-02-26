@@ -17,7 +17,7 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
                                                 'Key': object_name
                                             },
                                             ExpiresIn=3600,
-                                            HttpMethod='PUT',
+                                            HttpMethod='PUT'
                                           )
     return url
 
@@ -25,6 +25,7 @@ def generate_id_and_tokens(event: dict, context=None) -> dict:
     
     # Assign object variables from Lambda event 
     bucket_name : str     = os.getenv('INPUT_BUCKET')
+
     file_list : List[str] = event['file_list']
     job_id : str
 
