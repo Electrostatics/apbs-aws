@@ -196,7 +196,7 @@
       memory_size: 512
       timeout: 360 
       environment_variables: 
-        JOBQ: "{{ project }}-{{ deployment_group }}-job-q",
+        JOBQ: "{{ project }}-{{ deployment_group }}-job-q"
         OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
       tags:
         Deployment: "{{ deployment_group }}"
