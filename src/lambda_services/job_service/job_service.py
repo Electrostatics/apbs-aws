@@ -39,8 +39,8 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
 
 
     s3_client = boto3.client('s3')
-    object_response:dict = s3_client.get_object(
-                            Body=json.dump(initial_status_dict),
+    object_response:dict = s3_client.put_object(
+                            Body=json.dumps(initial_status_dict),
                             Bucket=OUTPUT_BUCKET,
                             Key=object_filename
     )
@@ -56,8 +56,8 @@ def interpret_job_submission(event: dict, context=None):
     job_id = jobinfo_object_name.split('/')[0]
 
     # Obtain job configuration from config file
-    job_info_form = get_job_info(bucket_name, jobinfo_object_name )
-    job_type = jobinfo_object_name.split('-')[0] # Assumes 'pdb2pqr-job.json', or similar format
+    job_info_form = get_job_info(bucket_name, jobinfo_object_name )["form"]
+    job_type = jobinfo_object_name.split('-')[0].split('/')[1] # Assumes 'pdb2pqr-job.json', or similar format
 
     """ Interpret contents of job configuration """
     # If PDB2PQR
