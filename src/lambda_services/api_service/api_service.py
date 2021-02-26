@@ -4,7 +4,7 @@ from typing import List
 import os
 import boto3
 
-# TODO 2020/17/20, Elvis - Establish specific logging format to be used in Lambda functions
+# TODO 2020/02/17, Elvis - Consider specific logging format to be used in Lambda functions
 
 def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
     object_name = f'{prefix_name}/{file_name}'
