@@ -17,8 +17,10 @@
                 "s3:PutObject",
                 "s3:PutObjectAcl"
             ],
-            "Resource": "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input/*",
-            "Resource": "arn:aws:s3:::{{ project }}-{{ deployment_group }}-output/*"
+            "Resource": [ 
+                 "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input/*",
+                 "arn:aws:s3:::{{ project }}-{{ deployment_group }}-output/*"
+            ]
         },
         {
             "Effect": "Allow",
