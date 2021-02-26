@@ -27,6 +27,7 @@
             - '*'
           allowed_methods:
             - PUT
+            - POST
           allowed_headers:
             - '*'
           expose_headers: 
@@ -189,14 +190,14 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-job-L"
       state: present
-      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
+      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
-      handler: "job_service.lambda_handler"
+      handler: "job_service.interpret_job_submission"
       memory_size: 512
       timeout: 360 
       environment_variables: 
-        JOBQ: "{{ project }}-{{ deployment_group }}-job-q"
+        JOB_QUEUE_NAME: "{{ project }}-{{ deployment_group }}-job-q"
         OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
       tags:
         Deployment: "{{ deployment_group }}"
