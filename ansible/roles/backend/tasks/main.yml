@@ -6,13 +6,14 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-input"
       state: present
+      delete_public_access: yes
       tags:
          Deployment: "{{ deployment_group }}"
-    register: s3
+    register: s3_input
     tags: s3
 
   - name: Debug s3
-    debug: var=s3
+    debug: var=s3_input
     tags: s3
   
   - name: Add s3 CORS
@@ -25,8 +26,7 @@
         - allowed_origins:
             - '*'
           allowed_methods:
-            - HEAD
-            - GET
+            - PUT
           allowed_headers:
             - '*'
           expose_headers: 
@@ -44,11 +44,11 @@
       state: present
       tags:
          Deployment: "{{ deployment_group }}"
-    register: s3
+    register: s3_output
     tags: s3
 
   - name: Debug s3
-    debug: var=s3
+    debug: var=s3_output
     tags: s3
   
   - name: Add s3 CORS
@@ -72,18 +72,29 @@
       - s3
       - cors
 
-
+  - name: Create IAM role for fargate 
+    iam_role: 
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-fargate-role"
+      description: Role for "{{ project }}-{{ deployment_group }}-fargate-role"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
+      managed_policy: 
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+    register: iam_role_fargate
+    tags: iam
+    
   - name: Create IAM role for fargate apbs instance
     iam_role: 
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-apbs-role"
       description: Role for "{{ project }}-{{ deployment_group }}-apbs-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy.json') }}"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs.json') }}"
     register: iam_role_apbs
     tags: iam
 
-  - name: Update archive IAM role
+  - name: Update apbs IAM role
     iam_policy:
       profile: "{{ aws_profile }}"
       iam_type: role
@@ -185,7 +196,8 @@
       memory_size: 512
       timeout: 360 
       environment_variables: 
-        JOBQ: "{{ project }}-{{ deployment_group }}-job-q"
+        JOBQ: "{{ project }}-{{ deployment_group }}-job-q",
+        OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
       tags:
         Deployment: "{{ deployment_group }}"
     tags: 
@@ -259,3 +271,42 @@
       --region "{{ aws_region }}" --bucket "{{ project }}-{{ deployment_group }}-input" 
       --cli-input-json '{{ lookup('template', 'files/s3-notification.json.j2') }}'
     tags: s3notif
+
+
+  - name: Cluster creation
+    community.aws.ecs_cluster:
+            name: {{ project }}-{{ deployment_group }}-cluster
+            state: present
+
+  - name: Create task definition
+    community.aws.ecs_taskdefinition:
+      family: {{ project }}-{{ deployment_group }}-apbs
+      containers:
+      - name: "apbs"
+        essential: true
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
+        environment:
+          - name: "JOBQ"
+            value: "{{ project }}-{{ deployment_group }}-job-q"
+          - name: "OUTPUT_BUCKET"
+            value: "{{ project }}-{{ deployment_group }}-output"
+      launch_type: FARGATE
+      task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
+      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
+      cpu: 512
+      memory: 1GB
+      state: present
+      network_mode: awsvpc
+
+  - name: create ECS service on VPC network
+    community.aws.ecs_service:
+            state: present
+            name: {{ project }}-{{ deployment_group }}-service
+            cluster: {{ project }}-{{ deployment_group }}-cluster
+            launch_type: FARGATE
+            task_definition: '{{ project }}-{{ deployment_group }}-apbs:1'
+            network_configuration:
+                    subnets:
+                      - '{{ vpc_subnet_id2 }}'
+            desired_count: 0
+
