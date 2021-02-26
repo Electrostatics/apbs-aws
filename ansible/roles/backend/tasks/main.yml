@@ -1,7 +1,7 @@
 ---
 # DAP provisioning
   - name: Create input S3 bucket
-    s3_bucket:
+    amazon.aws.s3_bucket:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-input"
