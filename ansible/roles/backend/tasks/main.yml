@@ -38,11 +38,12 @@
       - cors
       
   - name: Create output S3 bucket
-    s3_bucket:
+    amazon.aws.s3_bucket:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-output"
       state: present
+      policy: "{{ lookup('template','files/s3-policy-output.json.j2') }}"
       tags:
          Deployment: "{{ deployment_group }}"
     register: s3_output
