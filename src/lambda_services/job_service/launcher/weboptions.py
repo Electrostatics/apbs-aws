@@ -55,15 +55,15 @@ class WebOptions(object):
         #These are included in has_key(), __contains__(), and __getitem__() calls.
         self.otheroptions = {}
         
-        self.runoptions['debump'] = form.has_key("DEBUMP" in form
-        self.runoptions['opt'] = form.has_key("OPT" in form
+        self.runoptions['debump'] = "DEBUMP" in form
+        self.runoptions['opt'] = "OPT" in form
         
-        if form.has_key('FF' in form:
+        if 'FF' in form:
             self.ff = form["FF"].lower()
         else:
             raise WebOptionsError('Force field type missing from form.')
         
-        if form.has_key("PDBID") and form["PDBID"] and form["PDBSOURCE"] == 'ID':
+        if "PDBID" in form and form["PDBID"] and form["PDBSOURCE"] == 'ID':
             # TODO: 2021/02/23, Elvis - Use PDBID to get URL/set flag for PDB file download
             pass
             # self.pdbfile = utilities.getPDBFile(form["PDBID"])
@@ -85,9 +85,9 @@ class WebOptions(object):
         else:
             raise WebOptionsError('You need to specify a pdb ID or upload a pdb file.')
             
-        if form.has_key("PKACALCMETHOD" in form:
+        if "PKACALCMETHOD" in form:
             if form["PKACALCMETHOD"] != 'none':
-                if not form.has_key('PH' in form:
+                if 'PH' not in form:
                     raise WebOptionsError('Please provide a pH value.')
                 
                 phHelp = 'Please choose a pH between 0.0 and 14.0.'
@@ -194,16 +194,16 @@ class WebOptions(object):
         options['pdb'] = self.pdbfilename
         
         #propkaOptions is redundant.
-        if options.has_key('ph_calc_options'):
+        if 'ph_calc_options' in options:
             del options['ph_calc_options']
         
-        if options.has_key('ligand'):
+        if 'ligand' in options:
             options['ligand'] = self.ligandfilename
             
-        if options.has_key('userff'):
+        if 'userff' in options:
             options['userff'] = self.userfffilename
             
-        if options.has_key('usernames'):
+        if 'usernames' in options:
             options['usernames'] = self.usernamesfilename
         
         return options
