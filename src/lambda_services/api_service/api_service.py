@@ -9,7 +9,7 @@ import boto3
 
 
 def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
-    """Format the READ section of the APBS input file.
+    """Create an URL that will allow a file to be stored on an S3 bucket.
 
     :param bucket_name str: AWS S3 bucket to store file in
     :param file_name str: the filename to put under the prefix_name directory
