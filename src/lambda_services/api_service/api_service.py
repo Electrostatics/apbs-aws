@@ -17,6 +17,7 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
                                                 'Key': object_name
                                             },
                                             ExpiresIn=3600,
+                                            HttpMethod='PUT'
                                           )
     return url
 
