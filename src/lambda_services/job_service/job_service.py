@@ -1,6 +1,6 @@
 import os, time, json
 import boto3
-from .launcher import pdb2pqr_runner
+from launcher import pdb2pqr_runner
 
 OUTPUT_BUCKET = os.getenv('OUTPUT_BUCKET')
 # Could use SQS URL below instead of a queue name; whichever is easier
