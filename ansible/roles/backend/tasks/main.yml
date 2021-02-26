@@ -275,12 +275,12 @@
 
   - name: Cluster creation
     community.aws.ecs_cluster:
-            name: {{ project }}-{{ deployment_group }}-cluster
+            name: "{{ project }}-{{ deployment_group }}-cluster"
             state: present
 
   - name: Create task definition
     community.aws.ecs_taskdefinition:
-      family: {{ project }}-{{ deployment_group }}-apbs
+      family: "{{ project }}-{{ deployment_group }}-apbs"
       containers:
       - name: "apbs"
         essential: true
@@ -301,8 +301,8 @@
   - name: create ECS service on VPC network
     community.aws.ecs_service:
             state: present
-            name: {{ project }}-{{ deployment_group }}-service
-            cluster: {{ project }}-{{ deployment_group }}-cluster
+            name: "{{ project }}-{{ deployment_group }}-service"
+            cluster: "{{ project }}-{{ deployment_group }}-cluster"
             launch_type: FARGATE
             task_definition: '{{ project }}-{{ deployment_group }}-apbs:1'
             network_configuration:
