@@ -18,7 +18,7 @@ ENV LD_LIBRARY_PATH=/app/APBS-3.0.0.Linux/lib
 ENV PATH="${PATH}:/app/APBS-3.0.0.Linux/bin"
 
 RUN apt update \
-    && apt install python python-setuptools wget zip libpython2.7 libmaloc-dev -y \
+    && apt install python python-setuptools wget zip libpython2.7 libmaloc-dev python3 python3-boto3 -y \
     # Install networkx for PDB2PKA
     && wget https://files.pythonhosted.org/packages/f3/f4/7e20ef40b118478191cec0b58c3192f822cace858c19505c7670961b76b2/networkx-2.2.zip \
     && unzip networkx-2.2.zip \
@@ -32,6 +32,7 @@ RUN apt update \
     && apt clean -y
     
 COPY  job_control.py /app/
+RUN chmod +x /app/job_control.py
 WORKDIR /app/run
 
 ENTRYPOINT [ "/app/job_control.py" ]
