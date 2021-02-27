@@ -51,8 +51,8 @@ def submit_ga_event_pdb2pqr(job_id, weboptions, jobtype=None, client_ip=None, an
 def interpret_job_submission(event: dict, context=None):
     # Get basic job information from S3 event
     #   TODO: will need to modify to correctly retrieve info
-    jobinfo_object_name:str = event['s3']['object']['key']
-    bucket_name:str = event['s3']['bucket']['name']
+    jobinfo_object_name:str = event['Records'][0]['s3']['object']['key']
+    bucket_name:str = event['Records'][0]['s3']['bucket']['name']
     job_id = jobinfo_object_name.split('/')[0]
 
     # Obtain job configuration from config file
