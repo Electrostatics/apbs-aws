@@ -25,7 +25,8 @@ RUN apt update \
     && cd networkx-2.2 \
     && python setup.py install \
     # Cleanup and remove unneeded packages
-    && rm -r /networkx-2.2 /networkx-2.2.zip \
+    && cd .. \
+    && rm -r networkx-2.2 networkx-2.2.zip \
     && apt remove zip wget -y \
     && apt autoremove -y \
     && apt clean -y
