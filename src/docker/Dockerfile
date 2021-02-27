@@ -1,4 +1,6 @@
 
+FROM electrostatics/pdb2pqr-bin:latest as pdb2pqr-build
+
 # Copy builds to cleaner base
 FROM ubuntu:18.04 as pdb2pqr-final
 COPY --from=pdb2pqr-build /app/builds /app/builds
