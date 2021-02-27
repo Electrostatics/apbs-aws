@@ -230,30 +230,30 @@
 
 
   - name: Create SNS put topic
-    sns_topic:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-s3put"
-      state: present
-      display_name: "{{ project }}-{{ deployment_group }}-s3put"
-      policy: "{{ lookup('template', 'files/sns_s3put.json.j2') }}"
-      delivery_policy:
-        http:
-          defaultHealthyRetryPolicy:
-              minDelayTarget: 20
-              maxDelayTarget: 20
-              numRetries: 3
-              numMaxDelayRetries: 0
-              backoffFunction: "linear"
-          disableSubscriptionOverrides: False
-          defaultThrottlePolicy:
-              maxReceivesPerSecond: 10
-      subscriptions:
-        - endpoint: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
-          protocol: "lambda"
-    tags: 
-      - sns
-      - policy
+    #sns_topic:
+    #  profile: "{{ aws_profile }}"
+    #  region: "{{ aws_region }}"
+    #  name: "{{ project }}-{{ deployment_group }}-s3put"
+    #  state: present
+    #  display_name: "{{ project }}-{{ deployment_group }}-s3put"
+    #  policy: "{{ lookup('template', 'files/sns_s3put.json.j2') }}"
+    #  delivery_policy:
+    #    http:
+    #      defaultHealthyRetryPolicy:
+    #          minDelayTarget: 20
+    #          maxDelayTarget: 20
+    #          numRetries: 3
+    #          numMaxDelayRetries: 0
+    #          backoffFunction: "linear"
+    #      disableSubscriptionOverrides: False
+    #      defaultThrottlePolicy:
+    #          maxReceivesPerSecond: 10
+    #  subscriptions:
+    #    - endpoint: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
+    #      protocol: "lambda"
+    #tags: 
+    #  - sns
+    #  - policy
 
 
   - name: Create s3 bucket notification
@@ -268,11 +268,11 @@
       #events: ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
       ##prefix: images/
       ##suffix: .jpg
-    command: >
-      aws s3api put-bucket-notification-configuration --profile "{{ aws_profile }}" 
-      --region "{{ aws_region }}" --bucket "{{ project }}-{{ deployment_group }}-input" 
-      --cli-input-json '{{ lookup('template', 'files/s3-notification.json.j2') }}'
-    tags: s3notif
+    #command: >
+    #  aws s3api put-bucket-notification-configuration --profile "{{ aws_profile }}" 
+    #  --region "{{ aws_region }}" --bucket "{{ project }}-{{ deployment_group }}-input" 
+    #  --cli-input-json '{{ lookup('template', 'files/s3-notification.json.j2') }}'
+    #tags: s3notif
 
 
   - name: Cluster creation
