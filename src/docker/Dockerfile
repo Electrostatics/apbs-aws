@@ -28,7 +28,7 @@ RUN apt update \
     && apt autoremove -y \
     && apt clean -y
     
-COPY  job_control.py /app/job_control.py
+COPY  job_control.py /app/
 WORKDIR /app/run
 
 ENTRYPOINT [ "/app/job_control.py" ]
