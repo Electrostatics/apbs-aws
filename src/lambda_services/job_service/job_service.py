@@ -32,7 +32,8 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
             'startTime': job_start_time,
             'endTime': None,
             'subtasks': [],
-            'inputFiles': [f'{job_id}/{filename}' for filename in inputfile_list],
+            # 'inputFiles': [f'{job_id}/{filename}' for filename in inputfile_list],
+            'inputFiles': [ filename for filename in inputfile_list ],
             'outputFiles': []
         }
     }
@@ -50,7 +51,7 @@ def submit_ga_event_pdb2pqr(job_id, weboptions, jobtype=None, client_ip=None, an
 
 def interpret_job_submission(event: dict, context=None):
     # Get basic job information from S3 event
-    #   TODO: will need to modify to correctly retrieve info
+    #   TODO: may need to modify to correctly retrieve info
     jobinfo_object_name:str = event['s3']['object']['key']
     bucket_name:str = event['s3']['bucket']['name']
     job_id = jobinfo_object_name.split('/')[0]
