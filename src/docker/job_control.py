@@ -36,31 +36,32 @@ def get_items(sqs,qurl):
   return items
 
 def update_state(s3,jobid,jobtype,status):
+  ups3=boto3.resource('s3')
   objectfile=jobid+'/'+jobtype+'-status.json'
-  obj = s3.Object(bucket, objectfile)
-  statobj:dict = json.loads(obj.get()['Body'].read().decode('utf-8')) 
+  s3obj = ups3.Object(bucket, objectfile)
+  statobj:dict = json.loads(s3obj.get()['Body'].read().decode('utf-8')) 
   
   statobj[jobtype]['status']=status
   statobj[jobtype]['endTime']=time.time()
   ## FIX
   statobj[jobtype]['outputFiles']=jobid+"output-fix"
   
-  object_response:dict = s3_client.put_object(
+  object_response:dict = s3.put_object(
                               Body=json.dumps(statobj),
-                              Bucket=OUTPUT_BUCKET,
-                              Key=object_filename
+                              Bucket=bucket,
+                              Key=objectfile
   )
 
 def run_code(job,s3):
   out=1
   try:
     job_info:dict = json.loads(job) 
-    if 'jobid' not in job_info:
+    if 'job_id' not in job_info:
       return 1
   except:
     print ("Not a json q item")
     return 1
-  rundir=path+job_info['jobid']
+  rundir=path+job_info['job_id']
   inbucket=job_info['bucket_name']
   os.makedirs(rundir,exist_ok=True)
   os.chdir(rundir)
@@ -74,20 +75,20 @@ def run_code(job,s3):
       shutil.rmtree(rundir)
       return 0
 
-  update_state(s3, job_info['jobid'], job_info['job_type'],"Starting")
+  update_state(s3, job_info['job_id'], job_info['job_type'],"Starting")
   
   if "apbs" in job_info['job_type']:
      pass
   elif "pdb2pqr" in job_info['job_type']:
     try:
-      os.system('pdb2pqr '+job_info['command_line_args'])
-      s3.upload_file(path+job_info['jobid']+'/pdb2pqr.out', bucket, job_info['jobid']+'/' )
+      os.system('/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args'])
+      s3.upload_file(path+job_info['job_id']+'/pdb2pqr.out', bucket, job_info['jobid']+'/' )
     except:
       print('upload failed pdb out')
       out=0
   os.chdir(path)
   shutil.rmtree(rundir)
-  update_state(s3, job_info['jobid'], job_info['job_type'],"Finished")
+  update_state(s3, job_info['job_id'], job_info['job_type'],"Finished")
 
   return out
 
