@@ -5,7 +5,7 @@ import os
 import sys
 import shutil
 from os import path
-import datetime, time, json
+import datetime, time, json, urllib
 import boto3
 
 qtimeout=3600
@@ -66,29 +66,41 @@ def run_code(job,s3):
   os.makedirs(rundir,exist_ok=True)
   os.chdir(rundir)
 
-  for file in job_info['input_files']:
-    try:
-      s3.download_file(inbucket, file, path+file )
-    except:
-      print('download failed '+file)
-      os.chdir(path)
-      shutil.rmtree(rundir)
-      return 0
+  for index,file in enumerate(job_info['input_files']):
+    if 'https' in file:
+      name=job_info['job_id']+'/'+file.split('/')[-1]
+      try:
+        urllib.request.urlretrieve(file,path+name)
+      except:
+        print('download failed '+file)
+        os.chdir(path)
+        shutil.rmtree(rundir)
+        return 0
+      job_info['input_files'][index]=name
+    else  
+      try:
+        s3.download_file(inbucket, file, path+file )
+      except:
+        print('download failed '+file)
+        os.chdir(path)
+        shutil.rmtree(rundir)
+        return 0
 
-  update_state(s3, job_info['job_id'], job_info['job_type'],"Starting")
+  update_state(s3, job_info['job_id'], job_info['job_type'],"running")
   
   if "apbs" in job_info['job_type']:
      pass
   elif "pdb2pqr" in job_info['job_type']:
     try:
-      os.system('/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args'])
-      s3.upload_file(path+job_info['job_id']+'/pdb2pqr.out', bucket, job_info['jobid']+'/' )
+      os.system('/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args']+' > pdb2pqr.stdout.txt 2> pdb2pqr.stderr.txt' )
+      s3.upload_file(path+job_info['job_id']+'/'+file, bucket, job_info['jobid']+'/'+file ) for file in os.listdir('.')
     except:
       print('upload failed pdb out')
       out=0
+      
   os.chdir(path)
   shutil.rmtree(rundir)
-  update_state(s3, job_info['job_id'], job_info['job_type'],"Finished")
+  update_state(s3, job_info['job_id'], job_info['job_type'],"complete")
 
   return out
 
