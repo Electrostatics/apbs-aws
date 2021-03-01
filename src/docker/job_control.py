@@ -26,7 +26,7 @@ def get_items(sqs,qurl):
   items = sqs.receive_message( QueueUrl=qurl, MaxNumberOfMessages=1, VisibilityTimeout=qtimeout)
   
   while 'Messages' not in items:
-    loop++
+    loop+=1
     if (loop==max_tries)
       return 0
     time.sleep(retry_time)
