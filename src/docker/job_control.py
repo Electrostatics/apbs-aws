@@ -27,15 +27,16 @@ def get_items(sqs,qurl):
   
   while 'Messages' not in items:
     loop+=1
-    if (loop==max_tries)
+    if loop==max_tries:
       return 0
+    print "Waiting ...."
     time.sleep(retry_time)
     items = sqs.receive_message( QueueUrl=qurl, MaxNumberOfMessages=1, VisibilityTimeout=qtimeout)
   
   return items
 
-def update_state(s3,jobid,jobtype,status)
-  objectfile=jobid+'/'jobtype'-status.json'
+def update_state(s3,jobid,jobtype,status):
+  objectfile=jobid+'/'+jobtype+'-status.json'
   obj = s3.Object(bucket, objectfile)
   statobj:dict = json.loads(obj.get()['Body'].read().decode('utf-8')) 
   
@@ -52,13 +53,19 @@ def update_state(s3,jobid,jobtype,status)
 
 def run_code(job,s3):
   out=1
-  job_info:dict = json.loads(job) 
+  try:
+    job_info:dict = json.loads(job) 
+    if 'jobid' not in job_info:
+      return 1
+  except:
+    print ("Not a json q item")
+    return 1
   rundir=path+job_info['jobid']
   inbucket=job_info['bucket_name']
   os.makedirs(rundir,exist_ok=True)
   os.chdir(rundir)
 
-  for file in job_info['input_files']
+  for file in job_info['input_files']:
     try:
       s3.download_file(inbucket, file, path+file )
     except:
