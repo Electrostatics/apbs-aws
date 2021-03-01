@@ -229,7 +229,7 @@
       - update
 
 
-  - name: Create SNS put topic
+  #- name: Create SNS put topic
     #sns_topic:
     #  profile: "{{ aws_profile }}"
     #  region: "{{ aws_region }}"
@@ -256,7 +256,7 @@
     #  - policy
 
 
-  - name: Create s3 bucket notification
+  #- name: Create s3 bucket notification
     # Ansible 2.9 - October release
     #s3_bucket_notification:
       #profile: "{{ aws_profile }}"
