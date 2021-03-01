@@ -8,10 +8,10 @@ from os import path
 import datetime, time, json, urllib
 import boto3
 
-qtimeout=3600
+qtimeout=300
 AWS_REGION='us-west-2'
-max_tries=5
-retry_time=30
+max_tries=6
+retry_time=15
 
 path = '/dev/shm/test/'
 bucket=os.getenv("OUTPUT_BUCKET")
@@ -89,15 +89,17 @@ def run_code(job,s3):
   update_state(s3, job_info['job_id'], job_info['job_type'],"running")
   
   if "apbs" in job_info['job_type']:
-     pass
+    command='LD_LIBRARY_PATH=/apps/APBS-3.0.0.Linux/lib /app/APBS-3.0.0.Linux/bin/apbs '+job_info['command_line_args']+' > apbs.stdout.txt 2> apbs.stderr.txt'    
   elif "pdb2pqr" in job_info['job_type']:
-    try:
-      os.system('/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args']+' > pdb2pqr.stdout.txt 2> pdb2pqr.stderr.txt' )
-      s3.upload_file(path+job_info['job_id']+'/'+file, bucket, job_info['jobid']+'/'+file ) for file in os.listdir('.')
-    except:
-      print('upload failed pdb out')
-      out=0
-      
+    command='/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args']+' > pdb2pqr.stdout.txt 2> pdb2pqr.stderr.txt'
+  try:
+    os.system('command')
+    for file in os.listdir('.'): s3.upload_file(path+job_info['job_id']+'/'+file, bucket, job_info['job_id']+'/'+file ) 
+  except:
+    print('upload failed out')
+    out=0
+  
+  #output_files=[if file in infile for infile in job_info['input_files'] for file in os.listdir(.)]
   os.chdir(path)
   shutil.rmtree(rundir)
   update_state(s3, job_info['job_id'], job_info['job_type'],"complete")
