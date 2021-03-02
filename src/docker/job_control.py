@@ -93,7 +93,7 @@ def run_code(job,s3):
   elif "pdb2pqr" in job_info['job_type']:
     command='/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args']+' > pdb2pqr.stdout.txt 2> pdb2pqr.stderr.txt'
   try:
-    os.system('command')
+    os.system(command)
     for file in os.listdir('.'): s3.upload_file(path+job_info['job_id']+'/'+file, bucket, job_info['job_id']+'/'+file ) 
   except:
     print('upload failed out')
