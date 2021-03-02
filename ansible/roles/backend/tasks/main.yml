@@ -92,7 +92,7 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-apbs-role"
       description: Role for "{{ project }}-{{ deployment_group }}-apbs-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs.json') }}"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
     register: iam_role_apbs
     tags: iam
 
@@ -310,5 +310,8 @@
             network_configuration:
                     subnets:
                       - '{{ vpc_subnet_id2 }}'
+                    assign_public_ip: yes
+                    security_groups:
+                      - '{{ default_sg }}'
             desired_count: 0
 

@@ -8,6 +8,7 @@ aws_region: us-west-2
 vpc_id: vpc-e4cfdd9d
 vpc_subnet_id: subnet-808016cb
 vpc_subnet_id2: subnet-240cc30f
+default_sg: sg-ab5f67da
 ami_id: ami-032509850cf9ee54e
 aws_zone: us-west-2a
 my_local_cidr_ip: 130.20.0.0/16
