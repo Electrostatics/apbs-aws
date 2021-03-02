@@ -76,7 +76,7 @@ def run_code(job,s3):
         os.chdir(path)
         shutil.rmtree(rundir)
         return 0
-      job_info['input_files'][index]=name
+      #job_info['input_files'][index]=name
     else:  
       try:
         s3.download_file(inbucket, file, path+file )
@@ -99,7 +99,7 @@ def run_code(job,s3):
     print('upload failed out')
     out=0
   
-  output_files=[file for file in os.listdir('.') for infile in job_info['input_files'] if file not in infile]
+  output_files=[job_info['job_id']+'/'+file for file in os.listdir('.') for infile in job_info['input_files'] if file not in infile]
   os.chdir(path)
   shutil.rmtree(rundir)
   update_state(s3, job_info['job_id'], job_info['job_type'],"complete", output_files)
