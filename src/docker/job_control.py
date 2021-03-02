@@ -29,7 +29,7 @@ def get_items(sqs,qurl):
     loop+=1
     if loop==max_tries:
       return 0
-    print "Waiting ...."
+    print ("Waiting ....")
     time.sleep(retry_time)
     items = sqs.receive_message( QueueUrl=qurl, MaxNumberOfMessages=1, VisibilityTimeout=qtimeout)
   
