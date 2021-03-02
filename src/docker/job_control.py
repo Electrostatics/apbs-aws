@@ -77,7 +77,7 @@ def run_code(job,s3):
         shutil.rmtree(rundir)
         return 0
       job_info['input_files'][index]=name
-    else  
+    else:  
       try:
         s3.download_file(inbucket, file, path+file )
       except:
