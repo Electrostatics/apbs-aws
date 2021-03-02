@@ -35,7 +35,7 @@ def get_items(sqs,qurl):
   
   return items
 
-def update_state(s3,jobid,jobtype,status):
+def update_state(s3,jobid,jobtype,status,output):
   ups3=boto3.resource('s3')
   objectfile=jobid+'/'+jobtype+'-status.json'
   s3obj = ups3.Object(bucket, objectfile)
@@ -44,7 +44,7 @@ def update_state(s3,jobid,jobtype,status):
   statobj[jobtype]['status']=status
   statobj[jobtype]['endTime']=time.time()
   ## FIX
-  statobj[jobtype]['outputFiles']=jobid+"output-fix"
+  statobj[jobtype]['outputFiles']=output
   
   object_response:dict = s3.put_object(
                               Body=json.dumps(statobj),
@@ -86,7 +86,7 @@ def run_code(job,s3):
         shutil.rmtree(rundir)
         return 0
 
-  update_state(s3, job_info['job_id'], job_info['job_type'],"running")
+  update_state(s3, job_info['job_id'], job_info['job_type'],"running",[])
   
   if "apbs" in job_info['job_type']:
     command='LD_LIBRARY_PATH=/apps/APBS-3.0.0.Linux/lib /app/APBS-3.0.0.Linux/bin/apbs '+job_info['command_line_args']+' > apbs.stdout.txt 2> apbs.stderr.txt'    
@@ -99,10 +99,10 @@ def run_code(job,s3):
     print('upload failed out')
     out=0
   
-  #output_files=[if file in infile for infile in job_info['input_files'] for file in os.listdir(.)]
+  output_files=[file for file in os.listdir('.') for infile in job_info['input_files'] if file not in infile]
   os.chdir(path)
   shutil.rmtree(rundir)
-  update_state(s3, job_info['job_id'], job_info['job_type'],"complete")
+  update_state(s3, job_info['job_id'], job_info['job_type'],"complete", output_files)
 
   return out
 
