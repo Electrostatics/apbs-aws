@@ -32,7 +32,8 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
             'startTime': job_start_time,
             'endTime': None,
             'subtasks': [],
-            'inputFiles': [f'{job_id}/{filename}' for filename in inputfile_list],
+            # 'inputFiles': [f'{job_id}/{filename}' for filename in inputfile_list],
+            'inputFiles': [ filename for filename in inputfile_list ],
             'outputFiles': []
         }
     }
