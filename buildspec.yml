@@ -9,7 +9,7 @@ phases:
     commands:
       - echo Build started on `date`
       - IMAGE_TAG=test
-      - branch=`echo $CODEBUILD_INITIATOR | cut -c32-`  
+      - #branch=`echo $CODEBUILD_INITIATOR | cut -c32-`  
       - if [ "$branch" ]; then IMAGE_TAG=$branch; fi
       - echo Building the Docker image... 
       - docker build -t $IMAGE_REPO_NAME:main.base src/docker
