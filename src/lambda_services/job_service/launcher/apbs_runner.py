@@ -2,7 +2,8 @@ from io import StringIO
 from os import path
 import locale
 import logging
-import requests
+# import requests
+import urllib3
 
 from . import utils
 
@@ -175,6 +176,7 @@ class Runner:
             logging.warning("Unable to find 'X-APBS-Client-ID' header in request")
             client_id = self.job_id
             
+        # Configure values to construct request body 
         e_category = 'apbs'
         e_action = 'submission'
         e_label = source_ip
@@ -183,14 +185,26 @@ class Runner:
         if analytics_dim_index is not None:
             custom_dim = '&cd%s=%s' % ( str(analytics_dim_index), self.job_id )
 
+        # Set headers and body
         ga_user_agent_header = {'User-Agent': headers['User-Agent']}
         ga_request_body = 'v=1&tid=%s&cid=%s&t=event&ec=%s&ea=%s&el=%s%s\n' % (analytics_id, client_id, e_category, e_action, e_label, custom_dim)
 
         logging.info('Submitting analytics request - category: %s, action: %s', e_category, e_action)
-        resp = requests.post('https://www.google-analytics.com/collect', data=ga_request_body, headers=ga_user_agent_header)
-        if not resp.ok:
-            resp.raise_for_status
 
+        # # Send Analytics event
+        # resp = requests.post('https://www.google-analytics.com/collect', data=ga_request_body, headers=ga_user_agent_header)
+        # if not resp.ok:
+        #     resp.raise_for_status
+
+        # Send Analytics event
+        http = urllib3.PoolManager()
+        resp:urllib3.HTTPResponse = http.request('POST', 
+                            'https://www.google-analytics.com/collect',
+                            headers=ga_user_agent_header,
+                            body=bytes( ga_request_body )
+                        )
+        if resp.status >= 400:
+            raise ValueError(f'No successful response. Response Status: {resp.status}')
 
     def fieldStorageToDict(self, form: dict):
         """ Converts the CGI input from the web interface to a dictionary """
