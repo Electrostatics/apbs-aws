@@ -30,6 +30,7 @@ class Runner:
         self.command_line_args:str = None
         self.job_id = job_id
         self.input_files = []
+        self.output_files = []
 
         try:
             # if 'invoke_method' in form and isinstance(form['invoke_method'], str):
