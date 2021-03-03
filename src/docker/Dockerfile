@@ -1,5 +1,5 @@
 
-FROM electrostatics/pdb2pqr-bin:latest as pdb2pqr-build
+FROM public.ecr.aws/j4g5x5m8/pdb2pqr:latest as pdb2pqr-build
 
 # Copy builds to cleaner base
 FROM ubuntu:18.04 as pdb2pqr-final
