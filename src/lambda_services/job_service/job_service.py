@@ -3,6 +3,8 @@ import boto3
 from launcher import pdb2pqr_runner
 
 OUTPUT_BUCKET = os.getenv('OUTPUT_BUCKET')
+FARGATE_CLUSTER = os.getenv('FARGATE_CLUSTER')
+FARGATE_SERVICE = os.getenv('FARGATE_SERVICE')
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv('JOB_QUEUE_NAME')
 
@@ -89,3 +91,7 @@ def interpret_job_submission(event: dict, context=None):
     sqs_client = boto3.resource('sqs')
     queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
     queue.send_message( MessageBody=json.dumps(sqs_json) )
+
+    ecs_client = boto3.resource('ecs')
+    if ecs_client.describe_services(cluster=FARGATE_CLUSTER,services=[FARGATE_SERVICE],)['services'][0]['desiredCount'] == 0:
+      ecs_client.update_service(cluster=FARGATE_CLUSTER,service=FARGATE_SERVICE,desiredCount=1)
