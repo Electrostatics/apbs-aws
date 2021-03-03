@@ -87,23 +87,6 @@ def apbs_infile_creator(apbsOptions:dict) -> str:
     """
         Creates a new APBS input file, using the data from the form
     """
-    print('in apbs_infile_creator')
-    # print('in pqrFileCreator')
-    # apbsOptions['tmpDirName'] = "%s%s%s/" % (INSTALLDIR, TMPDIR, apbsOptions['writeStem'])
-    # print('making directory %s\n' % apbsOptions['tmpDirName'])
-    
-    # try:
-    #     os.makedirs(apbsOptions['tmpDirName'])
-    # except OSError, err:
-    #     if err.errno == errno.EEXIST:
-    #         if os.path.isdir(apbsOptions['tmpDirName']):
-    #             # print "Error (tmp directory already exists) - please try again"
-    #             pass
-    #         else:
-    #             print "Error (file exists where tmp dir should be) - please try again"
-    #             raise
-    #     else:
-    #         raise
 
     # apbsOptions['tempFile'] = "apbsinput.in"
     apbsOptions['tab'] = "    " # 4 spaces - used for writing to file
@@ -111,10 +94,10 @@ def apbs_infile_creator(apbsOptions:dict) -> str:
     input = StringIO()
 
     
-    print("apbsOptions['tmpDirName'] = " + apbsOptions['tmpDirName'])
-    print("apbsOptions['tempFile'] = " + apbsOptions['tempFile'])
-    print("apbsOptions['pqrPath'] = " + apbsOptions['pqrPath'])
-    print("apbsOptions['pqrFileName'] = " + apbsOptions['pqrFileName'])
+    # print("apbsOptions['tmpDirName'] = " + apbsOptions['tmpDirName'])
+    # print("apbsOptions['tempFile'] = " + apbsOptions['tempFile'])
+    # print("apbsOptions['pqrPath'] = " + apbsOptions['pqrPath'])
+    # print("apbsOptions['pqrFileName'] = " + apbsOptions['pqrFileName'])
 
     # writing READ section to file
     input.write('read\n')

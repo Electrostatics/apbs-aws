@@ -81,7 +81,7 @@ class WebOptions(object):
             # self.pdbfile = StringIO(self.pdbfilestring)
             # self.pdbfilename = sanitizeFileName(files["PDB"].filename) # pass filename through client
             self.pdbfilename = sanitizeFileName(form['PDBFILE']) # pass filename through client
-            print("filename: "+self.pdbfilename)
+            # print("filename: "+self.pdbfilename)
         else:
             raise WebOptionsError('You need to specify a pdb ID or upload a pdb file.')
             
