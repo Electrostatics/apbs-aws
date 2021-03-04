@@ -89,7 +89,7 @@ def run_code(job,s3):
   update_state(s3, job_info['job_id'], job_info['job_type'],"running",[])
   
   if "apbs" in job_info['job_type']:
-    command='LD_LIBRARY_PATH=/apps/APBS-3.0.0.Linux/lib /app/APBS-3.0.0.Linux/bin/apbs '+job_info['command_line_args']+' > apbs.stdout.txt 2> apbs.stderr.txt'    
+    command='LD_LIBRARY_PATH=/app/APBS-3.0.0.Linux/lib /app/APBS-3.0.0.Linux/bin/apbs '+job_info['command_line_args']+' > apbs.stdout.txt 2> apbs.stderr.txt'    
   elif "pdb2pqr" in job_info['job_type']:
     command='/app/builds/pdb2pqr/pdb2pqr.py '+job_info['command_line_args']+' > pdb2pqr.stdout.txt 2> pdb2pqr.stderr.txt'
   try:
