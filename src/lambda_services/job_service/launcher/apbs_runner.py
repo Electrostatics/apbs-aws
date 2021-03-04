@@ -33,7 +33,7 @@ class Runner:
 
         # if infile_name is not None:
         #     self.infile_name = infile_name
-        form = form['form']
+        #form = form['form']
         if 'filename' in form:
             self.infile_name = form['filename']
         elif form is not None:
