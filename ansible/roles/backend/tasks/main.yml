@@ -335,21 +335,20 @@
       dimensions: {"QueueName":'{{ project }}-{{ deployment_group }}-job-q'}
       alarm_actions: []
       
-  - name: Create an alarm scale up fargate tasks
-     community.aws.ec2_metric_alarm:
-       state: present
-       region: "{{ aws_region }}"
-       name: "{{ project }}-{{ deployment_group }}-q-down"
-       metric: "ApproximateNumberOfMessagesVisible"
-       namespace: "AWS/SQS"
-       treat_missing_data: "ignore"
-       statistic: "Maximum"
-       comparison: "<"
-       threshold: 0.1
-       period: 60
-       evaluation_periods: 3
-       unit: "Count"
-       description: ""{{ aws_region }}" job-q check"
-       dimensions: {"QueueName":'{{ project }}-{{ deployment_group }}-job-q'}
-       alarm_actions: []
+  - name: Create an alarm scale down fargate tasks
+    community.aws.ec2_metric_alarm:
+      state: present
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-q-down"
+      metric: "ApproximateNumberOfMessagesVisible"
+      namespace: "AWS/SQS"
+      treat_missing_data: "ignore"
+      statistic: "Maximum"       comparison: "<"
+      threshold: 0.1
+      period: 60
+      evaluation_periods: 3
+      unit: "Count"
+      description: ""{{ aws_region }}" job-q check"
+      dimensions: {"QueueName":'{{ project }}-{{ deployment_group }}-job-q'}
+      alarm_actions: []
 
