@@ -343,7 +343,8 @@
       metric: "ApproximateNumberOfMessagesVisible"
       namespace: "AWS/SQS"
       treat_missing_data: "ignore"
-      statistic: "Maximum"       comparison: "<"
+      statistic: "Maximum"       
+      comparison: "<"
       threshold: 0.1
       period: 60
       evaluation_periods: 3
