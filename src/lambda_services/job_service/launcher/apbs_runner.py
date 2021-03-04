@@ -91,7 +91,7 @@ class Runner:
             for name in expected_files_list:
                 object_name = f"{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
-                    self.input_files.append( str(name) )
+                    self.input_files.append( f"{job_id}/{str(name)}" )
                 else:
                     missing_files.append( str(name) )
 
@@ -101,7 +101,7 @@ class Runner:
 
             # Set input files and return command line args
             self.command_line_args = infile_name
-            self.input_files.append( infile_name )
+            self.input_files.append( f"{job_id}/{infile_name}" )
 
             return self.command_line_args
 
