@@ -18,11 +18,11 @@ class MissingFilesError(FileNotFoundError):
         self.missing_files = file_list
 
 class Runner:
-    def __init__(self, storage_host, job_id=None, form=None, infile_name=None):
+    def __init__(self, form, job_id=None):
         self.job_id = None
         self.form = None
         self.infile_name = None
-        self.read_file_list = []
+        # self.read_file_list = []
         # self.read_file_list = None
         self.command_line_args = None
         self.input_files = []
@@ -31,9 +31,24 @@ class Runner:
         # config.load_incluster_config()
         # config.load_kube_config()
 
-        if infile_name is not None:
-            self.infile_name = infile_name
+        # if infile_name is not None:
+        #     self.infile_name = infile_name
+        form = form['form']
+        import json; print(json.dumps(form, indent=2))
+        if 'filename' in form:
+            self.infile_name = form['filename']
         elif form is not None:
+
+            for key in form:
+                # Unravels output parameters from form
+                if key == 'output_scalar':
+                    for option in form[key]:
+                        form[option] = option
+                    form.pop('output_scalar')
+                elif not isinstance(form[key], str):
+                    # TODO: 2021/03/03, Elvis - Eliminate need to cast all items as string (see 'self.fieldStorageToDict()')
+                    form[key] = str(form[key])
+
             self.form = form
             self.apbsOptions = self.fieldStorageToDict(form)
             # TODO: catch error if something wrong happes in fieldStorageToDict;
@@ -63,26 +78,26 @@ class Runner:
             # If APBS directly run, verify necessary files exist in S3
 
             # Check S3 for file existence; raise exception if not
-            if utils.s3_object_exists(output_bucket_name, f'{job_id}/{infile_name}'):
-                raise MissingFilesError('Missing APBS input file. Please upload:', [infile_name])
+            if not utils.s3_object_exists(input_bucket_name, f'{job_id}/{infile_name}'):
+                raise MissingFilesError(f'Missing APBS input file. Please upload: {infile_name}')
 
             # Get text for infile string
-            infile_str = utils.s3_download_file_str(output_bucket_name, job_id, infile_name)
+            infile_str = utils.s3_download_file_str(input_bucket_name, job_id, infile_name)
 
             # Get list of expected supporting files
             expected_files_list = utils.apbs_extract_input_files( infile_str )
 
-            # Check if additional READ files exist in storage service
+            # Check if additional READ files exist in S3
             missing_files = []
             for name in expected_files_list:
                 object_name = f"{job_id}/{name}"
-                if utils.s3_object_exists(output_bucket_name, object_name):
+                if utils.s3_object_exists(input_bucket_name, object_name):
                     self.input_files.append( str(name) )
                 else:
                     missing_files.append( str(name) )
 
             if len(missing_files) > 0:
-                raise MissingFilesError('Please upload missing file(s) from READ section storage: %s' % str(missing_files), missing_files)
+                raise MissingFilesError(f'Please upload missing file(s) from READ section storage: {missing_files}')
 
 
             # Set input files and return command line args
@@ -114,7 +129,7 @@ class Runner:
 
             # Remove waters from molecule (PQR file) if requested by the user
             try:
-                if form["removewater"] == "on":
+                if "removewater" in form and form["removewater"] == "on":
                     pqr_filename_root, pqr_filename_ext = path.splitext(pqrFileName)
                     
                     no_water_pqrname = f"{pqr_filename_root}-nowater{pqr_filename_ext}"
@@ -138,7 +153,7 @@ class Runner:
                     # nowater_pqrfile_text.seek(0)
 
                     # Send original PQR file (with water) to S3 output bucket
-                    utils.s3_put_object(output_bucket_name, f"{job_id}/{water_pqrname}", StringIO(pqrfile_text))
+                    utils.s3_put_object(output_bucket_name, f"{job_id}/{water_pqrname}", pqrfile_text.encode('utf-8') )
                     self.output_files.append( f"{job_id}/{water_pqrname}" )
 
                     # Replace PQR file text with version with water removed
@@ -149,8 +164,8 @@ class Runner:
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            utils.s3_put_object(input_bucket_name, f"{job_id}/{apbsOptions['tempFile']}", StringIO(new_infile_contents))
-            utils.s3_put_object(input_bucket_name, f"{job_id}/{pqrFileName}", StringIO(pqrfile_text))
+            utils.s3_put_object(input_bucket_name, f"{job_id}/{apbsOptions['tempFile']}", new_infile_contents.encode('utf-8') )
+            utils.s3_put_object(input_bucket_name, f"{job_id}/{pqrFileName}", pqrfile_text.encode('utf-8') )
 
             # Set input files for status reporting
             self.input_files.append(f"{job_id}/{pqrFileName}")
