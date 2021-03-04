@@ -91,6 +91,7 @@ class Runner:
             for name in expected_files_list:
                 object_name = f"{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
+                    # TODO: 2021/03/04, Elvis - Update input files via a common function
                     self.input_files.append( f"{job_id}/{str(name)}" )
                 else:
                     missing_files.append( str(name) )
