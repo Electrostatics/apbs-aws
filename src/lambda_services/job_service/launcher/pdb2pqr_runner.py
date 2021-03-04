@@ -93,6 +93,7 @@ class Runner:
             # Retrieve information about the PDB file and command line arguments
             if self.weboptions.user_did_upload:
                 # Update input files
+                # TODO: 2021/03/04, Elvis - Update input files via a common function
                 self.input_files.append(f'{job_id}/{self.weboptions.pdbfilename}')
 
             else:
