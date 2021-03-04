@@ -331,7 +331,7 @@
       period: 60
       evaluation_periods: 1
       unit: "Count"
-      description: ""{{ aws_region }}" job-q check"
+      description: "{{ aws_region }} job-q check"
       dimensions: {"QueueName":'{{ project }}-{{ deployment_group }}-job-q'}
       alarm_actions: []
       
