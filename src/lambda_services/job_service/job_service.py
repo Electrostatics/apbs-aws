@@ -85,7 +85,7 @@ def interpret_job_submission(event: dict, context=None):
     #   TODO: Review old code to see how I handled this
     elif job_type == 'apbs':
         job_runner = apbs_runner.Runner(job_info_form, job_id)
-        job_command_line_args = job_runner.prepare_job(bucket_name)
+        job_command_line_args = job_runner.prepare_job(OUTPUT_BUCKET, bucket_name)
 
     # Create and upload status file to S3
     status_filename = f'{job_type}-status.json'
