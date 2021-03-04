@@ -34,7 +34,6 @@ class Runner:
         # if infile_name is not None:
         #     self.infile_name = infile_name
         form = form['form']
-        import json; print(json.dumps(form, indent=2))
         if 'filename' in form:
             self.infile_name = form['filename']
         elif form is not None:
@@ -324,7 +323,7 @@ class Runner:
         apbsOptions['readType'] = "mol"
         apbsOptions['readFormat'] = "pqr"
         apbsOptions['pqrPath'] = ""
-        apbsOptions['pqrFileName'] = form['pdb2pqrid']+'.pqr'
+        # apbsOptions['pqrFileName'] = form['pdb2pqrid']+'.pqr'
 
         #ELEC section variables
         apbsOptions['calcType'] = form["type"] 
