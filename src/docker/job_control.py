@@ -10,7 +10,7 @@ import boto3
 
 qtimeout=300
 AWS_REGION='us-west-2'
-max_tries=6
+max_tries=60
 retry_time=15
 
 path = '/dev/shm/test/'
