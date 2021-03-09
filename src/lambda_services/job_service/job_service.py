@@ -100,3 +100,10 @@ def interpret_job_submission(event: dict, context=None):
     sqs_client = boto3.resource('sqs')
     queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
     queue.send_message( MessageBody=json.dumps(sqs_json) )
+
+    # Send reporting data to GA
+    # TODO: 2021/03/08, Elvis - write report_to_ga() function for pdb2pqr.Runner
+    if GA_TRACKING_ID is not None:
+        s3_metadata = {} #TODO: 2021/03/09, Elvis - get metadata from job config
+        source_ip = event['Records']['requestParameters']['sourceIPAddress']
+        job_runner.report_to_ga(GA_TRACKING_ID, s3_metadata, source_ip, analytics_dim_index=GA_JOBID_INDEX)

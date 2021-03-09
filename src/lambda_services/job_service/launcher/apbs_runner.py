@@ -177,18 +177,18 @@ class Runner:
 
 
     # TODO: 2021/03/03, Elvis - Find a way to retrieve the headers we need here
-    def report_to_ga(self, analytics_id:str, headers:dict, analytics_dim_index=None):
+    def report_to_ga(self, analytics_id:str, s3_metadata:dict, client_ip:str=None, analytics_dim_index=None):
         # Log event to Analytics
-        if 'X-Forwarded-For' in headers:
-            source_ip = headers['X-Forwarded-For']
+        if client_ip is not None:
+            source_ip = client_ip
         else:
-            logging.warning("Unable to find 'X-Forwarded-For' header in request")
+            logging.warning("APBS Runner: Source IP not provided.")
             source_ip = ''
 
-        if 'X-APBS-Client-ID' in headers:
-            client_id = headers['X-APBS-Client-ID']
+        if 'x-amz-meta-APBS-Client-ID' in s3_metadata:
+            client_id = s3_metadata['x-amz-meta-APBS-Client-ID']
         else:
-            logging.warning("Unable to find 'X-APBS-Client-ID' header in request")
+            logging.warning("APBS Runner: Unable to find 'x-amz-meta-APBS-Client-ID' header in request. Using Job ID")
             client_id = self.job_id
             
         # Configure values to construct request body 
@@ -201,7 +201,7 @@ class Runner:
             custom_dim = '&cd%s=%s' % ( str(analytics_dim_index), self.job_id )
 
         # Set headers and body
-        ga_user_agent_header = {'User-Agent': headers['User-Agent']}
+        ga_user_agent_header = {'User-Agent': s3_metadata['x-amz-meta-User-Agent']}
         ga_request_body = 'v=1&tid=%s&cid=%s&t=event&ec=%s&ea=%s&el=%s%s\n' % (analytics_id, client_id, e_category, e_action, e_label, custom_dim)
 
         logging.info('Submitting analytics request - category: %s, action: %s', e_category, e_action)

@@ -5,6 +5,10 @@ import logging
 # from multiprocessing import Process
 from pprint import pprint
 from json import dumps
+
+import urllib3
+from urllib3 import request
+from urllib3.response import HTTPResponse
 # from flask import request
 
 # import kubernetes.client
@@ -157,6 +161,74 @@ class Runner:
         
         self.command_line_args = command_line_args
         return command_line_args
+
+    def report_to_ga(self, analytics_id:str, s3_metadata:dict, client_ip:str, analytics_dim_index=None):
+        analiticsDict = self.weboptions.getOptions()
+        
+        events = {}
+
+        if 'x-amz-meta-APBS-Client-ID' not in s3_metadata:
+            ga_client_id = s3_metadata['x-amz-meta-APBS-Client-ID']
+        else:
+            logging.warning("PDB2PQR Runner: Unable to find 'x-amz-meta-APBS-Client-ID' header in request. Using Job ID")
+            ga_client_id = self.job_id
+        
+        if client_ip is not None:
+            events['submission'] = analiticsDict['pdb']+'|'+str(client_ip)
+        else:
+            logging.warning("PDB2PQR Runner: Source IP not provided.")
+            events['submission'] = analiticsDict['pdb']+'|'+str(None)
+        # events['submission'] = analiticsDict['pdb']+'|'+str(os.environ["REMOTE_ADDR"])
+        del analiticsDict['pdb']
+        
+        events['titration'] = str(analiticsDict.get('ph'))
+        if 'ph' in analiticsDict:
+            del analiticsDict['ph']
+            
+        events['apbsInput'] = str(analiticsDict.get('apbs'))
+        del analiticsDict['apbs']
+        
+        #Clean up selected extensions output
+        if 'selectedExtensions' in analiticsDict:
+            analiticsDict['selectedExtensions'] = ' '.join(analiticsDict['selectedExtensions'])
+        
+        options = ','.join(str(k)+':'+str(v) for k,v in analiticsDict.items())
+        events['options']=options
+
+        logging.debug('analytics_id: %s', analytics_id)
+        ga_event_request_body = ''
+        if analytics_id is not None:
+            ga_event_request_body = ''
+            ga_event_headers = {
+                # TODO: 2021/03/08, Elvis - Find way to get User-Agent header (S3 metadata?)
+                'User-Agent': s3_metadata['x-amz-meta-User-Agent']
+            }
+            on_first = True
+
+            custom_dim = ''
+            if analytics_dim_index is not None:
+                custom_dim = '&cd%s=%s' % ( str(analytics_dim_index), self.job_id )
+
+            for event in events:
+                # Make Google Analytics request body
+                ga_event_request_body += 'v=1&tid=%s&cid=%s&t=event&ec=submissionData&ea=%s&el=%s%s\n' % (analytics_id, ga_client_id, event, events[event], custom_dim)
+            
+            try:
+                # TODO: make event reporting a shared function between this and apbs_runner.Runner class
+                # Send Analytics event
+                logging.info('GA request body:\n%s' % ga_event_request_body)
+                logging.info('Sending usage data through Google Analytics endpoint')
+                http = urllib3.PoolManager()
+                resp:urllib3.HTTPResponse = http.request('POST'
+                                    'https://www.google-analytics.com/collect',
+                                    headers=ga_event_headers,
+                                    body=bytes( ga_event_request_body )
+                                )
+                if resp.status >= 400:
+                    raise ValueError(f'No successful response. Response Status: {resp.status}')
+                
+            except Exception as err:
+                raise
 
         # """
         # # TESK request headers
