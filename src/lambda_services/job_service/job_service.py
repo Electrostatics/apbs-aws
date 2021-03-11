@@ -68,7 +68,8 @@ def interpret_job_submission(event: dict, context=None):
     job_id = jobinfo_object_name.split('/')[0]
 
     # Obtain job configuration from config file
-    job_info_form = get_job_info(bucket_name, jobinfo_object_name )
+    job_info = get_job_info(bucket_name, jobinfo_object_name )
+    job_info_form = job_info['form']
     job_type = jobinfo_object_name.split('-')[0] # Assumes 'pdb2pqr-job.json', or similar format
 
     """ Interpret contents of job configuration """
@@ -79,8 +80,8 @@ def interpret_job_submission(event: dict, context=None):
         job_runner = pdb2pqr_runner.Runner(job_info_form, job_id)
         job_command_line_args = job_runner.prepare_job()
     
-    # If APBS
-    #   TODO: Review old code to see how I handled this
+    # If APBS:
+    #   - Use form data to interpret job
     elif job_type == 'apbs':
         job_runner = apbs_runner.Runner(job_info_form, job_id)
         job_command_line_args = job_runner.prepare_job(OUTPUT_BUCKET, bucket_name)
@@ -102,8 +103,7 @@ def interpret_job_submission(event: dict, context=None):
     queue.send_message( MessageBody=json.dumps(sqs_json) )
 
     # Send reporting data to GA
-    # TODO: 2021/03/08, Elvis - write report_to_ga() function for pdb2pqr.Runner
     if GA_TRACKING_ID is not None:
-        s3_metadata = {} #TODO: 2021/03/09, Elvis - get metadata from job config
+        ga_job_metadata = job_info['metadata']['ga']
         source_ip = event['Records']['requestParameters']['sourceIPAddress']
-        job_runner.report_to_ga(GA_TRACKING_ID, s3_metadata, source_ip, analytics_dim_index=GA_JOBID_INDEX)
+        job_runner.report_to_ga(GA_TRACKING_ID, ga_job_metadata, source_ip, analytics_dim_index=GA_JOBID_INDEX)

@@ -162,15 +162,16 @@ class Runner:
         self.command_line_args = command_line_args
         return command_line_args
 
-    def report_to_ga(self, analytics_id:str, s3_metadata:dict, client_ip:str, analytics_dim_index=None):
+    def report_to_ga(self, analytics_id:str, ga_metadata:dict, client_ip:str, analytics_dim_index=None):
         analiticsDict = self.weboptions.getOptions()
         
         events = {}
 
-        if 'x-amz-meta-APBS-Client-ID' not in s3_metadata:
-            ga_client_id = s3_metadata['x-amz-meta-APBS-Client-ID']
+        if 'client_id' not in ga_metadata:
+            # ga_client_id = ga_metadata['x-amz-meta-APBS-Client-ID']
+            ga_client_id = ga_metadata['client_id']
         else:
-            logging.warning("PDB2PQR Runner: Unable to find 'x-amz-meta-APBS-Client-ID' header in request. Using Job ID")
+            logging.warning("PDB2PQR Runner: Unable to find 'client_id' key in job config metadata. Using Job ID for now, but please fix")
             ga_client_id = self.job_id
         
         if client_ip is not None:
@@ -200,8 +201,8 @@ class Runner:
         if analytics_id is not None:
             ga_event_request_body = ''
             ga_event_headers = {
-                # TODO: 2021/03/08, Elvis - Find way to get User-Agent header (S3 metadata?)
-                'User-Agent': s3_metadata['x-amz-meta-User-Agent']
+                # 'User-Agent': ga_metadata['x-amz-meta-User-Agent']
+                'User-Agent': ga_metadata['user_agent']
             }
             on_first = True
 
