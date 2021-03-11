@@ -1,10 +1,18 @@
 import os, time, json
 import boto3
-from launcher import pdb2pqr_runner
+from launcher import pdb2pqr_runner, apbs_runner
 
 OUTPUT_BUCKET = os.getenv('OUTPUT_BUCKET')
+FARGATE_CLUSTER = os.getenv('FARGATE_CLUSTER')
+FARGATE_SERVICE = os.getenv('FARGATE_SERVICE')
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv('JOB_QUEUE_NAME')
+
+# Analytics variables
+GA_TRACKING_ID = os.environ.get('GA_TRACKING_ID', None)
+GA_JOBID_INDEX = os.environ.get('GA_JOBID_INDEX', None)
+if GA_TRACKING_ID == '': GA_TRACKING_ID = None
+if GA_JOBID_INDEX == '': GA_JOBID_INDEX = None
 
 def get_job_info(bucket_name: str, info_object_name: str) -> dict:
     # Download job info object from S3
@@ -22,7 +30,9 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
         raise
 
 
-def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfile_list: list):
+def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfile_list: list, outputfile_list: list):
+    # TODO: 2021/03/02, Elvis - add submission time to initial status
+
     job_start_time = time.time()
     initial_status_dict = {
         'jobid': job_id,
@@ -32,8 +42,9 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
             'startTime': job_start_time,
             'endTime': None,
             'subtasks': [],
-            'inputFiles': [f'{job_id}/{filename}' for filename in inputfile_list],
-            'outputFiles': []
+            # 'inputFiles': [f'{job_id}/{filename}' for filename in inputfile_list],
+            'inputFiles': [ filename for filename in inputfile_list ],
+            'outputFiles': [ filename for filename in outputfile_list ]
         }
     }
 
@@ -46,6 +57,9 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
     )
     
 def submit_ga_event_pdb2pqr(job_id, weboptions, jobtype=None, client_ip=None, analytics_id=None, analytics_dim_index=None, ga_client_id=None):
+    pass
+
+def submit_ga_event_apbs(job_id, analytics_id=None, analytics_dim_index=None):
     pass
 
 def interpret_job_submission(event: dict, context=None):
@@ -70,12 +84,13 @@ def interpret_job_submission(event: dict, context=None):
     # If APBS
     #   TODO: Review old code to see how I handled this
     elif job_type == 'apbs':
-        pass
+        job_runner = apbs_runner.Runner(job_info_form, job_id)
+        job_command_line_args = job_runner.prepare_job(OUTPUT_BUCKET, bucket_name)
 
     # Create and upload status file to S3
     status_filename = f'{job_type}-status.json'
     status_object_name = f'{job_id}/{status_filename}'
-    upload_status_file(job_id, status_object_name, job_type, job_runner.input_files)
+    upload_status_file(job_id, status_object_name, job_type, job_runner.input_files, job_runner.output_files)
 
     # Submit run info to SQS
     sqs_json = {
@@ -88,3 +103,7 @@ def interpret_job_submission(event: dict, context=None):
     sqs_client = boto3.resource('sqs')
     queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
     queue.send_message( MessageBody=json.dumps(sqs_json) )
+
+    ecs_client = boto3.client('ecs')
+    if ecs_client.describe_services(cluster=FARGATE_CLUSTER,services=[FARGATE_SERVICE],)['services'][0]['desiredCount'] == 0:
+      ecs_client.update_service(cluster=FARGATE_CLUSTER,service=FARGATE_SERVICE,desiredCount=1)

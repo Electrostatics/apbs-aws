@@ -30,6 +30,7 @@ class Runner:
         self.command_line_args:str = None
         self.job_id = job_id
         self.input_files = []
+        self.output_files = []
 
         try:
             # if 'invoke_method' in form and isinstance(form['invoke_method'], str):
@@ -91,17 +92,27 @@ class Runner:
 
             # Retrieve information about the PDB file and command line arguments
             if self.weboptions.user_did_upload:
-                # upload_list = ['pdb2pqr_status', 'pdb2pqr_start_time']
-                pass
+                # Update input files
+                # TODO: 2021/03/04, Elvis - Update input files via a common function
+                self.input_files.append(f'{job_id}/{self.weboptions.pdbfilename}')
+
             else:
                 if os.path.splitext(self.weboptions.pdbfilename)[1] != '.pdb':
                     self.weboptions.pdbfilename = self.weboptions.pdbfilename+'.pdb' # add pdb extension to pdbfilename
-                    # # Write the PDB file contents to disk
-                    # with open(os.path.join(INSTALLDIR, TMPDIR, job_id, self.weboptions.pdbfilename), 'w') as fout:
-                    #     fout.write(self.weboptions.pdbfilestring)
-                    #     upload_list = [self.weboptions.pdbfilename, 'pdb2pqr_status', 'pdb2pqr_start_time']
 
-            self.weboptions.pqrfilename = job_id+'.pqr' # make pqr name prefix the job_id
+                    # Add url to RCSB PDB file to input file list
+                    self.input_files.append(f'https://files.rcsb.org/download/{self.weboptions.pdbfilename}')
+
+            # Check for userff, names, ligand files to add to input_file list
+            if hasattr(self.weboptions, 'ligandfilename'):
+                self.input_files.append(f'{job_id}/{self.weboptions.ligandfilename}')
+            if hasattr(self.weboptions, 'userfffilename'):
+                self.input_files.append(f'{job_id}/{self.weboptions.userfffilename}')
+            if hasattr(self.weboptions, 'usernamesfilename'):
+                self.input_files.append(f'{job_id}/{self.weboptions.usernamesfilename}')
+
+            # Make the pqr name prefix the job_id
+            self.weboptions.pqrfilename = job_id+'.pqr' 
 
             # Retrieve PDB2PQR command line arguments
             command_line_args = self.weboptions.getCommandLine()
@@ -114,9 +125,17 @@ class Runner:
         elif self.invoke_method == 'cli' or self.invoke_method == 'v2':
             # construct command line argument string for when CLI is invoked
             command_line_list = []
+
+            # Add PDB filename to input file list
+            self.input_files.append( f"{job_id}/{self.cli_params['pdb_name']}" )
+
             # get list of args from self.cli_params['flags']
             for name in self.cli_params['flags']:
                 command_line_list.append( (name, self.cli_params['flags'][name]) )
+
+                # Add to input file list if userff, names, or ligand flags are defined
+                if name in ['userff', 'usernames', 'ligand'] and self.cli_params[name]:
+                    self.input_files.append( f"{job_id}/{self.cli_params[name]}" )
             
             command_line_args = ''
 
