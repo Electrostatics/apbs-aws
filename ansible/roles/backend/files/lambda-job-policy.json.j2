@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Id": "default",
+  "Statement": [
+    {
+      "Sid": "S3put_torun_job-L",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "s3.amazonaws.com"
+      },
+      "Action": "lambda:InvokeFunction",
+      "Resource": "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L",
+      "Condition": {
+        "StringEquals": {
+          "AWS:SourceAccount": "{{ aws_account_id }}"
+        },
+        "ArnLike": {
+          "AWS:SourceArn": "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input"
+        }
+      }
+    }
+  ]
+}

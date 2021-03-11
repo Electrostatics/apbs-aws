@@ -1,0 +1,29 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Ansible",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Decrypt",
+                "kms:DescribeKey",
+                "ssm:GetParametersByPath",
+                "ssm:GetParameters",
+                "ssm:GetParameter"
+            ],
+            "Resource": [
+                "arn:aws:kms:{{ aws_region }}:*:key/parameter_store_key",
+                "arn:aws:ssm:{{ aws_region }}:*:parameter/{{ project }}/*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "kms:ListKeys",
+                "kms:ListAliases"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

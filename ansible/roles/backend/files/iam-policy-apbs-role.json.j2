@@ -1,0 +1,43 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObjectAcl",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:DeleteObject",
+                "s3:PutObjectAcl"
+            ],
+            "Resource": [
+                "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input/*",
+                "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input",
+                "arn:aws:s3:::{{ project }}-{{ deployment_group }}-output/*",
+                "arn:aws:s3:::{{ project }}-{{ deployment_group }}-output"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sqs:*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "kms:decrypt"
+            ],
+            "Resource": "arn:aws:kms:::key/aws/s3"
+        },
+        {
+            "Action": [
+                "sns:*"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+}

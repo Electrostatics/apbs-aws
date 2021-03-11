@@ -1,0 +1,14 @@
+---
+# DAP provisioning
+- name: Create AWS resources
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  vars_files:
+#    - "group_vars/all.yml"
+#    - "group_vars/db.yml"
+#  vars:
+#    profile: "{{ aws_profile }}"
+#    region: "{{ aws_region }}"
+  roles:
+    - role: backend

@@ -1,0 +1,367 @@
+---
+# DAP provisioning
+#  - name: Create S3 bucket
+#    s3_bucket:
+#      profile: "{{ aws_profile }}"
+#      region: "{{ aws_region }}"
+#      name: "{{ project }}-{{ deployment_group }}"
+#      state: present
+#      tags:
+#         Deployment: "{{ deployment_group }}"
+#    register: s3
+#    tags: s3
+#
+#  - name: Debug s3
+#    debug: var=s3
+#    tags: s3
+
+      #- arn:aws:iam::aws:policy/"{{ project }}-{{ deployment_group }}-s3-read"
+  - name: Create IAM role for ec2 instance
+    iam_role: 
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-webapp-role"
+      description: Role for "{{ project }}-{{ deployment_group }}-webapp-role"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy.json') }}"
+      #managed_policies:
+      #- arn:aws:iam::{{ aws_account_id }}:policy/service-role/CodeBuildBasePolicy-portal-build-ntest-us-west-2
+    register: iam_role_webapp
+    tags: 
+      - iam
+
+  - name: Update IAM role
+    iam_policy:
+      profile: "{{ aws_profile }}"
+      iam_type: role
+      iam_name: "{{ project }}-{{ deployment_group }}-webapp-role"
+      policy_name: "{{ project }}-{{ deployment_group }}-webapp-policy"
+      state: absent
+    tags: 
+      - order
+      - iam
+      - webapprole
+
+  - name: Update IAM role
+    iam_policy:
+      profile: "{{ aws_profile }}"
+      iam_type: role
+      iam_name: "{{ project }}-{{ deployment_group }}-webapp-role"
+      policy_name: "{{ project }}-{{ deployment_group }}-webapp-policy"
+      state: present
+      policy_json: "{{ lookup('template', 'files/iam-policy-webapp.json.j2') }}"
+    tags: 
+      - order
+      - iam
+      - webapprole
+
+  - name: Create webapp security group
+    ec2_group:
+      name: "{{ project }}-{{ deployment_group }}-webapp"
+      description: "{{ project }}-{{ deployment_group }}-webapp"
+      region: "{{ aws_region }}"
+      vpc_id: "{{ vpc_id }}"
+      profile: "{{ aws_profile }}"
+      rules:
+        - proto: tcp
+          ports: 80
+          group_name: "{{ loadbalancer_securitygroup }}"
+      rules_egress:
+        - proto: all
+          cidr_ip: 0.0.0.0/0
+      tags:
+         Name: "{{ project }}-{{ deployment_group }}-webapp"
+         Deployment: "{{ deployment_group }}"
+    register: sg_webapp
+    tags: ec2
+
+  - name: Create an EC2 instance
+    ec2:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      key_name: "{{ key_name }}"
+      group_id: 
+        - "{{ sg_webapp.group_id }}"
+        - "{{ ssh_securitygroup }}"
+      vpc_subnet_id: "{{ vpc_subnet_id }}"
+      instance_type: "{{ instance_type }}"
+      #instance_profile_name: "{{ iam_role_webapp.role_name }}"
+      instance_profile_name: "{{ project }}-{{ deployment_group }}-webapp-role"
+      image: "{{ ami_id }}"
+#      state: running
+      assign_public_ip: yes
+      # user_data: |
+      #          #!/bin/sh
+      #          sudo apt-get update
+      wait: True
+      wait_timeout: 600
+      #id: "{{ project }}-{{ deployment_group }}-web"
+      count_tag: 
+        Name: "{{ project }}-{{ deployment_group }}-web"
+      exact_count: 1
+      volumes:
+        - device_name: /dev/sda1
+          volume_type: gp2
+          volume_size: 8
+          delete_on_termination: true
+      instance_tags:
+         Name: "{{ project }}-{{ deployment_group }}-web"
+         Deployment: "{{ deployment_group }}"
+         PortalDeploy: "{{ project }}-{{ deployment_group}}-web"
+    register: ec2
+    tags: ec2
+
+  # - name: Debug ec2
+  #   debug: var=ec2
+
+  - name: Display ec2 instance id
+    debug:
+      msg: "Ec2 instances: {{ item.id }}"
+    with_items: "{{ ec2.instances }}"
+    tags: ec2
+
+    #TJM broken
+  #TJM - name: wait for the servers to appear on the network
+    #TJM wait_for: host={{ item.public_dns_name }} port=22 delay=10 timeout=180 state=started
+    #TJM with_items: ec2.tagged_instances
+
+  - name: add server ip addresses to hosts group
+    add_host: 
+      hostname: "{{ item.public_ip }}"
+      groupname: launched
+    with_items: "{{ ec2.tagged_instances }}"
+    tags: ec2
+
+  - name: create the target group
+    elb_target_group:
+      name: "{{ project }}-{{ deployment_group }}"
+      protocol: http
+      port: 80
+      region: "{{ aws_region }}"
+      vpc_id: "{{ vpc_id }}"
+      profile: "{{ aws_profile }}"
+      health_check_path: /health
+      successful_response_codes: "200"
+      state: present
+    tags: ec2
+    #TJM broken health check path must be defined, configure web first?
+
+  - name: Register instances to the load balancer target group
+    elb_target:
+       region: "{{ aws_region }}"
+       profile: "{{ aws_profile }}"
+       #target_group_name: "{{ loadbalancer_target_group }}"
+       target_group_name: "{{ project }}-{{ deployment_group }}"
+       target_id: "{{ item.id }}"
+       state: present
+    with_items: "{{ ec2.instances }}"
+    tags: ec2
+
+  - name: Create rds security group
+    ec2_group:
+      name: "{{ project }}-{{ deployment_group }}-rds"
+      description: "{{ project }}-{{ deployment_group }}-rds"
+      region: "{{ aws_region }}"
+      vpc_id: "{{ vpc_id }}"
+      profile: "{{ aws_profile }}"
+      rules:
+        - proto: tcp
+          ports: 5432
+          group_name: "{{ sg_webapp.group_name }}"
+      rules_egress:
+        - proto: all
+          cidr_ip: 0.0.0.0/0
+      tags:
+        Name: "{{ project }}-{{ deployment_group }}-rds"
+        Deployment: "{{ deployment_group }}"
+    register: sg_rds
+    tags: rds
+
+  - name: Add the rds subnet group
+    rds_subnet_group:
+      state: present
+      name: "{{ project }}-{{ deployment_group }}-subnet-rds"
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      description: "{{ project }}-{{ deployment_group }}-subnet-rds"
+      subnets:
+        - "{{ vpc_subnet_id }}"
+        - "{{ vpc_subnet_id2 }}"
+    register: subnet_rds
+    tags: rds
+
+  - name: Create the rds instance
+    rds:
+      command: create
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      instance_name: "{{ project }}-{{ deployment_group }}-rds"
+      db_engine: "{{ db_engine }}"
+      size: "{{ db_size_gb }}"
+      zone: "{{ aws_zone }}"
+      instance_type: "{{ db_instance_type }}"
+      vpc_security_groups: "{{ sg_rds.group_id }}"
+      subnet: "{{ subnet_rds.subnet_group.name }}"
+      publicly_accessible: no
+      username: "{{ db_user }}"
+      password: "{{ db_password }}"
+      wait: yes
+      wait_timeout: 600
+      tags:
+         Deployment: "{{ deployment_group }}"
+    register: rds
+    tags: rds
+
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/DB_DATABASE"
+      value: "{{ db_database }}"
+    tags: rds
+
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/DB_HOST"
+      value: "{{ rds.instance.endpoint }}"
+    tags: rds
+
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/APP_KEY"
+      value: "{{ rds.instance.endpoint }}"
+    tags: rds
+
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/DB_USERNAME"
+      value: "{{ db_user }}"
+    tags: rds
+
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/DB_PORT"
+      value: "{{ db_port }}"
+    tags: rds
+
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/DB_PASSWORD"
+      value: "{{ db_password }}"
+      string_type: "SecureString"
+    tags: rds
+
+  - debug:
+      msg: "The new db endpoint for {{ rds.instance.id }} is {{ rds.instance.endpoint }}"
+    tags: rds
+
+  - name: Configure database settings
+    rds_instance:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      db_instance_identifier: "{{ rds.instance.id }}"
+      auto_minor_version_upgrade: yes
+      backup_retention_period: 10
+      copy_tags_to_snapshot: yes
+      preferred_backup_window: "04:00-06:00"
+    tags: rds
+
+  - name: Create elasticsearch security group
+    ec2_group:
+      name: "{{ project }}-{{ deployment_group }}-es"
+      description: "{{ project }}-{{ deployment_group }}-es"
+      region: "{{ aws_region }}"
+      vpc_id: "{{ vpc_id }}"
+      profile: "{{ aws_profile }}"
+      rules:
+        - proto: tcp
+          ports: 443
+          group_name: "{{ sg_webapp.group_name }}"
+      rules_egress:
+        - proto: all
+          cidr_ip: 0.0.0.0/0
+      tags:
+        Name: "{{ project }}-{{ deployment_group }}-es"
+        Deployment: "{{ deployment_group }}"
+    register: sg_es
+    tags: es
+
+  # use the AWS CLI to retrieve a list of our IAM roles, store it in a variable
+  # using `register`
+  - name: list existing IAM roles
+    command: aws iam --profile "{{ aws_profile }}" list-roles --no-paginate
+    changed_when: false
+    register: list_iam_roles
+    tags: es
+   
+  # convert the output from the CLI from JSON and look for a role with a known description
+  - name: find service-linked IAM role for Elasticsearch
+    set_fact:
+      iam_role: "{{ list_iam_roles.stdout | from_json | json_query(query) }}"
+    vars:
+      query: Roles[?Description=='Service linked role for Elasticsearch'] | [0]
+    tags: es
+  
+  # if we couldn't find our role (`when` clause), call the AWS CLI to create it
+  - name: create service-linked IAM role for Elasticsearch
+    command: aws iam create-service-linked-role --profile "{{ aws_profile }}" --region "{{ aws_region }}" --aws-service-name es.amazonaws.com --description "Service linked role for Elasticsearch"
+    when: iam_role == ''
+    tags: es
+
+  # use the AWS CLI to query for details about this cluster, if it exists
+  - name: check for existing Elasticsearch cluster
+    command: aws es describe-elasticsearch-domains --profile "{{ aws_profile}}" --region "{{ aws_region }}" --domain-names "{{ project }}-{{ deployment_group }}-es"
+    changed_when: false
+    register: elasticsearch_cluster_query
+    tags: es
+  
+  # handle the output from the CLI
+  - name: parse Elasticsearch cluster query
+    set_fact:
+      elasticsearch_cluster: "{{ (elasticsearch_cluster_query.stdout | from_json).DomainStatusList[0] }}"
+    when: (elasticsearch_cluster_query.stdout | from_json).DomainStatusList[0] is defined
+    tags: es
+  
+  # if the cluster doesn't exist (`when` clause), call the CLI to create it -- passing an evaluated template as the configuration
+  - name: create Elasticsearch cluster
+    command: aws es create-elasticsearch-domain --profile "{{ aws_profile}}" --region "{{ aws_region }}" --cli-input-json '{{ lookup('template', 'files/create-elasticsearch-domain.json.j2') | to_json }}'
+    when: elasticsearch_cluster is not defined
+    register: elasticsearch_cluster_create
+    tags: es
+  
+  # poll the AWS CLI using `until` to wait until the output shows our Elasticsearch endpoint has appeared
+  - name: wait for Elasticsearch endpoint to be availabile
+    command: aws es describe-elasticsearch-domains --profile "{{ aws_profile}}" --region "{{ aws_region }}" --domain-names "{{ project }}-{{ deployment_group }}-es"
+    changed_when: false
+    register: elasticsearch_cluster_query
+    until: (elasticsearch_cluster_query.stdout | from_json).DomainStatusList[0].Endpoints is defined
+    retries: 20
+    delay: 60
+    tags: es
+  
+  # handle the output from the CLI a bit
+  - name: parse Elasticsearch cluster query
+    set_fact:
+      elasticsearch_vpc_endpoint: "{{ (elasticsearch_cluster_query.stdout | from_json).DomainStatusList[0].Endpoints.vpc }}"
+    tags: es
+  
+  - name: Create or update key/value pair in aws parameter store
+    aws_ssm_parameter_store:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: "/{{ project }}/{{ project }}-{{ deployment_group }}-webapp-role/env/SCOUT_ELASTIC_HOST"
+      value: "https://{{ elasticsearch_vpc_endpoint }}:443"
+    tags: es
+
+  - debug:
+      msg: "The es vpc endpoint is https://{{ elasticsearch_vpc_endpoint }}:443"
+    tags: es
