@@ -55,15 +55,15 @@ class WebOptions(object):
         #These are included in has_key(), __contains__(), and __getitem__() calls.
         self.otheroptions = {}
         
-        self.runoptions['debump'] = form.has_key("DEBUMP")
-        self.runoptions['opt'] = form.has_key("OPT")
+        self.runoptions['debump'] = "DEBUMP" in form
+        self.runoptions['opt'] = "OPT" in form
         
-        if form.has_key('FF'):
+        if 'FF' in form:
             self.ff = form["FF"].lower()
         else:
             raise WebOptionsError('Force field type missing from form.')
         
-        if form.has_key("PDBID") and form["PDBID"] and form["PDBSOURCE"] == 'ID':
+        if "PDBID" in form and form["PDBID"] and form["PDBSOURCE"] == 'ID':
             # TODO: 2021/02/23, Elvis - Use PDBID to get URL/set flag for PDB file download
             pass
             # self.pdbfile = utilities.getPDBFile(form["PDBID"])
@@ -85,9 +85,9 @@ class WebOptions(object):
         else:
             raise WebOptionsError('You need to specify a pdb ID or upload a pdb file.')
             
-        if form.has_key("PKACALCMETHOD"):
+        if "PKACALCMETHOD" in form:
             if form["PKACALCMETHOD"] != 'none':
-                if not form.has_key('PH'):
+                if 'PH' not in form:
                     raise WebOptionsError('Please provide a pH value.')
                 
                 phHelp = 'Please choose a pH between 0.0 and 14.0.'
@@ -112,13 +112,13 @@ class WebOptions(object):
                                                           'sdie': 80,
                                                           'pairene': 1.0}
                  
-        self.otheroptions['apbs'] = form.has_key("INPUT")
-        self.otheroptions['whitespace'] = form.has_key("WHITESPACE")
+        self.otheroptions['apbs'] = "INPUT" in form
+        self.otheroptions['whitespace'] = "WHITESPACE" in form
         
         if self.ff == 'user':
-            # if form.has_key("USERFF") and form["USERFF"].filename:
+            # if "USERFF") and form["USERFF"].filename:
             # self.userfffilename = sanitizeFileName(form["USERFF"].filename)
-            if form.has_key("USERFFFILE") and form["USERFFFILE"] != "":
+            if "USERFFFILE" in form and form["USERFFFILE"] != "":
                 self.userfffilename = sanitizeFileName(form["USERFFFILE"])
                 # self.userffstring = form["USERFF"]
                 self.runoptions['userff'] = StringIO(form["USERFFFILE"])
@@ -127,7 +127,7 @@ class WebOptions(object):
                 raise WebOptionsError(text)
                 
             # if form.has_key("USERNAMES") and form["USERNAMES"].filename:
-            if form.has_key("NAMESFILE") and form["NAMESFILE"] != "":
+            if "NAMESFILE" in form and form["NAMESFILE"] != "":
                 self.usernamesfilename = sanitizeFileName(form["NAMESFILE"])
                 # self.usernamesstring = form["USERNAMES"]
                 self.runoptions['usernames'] = StringIO(form["NAMESFILE"])
@@ -135,14 +135,14 @@ class WebOptions(object):
                 text = "A names file must be provided if using a user created force field."
                 raise WebOptionsError(text)
             
-        if form.has_key("FFOUT") and form["FFOUT"] != "internal":
+        if "FFOUT" in form and form["FFOUT"] != "internal":
             self.runoptions['ffout'] = form["FFOUT"]
                 
-        self.runoptions['chain'] = form.has_key("CHAIN")
-        self.runoptions['typemap'] = form.has_key("TYPEMAP")
-        self.runoptions['neutraln'] = form.has_key("NEUTRALN")
-        self.runoptions['neutralc'] = form.has_key("NEUTRALC")
-        self.runoptions['drop_water'] = form.has_key("DROPWATER")
+        self.runoptions['chain'] = "CHAIN" in form
+        self.runoptions['typemap'] = "TYPEMAP" in form
+        self.runoptions['neutraln'] = "NEUTRALN" in form
+        self.runoptions['neutralc'] = "NEUTRALC" in form
+        self.runoptions['drop_water'] = "DROPWATER" in form
         
         if (self.runoptions['neutraln'] or self.runoptions['neutraln']) and \
             self.ff != 'parse':
@@ -150,7 +150,7 @@ class WebOptions(object):
         
         # if form.has_key("LIGAND") and form['LIGAND'].filename:
             # self.ligandfilename=sanitizeFileName(form["LIGAND"].filename)
-        if form.has_key("LIGANDFILE") and form['LIGANDFILE'] != '':
+        if "LIGANDFILE" in form and form['LIGANDFILE'] != '':
             self.ligandfilename=sanitizeFileName(form["LIGANDFILE"])
             # ligandfilestring = form["LIGAND"]
             # for Windows and Mac style newline compatibility for pdb2pka
@@ -194,16 +194,16 @@ class WebOptions(object):
         options['pdb'] = self.pdbfilename
         
         #propkaOptions is redundant.
-        if options.has_key('ph_calc_options'):
+        if 'ph_calc_options' in options:
             del options['ph_calc_options']
         
-        if options.has_key('ligand'):
+        if 'ligand' in options:
             options['ligand'] = self.ligandfilename
             
-        if options.has_key('userff'):
+        if 'userff' in options:
             options['userff'] = self.userfffilename
             
-        if options.has_key('usernames'):
+        if 'usernames' in options:
             options['usernames'] = self.usernamesfilename
         
         return options

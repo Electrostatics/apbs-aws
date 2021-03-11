@@ -27,6 +27,7 @@
             - '*'
           allowed_methods:
             - PUT
+            - POST
           allowed_headers:
             - '*'
           expose_headers: 
@@ -37,11 +38,12 @@
       - cors
       
   - name: Create output S3 bucket
-    s3_bucket:
+    amazon.aws.s3_bucket:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-output"
       state: present
+      policy: "{{ lookup('template','files/s3-policy-output.json.j2') }}"
       tags:
          Deployment: "{{ deployment_group }}"
     register: s3_output
@@ -90,7 +92,7 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-apbs-role"
       description: Role for "{{ project }}-{{ deployment_group }}-apbs-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs.json') }}"
+      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
     register: iam_role_apbs
     tags: iam
 
@@ -189,15 +191,17 @@
       region: "{{ aws_region }}"
       name: "{{ project }}-{{ deployment_group }}-job-L"
       state: present
-      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
+      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
-      handler: "job_service.lambda_handler"
+      handler: "job_service.interpret_job_submission"
       memory_size: 512
       timeout: 360 
       environment_variables: 
-        JOBQ: "{{ project }}-{{ deployment_group }}-job-q"
+        JOB_QUEUE_NAME: "{{ project }}-{{ deployment_group }}-job-q"
         OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
+        FARGATE_CLUSTER: "{{ project }}-{{ deployment_group }}-cluster"
+        FARGATE_SERVICE: "{{ project }}-{{ deployment_group }}-service"
       tags:
         Deployment: "{{ deployment_group }}"
     tags: 
@@ -227,34 +231,34 @@
       - update
 
 
-  - name: Create SNS put topic
-    sns_topic:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-s3put"
-      state: present
-      display_name: "{{ project }}-{{ deployment_group }}-s3put"
-      policy: "{{ lookup('template', 'files/sns_s3put.json.j2') }}"
-      delivery_policy:
-        http:
-          defaultHealthyRetryPolicy:
-              minDelayTarget: 20
-              maxDelayTarget: 20
-              numRetries: 3
-              numMaxDelayRetries: 0
-              backoffFunction: "linear"
-          disableSubscriptionOverrides: False
-          defaultThrottlePolicy:
-              maxReceivesPerSecond: 10
-      subscriptions:
-        - endpoint: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
-          protocol: "lambda"
-    tags: 
-      - sns
-      - policy
+  #- name: Create SNS put topic
+    #sns_topic:
+    #  profile: "{{ aws_profile }}"
+    #  region: "{{ aws_region }}"
+    #  name: "{{ project }}-{{ deployment_group }}-s3put"
+    #  state: present
+    #  display_name: "{{ project }}-{{ deployment_group }}-s3put"
+    #  policy: "{{ lookup('template', 'files/sns_s3put.json.j2') }}"
+    #  delivery_policy:
+    #    http:
+    #      defaultHealthyRetryPolicy:
+    #          minDelayTarget: 20
+    #          maxDelayTarget: 20
+    #          numRetries: 3
+    #          numMaxDelayRetries: 0
+    #          backoffFunction: "linear"
+    #      disableSubscriptionOverrides: False
+    #      defaultThrottlePolicy:
+    #          maxReceivesPerSecond: 10
+    #  subscriptions:
+    #    - endpoint: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
+    #      protocol: "lambda"
+    #tags: 
+    #  - sns
+    #  - policy
 
 
-  - name: Create s3 bucket notification
+  #- name: Create s3 bucket notification
     # Ansible 2.9 - October release
     #s3_bucket_notification:
       #profile: "{{ aws_profile }}"
@@ -266,11 +270,11 @@
       #events: ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
       ##prefix: images/
       ##suffix: .jpg
-    command: >
-      aws s3api put-bucket-notification-configuration --profile "{{ aws_profile }}" 
-      --region "{{ aws_region }}" --bucket "{{ project }}-{{ deployment_group }}-input" 
-      --cli-input-json '{{ lookup('template', 'files/s3-notification.json.j2') }}'
-    tags: s3notif
+    #command: >
+    #  aws s3api put-bucket-notification-configuration --profile "{{ aws_profile }}" 
+    #  --region "{{ aws_region }}" --bucket "{{ project }}-{{ deployment_group }}-input" 
+    #  --cli-input-json '{{ lookup('template', 'files/s3-notification.json.j2') }}'
+    #tags: s3notif
 
 
   - name: Cluster creation
@@ -308,5 +312,44 @@
             network_configuration:
                     subnets:
                       - '{{ vpc_subnet_id2 }}'
+                    assign_public_ip: yes
+                    security_groups:
+                      - '{{ default_sg }}'
             desired_count: 0
+            
+  - name: Create an alarm scale up fargate tasks
+    community.aws.ec2_metric_alarm:
+      state: present
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-q-up"
+      metric: "ApproximateNumberOfMessagesVisible"
+      namespace: "AWS/SQS"
+      treat_missing_data: "ignore"
+      statistic: "Average"
+      comparison: ">="
+      threshold: 1.0
+      period: 60
+      evaluation_periods: 1
+      unit: "Count"
+      description: "{{ aws_region }} job-q check"
+      dimensions: {"QueueName":'{{ project }}-{{ deployment_group }}-job-q'}
+      alarm_actions: []
+      
+  - name: Create an alarm scale down fargate tasks
+    community.aws.ec2_metric_alarm:
+      state: present
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-q-down"
+      metric: "ApproximateNumberOfMessagesVisible"
+      namespace: "AWS/SQS"
+      treat_missing_data: "ignore"
+      statistic: "Maximum"       
+      comparison: "<"
+      threshold: 0.1
+      period: 60
+      evaluation_periods: 3
+      unit: "Count"
+      description: "{{ aws_region }} job-q check"
+      dimensions: {"QueueName":'{{ project }}-{{ deployment_group }}-job-q'}
+      alarm_actions: []
 

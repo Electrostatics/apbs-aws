@@ -17,8 +17,10 @@
                 "s3:PutObject",
                 "s3:PutObjectAcl"
             ],
-            "Resource": "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input/*",
-            "Resource": "arn:aws:s3:::{{ project }}-{{ deployment_group }}-output/*"
+            "Resource": [ 
+                 "arn:aws:s3:::{{ project }}-{{ deployment_group }}-input/*",
+                 "arn:aws:s3:::{{ project }}-{{ deployment_group }}-output/*"
+            ]
         },
         {
             "Effect": "Allow",
@@ -34,6 +36,14 @@
                 "sqs:SendMessage"
             ],
             "Resource": "arn:aws:sqs:*:*:{{ project }}-{{ deployment_group }}-job-q"
+        },
+        {
+	            "Effect": "Allow",
+	            "Action": [
+	                "ecs:DescribeServices",
+	                "ecs:UpdateService"
+	            ],
+	            "Resource": "arn:aws:ecs:*:*:service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-service"
         }       
     ]
 }

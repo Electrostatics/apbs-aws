@@ -1,8 +1,10 @@
 import os, time, json
 import boto3
-from .launcher import pdb2pqr_runner, apbs_runner
+from launcher import pdb2pqr_runner, apbs_runner
 
 OUTPUT_BUCKET = os.getenv('OUTPUT_BUCKET')
+FARGATE_CLUSTER = os.getenv('FARGATE_CLUSTER')
+FARGATE_SERVICE = os.getenv('FARGATE_SERVICE')
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv('JOB_QUEUE_NAME')
 
@@ -48,8 +50,8 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
 
 
     s3_client = boto3.client('s3')
-    object_response:dict = s3_client.get_object(
-                            Body=json.dump(initial_status_dict),
+    object_response:dict = s3_client.put_object(
+                            Body=json.dumps(initial_status_dict),
                             Bucket=OUTPUT_BUCKET,
                             Key=object_filename
     )
@@ -62,15 +64,15 @@ def submit_ga_event_apbs(job_id, analytics_id=None, analytics_dim_index=None):
 
 def interpret_job_submission(event: dict, context=None):
     # Get basic job information from S3 event
-    #   TODO: may need to modify to correctly retrieve info
-    jobinfo_object_name:str = event['s3']['object']['key']
-    bucket_name:str = event['s3']['bucket']['name']
+    #   TODO: will need to modify to correctly retrieve info
+    jobinfo_object_name:str = event['Records'][0]['s3']['object']['key']
+    bucket_name:str = event['Records'][0]['s3']['bucket']['name']
     job_id = jobinfo_object_name.split('/')[0]
 
     # Obtain job configuration from config file
     job_info = get_job_info(bucket_name, jobinfo_object_name )
     job_info_form = job_info['form']
-    job_type = jobinfo_object_name.split('-')[0] # Assumes 'pdb2pqr-job.json', or similar format
+    job_type = jobinfo_object_name.split('-')[0].split('/')[1] # Assumes 'pdb2pqr-job.json', or similar format
 
     """ Interpret contents of job configuration """
     # If PDB2PQR
@@ -95,6 +97,7 @@ def interpret_job_submission(event: dict, context=None):
     sqs_json = {
         "job_id": job_id,
         "job_type": job_type,
+        "bucket_name": bucket_name,
         "input_files": job_runner.input_files,
         "command_line_args": job_command_line_args,
     }
@@ -107,3 +110,7 @@ def interpret_job_submission(event: dict, context=None):
         ga_job_metadata = job_info['metadata']['ga']
         source_ip = event['Records']['requestParameters']['sourceIPAddress']
         job_runner.report_to_ga(GA_TRACKING_ID, ga_job_metadata, source_ip, analytics_dim_index=GA_JOBID_INDEX)
+        
+    ecs_client = boto3.client('ecs')
+    if ecs_client.describe_services(cluster=FARGATE_CLUSTER,services=[FARGATE_SERVICE],)['services'][0]['desiredCount'] == 0:
+      ecs_client.update_service(cluster=FARGATE_CLUSTER,service=FARGATE_SERVICE,desiredCount=1)
