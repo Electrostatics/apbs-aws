@@ -1,5 +1,8 @@
 # coding: utf-8
 
+# NOTE: Based on code from https://github.com/Azure/azure-sdk-for-python/blob/
+#       master/sdk/storage/azure-storage-blob/samples
+
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
@@ -24,12 +27,17 @@ DESCRIPTION:
     1) AZURE_STORAGE_CONNECTION_STRING - the connection string to your storage account
 """
 
-import os
 from collections import deque
 import json
+import os
 import sys
 import time
 from azure.storage.blob import BlobServiceClient
+import boto3
+import requests
+
+sys.path.append("../src/lambda_services/api_service")
+from api_service import generate_id_and_tokens
 
 
 class DirectoryClient:
@@ -100,11 +108,9 @@ class DirectoryClient:
             )
             for idx, blob in enumerate(blobs):
                 for jdx, dir in enumerate(blob):
-                    print(f"  DIR: {idx} {jdx} {dir.name}")
+                    # print(f"  DIR: {idx} {jdx} {dir.name}")
+                    # NOTE: This is the slow part of the code
                     dirs.append(dir.name)
-                    # TODO: Remove early exit
-                    if idx > 0:
-                        return dirs
             print(f"2: {str(time.time() - start_time)}")
             try:
                 page = next(blobs)
@@ -117,7 +123,7 @@ class DirectoryClient:
             count += size
             inc += 1
             print(f"5: {str(time.time() - start_time)}")
-            if not continuation_token or count == batch_size:
+            if not continuation_token or count > batch_size:
                 end_time = time.time()
                 print(
                     f"Inc = {size}, "
@@ -168,7 +174,7 @@ class DirectoryClient:
             for line in fh:
                 full_path = line.strip("\n")
                 if full_path.endswith(file_ext):
-                    print(f"      DATAFILE: {full_path}")
+                    # print(f"      DATAFILE: {full_path}")
                     if not self.exists(full_path):
                         full_path = full_path.replace("_", "-")
                         if not self.exists(full_path):
@@ -237,11 +243,11 @@ def get_file(job, client, file, ext):
     if file is None:
         print(f"  INVALID JOB {file} {job}")
         delete_job(job)
-    print(f"  GET_FILE {file} {job}")
+    # print(f"  GET_FILE {file} {job}")
     return file
 
 
-def get_flags(pqr_file):
+def get_pdb2pqr_flags(pqr_file):
     flags = {}
     try:
         with open(pqr_file, "r") as fh:
@@ -259,8 +265,9 @@ def get_flags(pqr_file):
     options = options.replace("--", "")
     for option in options.split():
         values = option.split("=")
+        # Skip the data files file.pqr and file.pdb
         if ".pqr" not in values[0] and ".pdb" not in values[0]:
-            flags[values[0]] = "true" if len(values) == 1 else values[1]
+            flags[values[0]] = True if len(values) == 1 else values[1]
     return flags
 
 
@@ -286,14 +293,66 @@ def build_pdb2pqr_job(job, pdb_file, pqr_file):
     job_file["form"]["pdb_name"] = pdb_file[0].replace(job, "")
     job_file["form"]["pqr_name"] = pqr_file[0].replace(job, "")
 
-    print(f"PREFLAGS: {pqr_file[0]}")
-    flags = get_flags(pqr_file[0])
+    # print(f"PREFLAGS: {pqr_file[0]}")
+    flags = get_pdb2pqr_flags(pqr_file[0])
     job_file["form"]["flags"] = flags
 
     with open(f"{job}pdb2pqr-job.json", "w") as outfile:
         outfile.write(json.dumps(job_file, indent=4))
 
 
+def submit_aws_job(job, data_file):
+    job_id = job.strip("/")
+    data_file = data_file[0].replace(job, "")
+
+    # save current directory
+    cwd = os.getcwd()
+    work_dir = f"{cwd}/{job_id}/"
+    os.environ["INPUT_BUCKET"] = "apbs-test-input"
+    job_type = "pdb2pqr"
+    if data_file.endswith(".in"):
+        job_type = "apbs"
+
+    try:
+        os.chdir(work_dir)
+        job_request = {
+            "job_id": f"{job_id}",
+            "bucket_name": f"{job_id}",
+            "file_list": [f"{job_type}-job.json", f"{data_file}"],
+        }
+        response = requests.post(API_TOKEN_URL, json=job_request)
+
+        # NOTE: Must send *-job.json file last because that is what triggers the S3 event
+        #       to start the job
+        save_url = None
+        save_file = None
+        json_response = response.json()
+        # print(f"RESPONSE: {json_response}")
+        for file in json_response["urls"]:
+            url = json_response["urls"][file]
+            # print(f"FILE: {file}, URL: {url}")
+            if f"{job_type}-job.json" in file:
+                save_url = url
+                save_file = file
+                continue
+            upload = requests.put(url, data=open(file, "rb"))
+
+        # NOTE: Send the "*-job.json" file to start the job
+        if save_url is not None and save_file is not None:
+            upload = requests.put(save_url, data=open(save_file, "rb"))
+        else:
+            print(f"ERROR: Can't find JOB file, {job}{job_type}-job.json")
+    except:
+        print(f"TYPE: {type(job_id)}")
+        print(
+            f"ERROR: Can't change from {cwd} directory {work_dir} {sys.exc_info()}"
+        )
+    finally:
+        # print("Restoring the path")
+        os.chdir(cwd)
+
+
+# MAIN
 # Get Azure environment to connect to Azure buckets
 
 try:
@@ -309,18 +368,36 @@ except IndexError:
     print("ERROR: the following arguments are required: CONTAINER_NAME")
     sys.exit(1)
 
+try:
+    API_TOKEN_URL = os.environ["API_TOKEN_URL"]
+except KeyError:
+    print("AZURE_STORAGE_CONNECTION_STRING must be set")
+    sys.exit(1)
+
 # Create a client that is connected to Azure storage container
 
 try:
-    client = DirectoryClient(CONNECTION_STRING, CONTAINER_NAME)
+    azure_client = DirectoryClient(CONNECTION_STRING, CONTAINER_NAME)
 
-    jobs = client.walk2(3, 5)
-    for job in jobs:
+    # TODO: Make this a command line argument
+    max_jobs = 100
+    jobs = azure_client.walk2(5000, 100000)
+    for idx, job in enumerate(jobs, start=1):
+        if idx % 5 != 0:
+            continue
         print(f"JOB: {job}")
-        pdb_file = get_file(job, client, "pdb2pqr_input_files", ".pdb")
-        pqr_file = get_file(job, client, "pdb2pqr_output_files", ".pqr")
+        pdb_file = get_file(job, azure_client, "pdb2pqr_input_files", ".pdb")
+        pqr_file = get_file(job, azure_client, "pdb2pqr_output_files", ".pqr")
         if pdb_file is not None and pqr_file is not None:
             build_pdb2pqr_job(job, pdb_file, pqr_file)
+            submit_aws_job(job, pdb_file)
+        else:
+            print("============================================")
+            print(f"========== TBD: APBS OR INVALID JOB {job}")
+            print("============================================")
+        if idx > max_jobs:
+            break
+
 except Exception as sysexc:
     print(f"ERROR: Exception, {sysexc}")
     sys.exit(1)
