@@ -26,6 +26,7 @@ DESCRIPTION:
 
 import os
 from collections import deque
+import json
 import sys
 import time
 from azure.storage.blob import BlobServiceClient
@@ -99,63 +100,91 @@ class DirectoryClient:
             )
             for idx, blob in enumerate(blobs):
                 for jdx, dir in enumerate(blob):
-                    print(f"DIR: {idx} {jdx} {dir.name}")
+                    print(f"  DIR: {idx} {jdx} {dir.name}")
                     dirs.append(dir.name)
                     # TODO: Remove early exit
-                    if idx > 1:
+                    if idx > 0:
                         return dirs
-            print("2: %s" % str(time.time() - start_time))
+            print(f"2: {str(time.time() - start_time)}")
             try:
                 page = next(blobs)
             except StopIteration as sie:
                 pass
-            print("3: %s" % str(time.time() - start_time))
+            print(f"3: {str(time.time() - start_time)}")
             blob_batch.append(page)
             continuation_token = blobs.continuation_token
-            print("4: %s" % str(time.time() - start_time))
+            print(f"4: {str(time.time() - start_time)}")
             count += size
             inc += 1
-            print("5: %s" % str(time.time() - start_time))
+            print(f"5: {str(time.time() - start_time)}")
             if not continuation_token or count == batch_size:
-                End = time.time()
+                end_time = time.time()
                 print(
-                    "Inc = %s, Total = %s : %s seconds ( %s second avg loop) "
-                    % (
-                        size,
-                        batch_size,
-                        End - start_time,
-                        (End - start_time) / inc,
-                    )
+                    f"Inc = {size}, "
+                    f"Total = {batch_size} : {end_time - start_time} "
+                    f"seconds ({(end_time - start_time) / inc} second avg loop)"
                 )
                 break
-            print("6: %s - %s" % (str(time.time() - start_time), str(count)))
+            print(f"6: {str(time.time() - start_time)}, {str(count)}")
         return dirs
 
-    def download_file(self, source, dest):
+    def download_file(self, source, dest=None):
         """
         Download a single file to a path on the local filesystem
         """
+        if dest is None:
+            dest = source
+
         # dest is a directory if ending with '/' or '.', otherwise it's a file
         if dest.endswith("."):
             dest += "/"
-        blob_dest = (
-            dest + os.path.basename(source) if dest.endswith("/") else dest
-        )
 
-        print(f"Downloading {source} to {blob_dest}")
+        blob_dest = dest
+        if dest.endswith("/"):
+            blob_dest = dest + os.path.basename(source)
+
+        print(f"    Downloading {source} to {blob_dest}")
         os.makedirs(os.path.dirname(blob_dest), exist_ok=True)
         bc = self.client.get_blob_client(blob=source)
         with open(blob_dest, "wb") as file:
             data = bc.download_blob()
             file.write(data.readall())
+        return blob_dest
 
     def download_dir(self, path):
+        files = []
         for file in self.ls_files(path, recursive=True):
-            print(f"FILE: {path}{file}")
-            if ".cube" in file or ".gz" in file or ".dx" in file:
-                continue
             full_path = f"{path}{file}"
-            self.download_file(full_path, full_path)
+            files.append(self.download_file(full_path))
+        return files
+
+    def download_file_in_file(self, path, file_ext):
+        files = []
+        if not self.exists(path):
+            return None
+
+        file_path = self.download_file(path)
+        with open(file_path, "r") as fh:
+            for line in fh:
+                full_path = line.strip("\n")
+                if full_path.endswith(file_ext):
+                    print(f"      DATAFILE: {full_path}")
+                    if not self.exists(full_path):
+                        full_path = full_path.replace("_", "-")
+                        if not self.exists(full_path):
+                            raise FileNotFoundError(full_path)
+                    file_found = self.download_file(full_path)
+                    files.append(file_found)
+        return files
+
+    def exists(self, path):
+        # print(f"PATH {path}")
+        blob_iter = self.client.list_blobs(name_starts_with=path)
+        for blob in blob_iter:
+            # print(f"BLOBNAME {blob.name}")
+            if path in blob.name:
+                return True
+        return False
 
     def ls_files(self, path, recursive=False):
         """
@@ -193,8 +222,79 @@ class DirectoryClient:
         return dirs
 
 
-# Sample setup
+def delete_job(dir):
+    import shutil
 
+    try:
+        print(f"  WARNING: Deleting job, {dir}")
+        shutil.rmtree(dir)
+    except OSError as ose:
+        print(f"ERROR: Can't delete job, {dir}, {ose.strerror}")
+
+
+def get_file(job, client, file, ext):
+    file = client.download_file_in_file(f"{job}{file}", ext)
+    if file is None:
+        print(f"  INVALID JOB {file} {job}")
+        delete_job(job)
+    print(f"  GET_FILE {file} {job}")
+    return file
+
+
+def get_flags(pqr_file):
+    flags = {}
+    try:
+        with open(pqr_file, "r") as fh:
+            for curline in fh:
+                if curline.startswith(
+                    "REMARK   1 Command line used to generate this file:"
+                ):
+                    options = fh.readline().strip("\n")
+                    break
+    except Exception as ose:
+        print(f"ERROR: Can't read file: {pqr_file}")
+        return None
+
+    options = options.replace("REMARK   1 ", "")
+    options = options.replace("--", "")
+    for option in options.split():
+        values = option.split("=")
+        if ".pqr" not in values[0] and ".pdb" not in values[0]:
+            flags[values[0]] = "true" if len(values) == 1 else values[1]
+    return flags
+
+
+def build_pdb2pqr_job(job, pdb_file, pqr_file):
+    job_file = {"form": {"job_id": job.strip("/"), "invoke_method": "v2"}}
+
+    # Open up the pqr file to find the REMARK with command line options
+    # to build a pdb2pqr-job.json that looks like the following:
+    # {
+    #   "form": {
+    #      "flags": {
+    #         "drop-water": true,
+    #         "ff": "parse",
+    #         "ph-calc-method": "propka",
+    #         "verbose": true,
+    #         "with-ph": 7
+    #      },
+    #      "invoke_method": "v2",
+    #      "pdb_name": "1fas.pdb",
+    #      "pqr_name": "1fas.pqr"
+    #   }
+    # }
+    job_file["form"]["pdb_name"] = pdb_file[0].replace(job, "")
+    job_file["form"]["pqr_name"] = pqr_file[0].replace(job, "")
+
+    print(f"PREFLAGS: {pqr_file[0]}")
+    flags = get_flags(pqr_file[0])
+    job_file["form"]["flags"] = flags
+
+    with open(f"{job}pdb2pqr-job.json", "w") as outfile:
+        outfile.write(json.dumps(job_file, indent=4))
+
+
+# Get Azure environment to connect to Azure buckets
 
 try:
     CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
@@ -205,80 +305,22 @@ except KeyError:
 try:
     CONTAINER_NAME = sys.argv[1]
 except IndexError:
-    print("usage: directory_interface.py CONTAINER_NAME")
-    print("error: the following arguments are required: CONTAINER_NAME")
+    print("USAGE: script.py CONTAINER_NAME")
+    print("ERROR: the following arguments are required: CONTAINER_NAME")
     sys.exit(1)
 
-# Sample body
+# Create a client that is connected to Azure storage container
 
-client = DirectoryClient(CONNECTION_STRING, CONTAINER_NAME)
+try:
+    client = DirectoryClient(CONNECTION_STRING, CONTAINER_NAME)
 
-# List files in a single directory
-# Returns:
-# files = client.ls_files("000")
-# print(f"FILE: {files}")
-
-# for idx, dir in enumerate(client.walk("01")):
-# print(f"DIR: {idx} {dir.name}")
-# files = client.ls_files(dir.name, recursive=True)
-# for idx2, file in enumerate(files):
-#    print(f"    FILE: {idx2} {file}")
-
-# asyncio.run(client.walk2())
-
-dirs = client.walk2(50000, 100000)
-for dir in dirs:
-    print(f"DIR: {dir}")
-    client.download_dir(dir)
-
-
-# Download a single file to a location on disk, specifying the destination file
-# name. When the destination does not end with a slash '/' and is not a relative
-# path specifier (e.g. '.', '..', '../..', etc), the destination will be
-# interpreted as a full path including the file name. If intermediate
-# directories in the destination do not exist they will be created.
-#
-# After this call, your working directory will look like:
-#   downloads/
-#     cat-info.txt
-# client.download('cat-herding/readme.txt', 'downloads/cat-info.txt')
-# import glob
-# print(glob.glob('downloads/**', recursive=True))
-
-# Download a single file to a folder on disk, preserving the original file name.
-# When the destination ends with a slash '/' or is a relative path specifier
-# (e.g. '.', '..', '../..', etc), the destination will be interpreted as a
-# directory name and the specified file will be saved within the destination
-# directory. If intermediate directories in the destination do not exist they
-# will be created.
-#
-# After this call, your working directory will look like:
-#   downloads/
-#     cat-info.txt
-#     herd-info/
-#       herds.txt
-# client.download('cat-herding/cats/herds.txt', 'downloads/herd-info/')
-# print(glob.glob('downloads/**', recursive=True))
-
-# Download a directory to a folder on disk. The destination is always
-# interpreted as a directory name. The directory structure will be preserved
-# inside destination folder. If intermediate directories in the destination do
-# not exist they will be created.
-#
-# After this call, your working directory will look like:
-#   downloads/
-#     cat-data/
-#       cats/
-#         herds.txt
-#         calico/
-#          anna.txt
-#          felix.txt
-#         siamese/
-#           mocha.txt
-#         tabby/
-#           bojangles.txt
-#     cat-info.txt
-#     herd-info/
-#       herds.txt
-# client.download('cat-herding/cats', 'downloads/cat-data')
-# print(glob.glob('downloads/**', recursive=True))
+    jobs = client.walk2(3, 5)
+    for job in jobs:
+        print(f"JOB: {job}")
+        pdb_file = get_file(job, client, "pdb2pqr_input_files", ".pdb")
+        pqr_file = get_file(job, client, "pdb2pqr_output_files", ".pqr")
+        if pdb_file is not None and pqr_file is not None:
+            build_pdb2pqr_job(job, pdb_file, pqr_file)
+except Exception as sysexc:
+    print(f"ERROR: Exception, {sysexc}")
+    sys.exit(1)
