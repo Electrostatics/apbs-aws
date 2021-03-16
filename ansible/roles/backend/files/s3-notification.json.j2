@@ -1,0 +1,25 @@
+ {
+    "NotificationConfiguration": {
+      "TopicConfigurations": [
+        {
+            "Id": "{{ project}}-{{ deployment_group }}-s3put",
+            "TopicArn": "arn:aws:sns:{{ aws_region }}:{{ aws_account_id }}:{{ project}}-{{ deployment_group }}-s3put",
+            "Events": [
+                "s3:ObjectCreated:Put",
+                "s3:ObjectCreated:CompleteMultipartUpload"
+            ],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                    {
+                        "Name": "suffix",
+                        "Value": "job.json"
+                    }
+                ]
+              }
+           }
+
+        }
+      ]
+    }
+}

@@ -1,0 +1,3 @@
+mail_relay_host: email-smtp.us-west-2.amazonaws.com
+mail_domain: pnnl.gov
+mail_port: 587

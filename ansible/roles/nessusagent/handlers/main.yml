@@ -1,0 +1,2 @@
+- name: restart nessusagent
+  service: name=nessusagent state=restarted enabled=yes

@@ -1,0 +1,48 @@
+- name: Update all packages
+  yum:
+    name: '*'
+    state: latest
+    update_only: yes
+  tags: 
+    - ops
+    - update
+
+- name: Install amazon-linux-extras
+  yum:
+    name: amazon-linux-extras
+    state: latest
+    update_cache: yes
+  tags: ops
+
+- name: Add extras repository
+  shell: yum-config-manager --enable extras
+  tags: ops
+
+- name: Install packages via amazon-linux-extras packages
+  shell: "amazon-linux-extras install python3 -y"
+  tags: ops
+
+- name: Ensure a list of yum packages are installed
+  yum:
+    name: "{{ packages }}"
+    state: latest
+    update_cache: yes
+  vars:
+    packages:
+    - git
+    - python3-pip
+  tags: ops
+
+- name: Ensure Python setuptools is updated
+  shell: "pip3 install --upgrade setuptools"
+  tags: 
+    - ops
+ 
+- name: Ensure Python pip packages are installed
+  pip:
+    name: 
+      - boto3
+      - simplejson
+    executable: pip3
+  tags: 
+    - ops

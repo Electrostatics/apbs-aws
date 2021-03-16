@@ -1,0 +1,22 @@
+- name: make authinfo
+  shell: makemap hash /etc/mail/authinfo.db < /etc/mail/authinfo
+  notify: reload sendmail
+  tags: sendmail
+
+- name: make access
+  shell: makemap hash /etc/mail/access.db < /etc/mail/access
+  notify: reload sendmail
+  tags: sendmail
+
+- name: make sendmail.cf
+  shell: m4 /etc/mail/sendmail.mc > /etc/mail/sendmail.cf
+  notify: reload sendmail
+  tags: sendmail
+
+- name: reload sendmail
+  service: name=sendmail state=reloaded
+  tags: sendmail
+
+- name: restart sendmail
+  service: name=sendmail state=restarted enabled=yes
+  tags: sendmail

@@ -1,3 +1,4 @@
+azure-storage-blob
 boto3==1.17.8
 pytest==6.2.2
-azure-storage-blob
+urllib3==1.26.3

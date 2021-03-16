@@ -1,0 +1,7 @@
+---
+# portal
+env_portal_server_name: test.apbs.labworks.org
+#
+env_deployment_group: test
+#
+#######
