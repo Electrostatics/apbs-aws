@@ -173,7 +173,7 @@ class DirectoryClient:
         with open(file_path, "r") as fh:
             for line in fh:
                 full_path = line.strip("\n")
-                if full_path.endswith(file_ext):
+                if file_ext is None or full_path.endswith(file_ext):
                     # print(f"      DATAFILE: {full_path}")
                     if not self.exists(full_path):
                         full_path = full_path.replace("_", "-")
@@ -239,12 +239,10 @@ def delete_job(dir):
 
 
 def get_file(job, client, file, ext):
-    file = client.download_file_in_file(f"{job}{file}", ext)
-    if file is None:
-        print(f"  INVALID JOB {file} {job}")
-        delete_job(job)
-    # print(f"  GET_FILE {file} {job}")
-    return file
+    files = client.download_file_in_file(f"{job}{file}", ext)
+    if files is None:
+        print(f"  WARN: File not found: {job}{file}")
+    return files
 
 
 def get_pdb2pqr_flags(pqr_file):
@@ -269,6 +267,32 @@ def get_pdb2pqr_flags(pqr_file):
         if ".pqr" not in values[0] and ".pdb" not in values[0]:
             flags[values[0]] = True if len(values) == 1 else values[1]
     return flags
+
+
+def build_apbs_job(job, apbs_files):
+    job_file = {
+        "form": {
+            "job_id": job.strip("/"),
+            "invoke_method": "v2",
+            "file_list": [],
+        }
+    }
+    # Open up the apbs_input_files to find the files needed
+    # to build a apbs-job.json that looks like the following:
+    # {
+    #   "job_id": "sampleID",
+    #   "file_list": [
+    #       "apbsinput.in",
+    #       "file.pqr"
+    #   ],
+    # }
+
+    for file in apbs_files:
+        filename = file.replace(job, "")
+        job_file["form"]["file_list"].append(filename)
+
+    with open(f"{job}apbs-job.json", "w") as outfile:
+        outfile.write(json.dumps(job_file, indent=4))
 
 
 def build_pdb2pqr_job(job, pdb_file, pqr_file):
@@ -301,25 +325,33 @@ def build_pdb2pqr_job(job, pdb_file, pqr_file):
         outfile.write(json.dumps(job_file, indent=4))
 
 
-def submit_aws_job(job, data_file):
+def submit_aws_job(job, data_files):
     job_id = job.strip("/")
-    data_file = data_file[0].replace(job, "")
+    upload_files = []
+    job_type = "pdb2pqr"
+    for file in data_files:
+        data_file = data_files[0].replace(job, "")
+        print(f"DATAFILE: {data_file}")
+        upload_files.append(data_file)
+        if data_file.startswith("apbs"):
+            job_type = "apbs"
 
     # save current directory
     cwd = os.getcwd()
     work_dir = f"{cwd}/{job_id}/"
     os.environ["INPUT_BUCKET"] = "apbs-test-input"
-    job_type = "pdb2pqr"
-    if data_file.endswith(".in"):
-        job_type = "apbs"
 
     try:
         os.chdir(work_dir)
         job_request = {
             "job_id": f"{job_id}",
             "bucket_name": f"{job_id}",
-            "file_list": [f"{job_type}-job.json", f"{data_file}"],
+            "file_list": [f"{job_type}-job.json"],
         }
+        for file in upload_files:
+            job_request["file_list"].append(file)
+        print(f"REQUEST: {json.dumps(job_request)}")
+
         response = requests.post(API_TOKEN_URL, json=job_request)
 
         # NOTE: Must send *-job.json file last because that is what triggers the S3 event
@@ -327,7 +359,7 @@ def submit_aws_job(job, data_file):
         save_url = None
         save_file = None
         json_response = response.json()
-        # print(f"RESPONSE: {json_response}")
+        print(f"RESPONSE: {json_response}")
         for file in json_response["urls"]:
             url = json_response["urls"][file]
             # print(f"FILE: {file}, URL: {url}")
@@ -345,11 +377,26 @@ def submit_aws_job(job, data_file):
     except:
         print(f"TYPE: {type(job_id)}")
         print(
-            f"ERROR: Can't change from {cwd} directory {work_dir} {sys.exc_info()}"
+            f"ERROR: Can't change from {cwd} directory to {work_dir} {sys.exc_info()}"
         )
     finally:
         # print("Restoring the path")
         os.chdir(cwd)
+
+
+def get_jobs_from_cache(azure_client):
+    jobs = []
+    cache_file = "AZURE_CACHE.txt"
+    if os.path.exists(cache_file) and os.path.isfile(cache_file):
+        with open(cache_file, "r") as fh:
+            for curline in fh:
+                jobs.append(fh.readline().strip("\n"))
+    else:
+        jobs = azure_client.walk2(5000, 100000)
+        with open(cache_file, "w") as outfile:
+            for job in jobs:
+                print(job, file=outfile)
+    return jobs
 
 
 # MAIN
@@ -381,20 +428,30 @@ try:
 
     # TODO: Make this a command line argument
     max_jobs = 100
-    jobs = azure_client.walk2(5000, 100000)
+    jobs = get_jobs_from_cache(azure_client)
     for idx, job in enumerate(jobs, start=1):
-        if idx % 5 != 0:
+        # if idx % 5 != 0:
+        #     continue
+        if "00fuze47xm" not in job:
             continue
         print(f"JOB: {job}")
+        print(f"STUFF: {azure_client.ls_files(job, recursive=True)}")
+        break
         pdb_file = get_file(job, azure_client, "pdb2pqr_input_files", ".pdb")
         pqr_file = get_file(job, azure_client, "pdb2pqr_output_files", ".pqr")
+        apbs_files = get_file(job, azure_client, "apbs_input_files", None)
         if pdb_file is not None and pqr_file is not None:
             build_pdb2pqr_job(job, pdb_file, pqr_file)
             submit_aws_job(job, pdb_file)
         else:
-            print("============================================")
-            print(f"========== TBD: APBS OR INVALID JOB {job}")
-            print("============================================")
+            if apbs_files is not None:
+                build_apbs_job(job, apbs_files)
+                submit_aws_job(job, apbs_files)
+            else:
+                print("============================================")
+                print(f"========== TBD: INVALID JOB {job}")
+                print("============================================")
+                delete_job(job)
         if idx > max_jobs:
             break
 
