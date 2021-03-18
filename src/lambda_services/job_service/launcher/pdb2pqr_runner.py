@@ -1,22 +1,7 @@
-import os, sys, time
+import os
 # import glob
 # import requests
 import logging
-# from multiprocessing import Process
-from pprint import pprint
-from json import dumps
-
-import urllib3
-from urllib3 import request
-from urllib3.response import HTTPResponse
-# from flask import request
-
-# import kubernetes.client
-# from kubernetes import config
-# from kubernetes.client.rest import ApiException
-
-# from service import tesk_proxy_utils
-# from service.legacy.pdb2pqr_old_utils import redirector, setID
 from .weboptions import WebOptions, WebOptionsError
 
 

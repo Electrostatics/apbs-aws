@@ -3,7 +3,6 @@ from os import path
 import locale
 import logging
 # import requests
-import urllib3
 
 from . import utils
 
