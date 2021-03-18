@@ -8,6 +8,7 @@ import boto3
 # TODO 2020/02/17, Elvis - Establish specific logging format to be used in
 #                  Lambda functions
 
+
 def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
     """Create an URL that will allow a file to be stored on an S3 bucket.
 
@@ -22,24 +23,24 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
     s3_client = boto3.client("s3")
 
     # Generate presigned URL for file
-    url = s3_client.generate_presigned_url( 'put_object',
-                                            Params={
-                                                'Bucket': bucket_name,
-                                                'Key': object_name
-                                            },
-                                            ExpiresIn=3600,
-                                            HttpMethod='PUT'
-                                          )
+    url = s3_client.generate_presigned_url('put_object',
+                                           Params={
+                                               'Bucket': bucket_name,
+                                               'Key': object_name
+                                           },
+                                           ExpiresIn=3600,
+                                           HttpMethod='PUT'
+                                           )
     return url
 
 
 def generate_id_and_tokens(event: dict, context=None) -> dict:
-    
-    # Assign object variables from Lambda event 
-    bucket_name : str     = os.getenv('INPUT_BUCKET')
 
-    file_list : List[str] = event['file_list']
-    job_id : str
+    # Assign object variables from Lambda event
+    bucket_name: str = os.getenv('INPUT_BUCKET')
+
+    file_list: List[str] = event['file_list']
+    job_id: str
 
     # Generate new job ID if not provided
     if "job_id" in event:

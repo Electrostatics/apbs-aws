@@ -1,20 +1,24 @@
 from io import StringIO
 from os import path
+from sys import stderr
 import locale
 import logging
 # import requests
 
 from . import utils
 
+
 class JobDirectoryExistsError(Exception):
     def __init__(self, expression):
         self.expression = expression
 
+
 class MissingFilesError(FileNotFoundError):
     def __init__(self, message, file_list=[]):
         # super(FileNotFoundError, self).__init__(message)
-        super().__init__(message) #TODO: use this line on Python3 upgrade
+        super().__init__(message)  # TODO: use this line on Python3 upgrade
         self.missing_files = file_list
+
 
 class Runner:
     def __init__(self, form, job_id=None):
@@ -32,7 +36,7 @@ class Runner:
 
         # if infile_name is not None:
         #     self.infile_name = infile_name
-        #form = form['form']
+        # form = form['form']
         if 'filename' in form:
             self.infile_name = form['filename']
         elif form is not None:
@@ -57,14 +61,13 @@ class Runner:
         else:
             self.job_id = form['pdb2pqrid']
 
-
         # TODO: 2021/03/02, Elvis - remove below; no need to create directories
         # self.job_dir = '%s%s%s' % (INSTALLDIR, TMPDIR, self.job_id)
         # logging.debug(self.job_dir)
         # if not os.path.isdir(self.job_dir):
         #     os.mkdir(self.job_dir)
 
-    def prepare_job(self, output_bucket_name:str, input_bucket_name:str):
+    def prepare_job(self, output_bucket_name: str, input_bucket_name: str):
         # taken from mainInput()
         logging.info(f'preparing job execution: {self.job_id} (apbs)')
         infile_name = self.infile_name
@@ -83,7 +86,7 @@ class Runner:
             infile_str = utils.s3_download_file_str(input_bucket_name, job_id, infile_name)
 
             # Get list of expected supporting files
-            expected_files_list = utils.apbs_extract_input_files( infile_str )
+            expected_files_list = utils.apbs_extract_input_files(infile_str)
 
             # Check if additional READ files exist in S3
             missing_files = []
@@ -91,17 +94,16 @@ class Runner:
                 object_name = f"{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
                     # TODO: 2021/03/04, Elvis - Update input files via a common function
-                    self.input_files.append( f"{job_id}/{str(name)}" )
+                    self.input_files.append(f"{job_id}/{str(name)}")
                 else:
-                    missing_files.append( str(name) )
+                    missing_files.append(str(name))
 
             if len(missing_files) > 0:
                 raise MissingFilesError(f'Please upload missing file(s) from READ section storage: {missing_files}')
 
-
             # Set input files and return command line args
             self.command_line_args = infile_name
-            self.input_files.append( f"{job_id}/{infile_name}" )
+            self.input_files.append(f"{job_id}/{infile_name}")
 
             return self.command_line_args
 
@@ -130,9 +132,9 @@ class Runner:
             try:
                 if "removewater" in form and form["removewater"] == "on":
                     pqr_filename_root, pqr_filename_ext = path.splitext(pqrFileName)
-                    
-                    no_water_pqrname = f"{pqr_filename_root}-nowater{pqr_filename_ext}"
-                    water_pqrname    = f"{pqr_filename_root}-water{pqr_filename_ext}"
+
+                    # no_water_pqrname = f"{pqr_filename_root}-nowater{pqr_filename_ext}"
+                    water_pqrname = f"{pqr_filename_root}-water{pqr_filename_ext}"
 
                     # pqrfile_text = utils.s3_download_file_str(output_bucket_name, job_id, pqrFileName)
 
@@ -152,38 +154,38 @@ class Runner:
                     # nowater_pqrfile_text.seek(0)
 
                     # Send original PQR file (with water) to S3 output bucket
-                    utils.s3_put_object(output_bucket_name, f"{job_id}/{water_pqrname}", pqrfile_text.encode('utf-8') )
-                    self.output_files.append( f"{job_id}/{water_pqrname}" )
+                    utils.s3_put_object(output_bucket_name, f"{job_id}/{water_pqrname}", pqrfile_text.encode('utf-8'))
+                    self.output_files.append(f"{job_id}/{water_pqrname}")
 
                     # Replace PQR file text with version with water removed
                     pqrfile_text = nowater_pqrfile_text
 
-            except:
+            except Exception:
                 # TODO: May wanna do more here (logging?)
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            utils.s3_put_object(input_bucket_name, f"{job_id}/{apbsOptions['tempFile']}", new_infile_contents.encode('utf-8') )
-            utils.s3_put_object(input_bucket_name, f"{job_id}/{pqrFileName}", pqrfile_text.encode('utf-8') )
+            utils.s3_put_object(input_bucket_name, f"{job_id}/{apbsOptions['tempFile']}", new_infile_contents.encode('utf-8'))
+            utils.s3_put_object(input_bucket_name, f"{job_id}/{pqrFileName}", pqrfile_text.encode('utf-8'))
 
             # Set input files for status reporting
             self.input_files.append(f"{job_id}/{pqrFileName}")
             self.input_files.append(f"{job_id}/{apbsOptions['tempFile']}")
 
             # Return command line args
-            self.command_line_args = apbsOptions['tempFile'] # 'apbsinput.in'
+            self.command_line_args = apbsOptions['tempFile']  # 'apbsinput.in'
             return self.command_line_args
 
     def fieldStorageToDict(self, form: dict):
         """ Converts the CGI input from the web interface to a dictionary """
-        apbsOptions = {'writeCheck':0}
+        apbsOptions = {'writeCheck': 0}
 
         if "writecharge" in form and form["writecharge"] != "":
             apbsOptions['writeCheck'] += 1
             apbsOptions['writeCharge'] = True
         else:
             apbsOptions['writeCharge'] = False
-        
+
         if "writepot" in form and form["writepot"] != "":
             apbsOptions['writeCheck'] += 1
             apbsOptions['writePot'] = True
@@ -195,7 +197,7 @@ class Runner:
             apbsOptions['writeSmol'] = True
         else:
             apbsOptions['writeSmol'] = False
-            
+
         if "asyncflag" in form and form["asyncflag"] == "on":
             apbsOptions['async'] = locale.atoi(form["async"])
             apbsOptions['asyncflag'] = True
@@ -267,10 +269,10 @@ class Runner:
             apbsOptions['writeKappa'] = True
         else:
             apbsOptions['writeKappa'] = False
-        
+
         if apbsOptions['writeCheck'] > 4:
             # TODO: 2021/03/02, Elvis - validation error; please raise exception here
-            print( "Please select a maximum of four write statements." )
+            print("Please select a maximum of four write statements.", file=stderr)
             # os._exit(99)
 
         # READ section variables
@@ -279,9 +281,9 @@ class Runner:
         apbsOptions['pqrPath'] = ""
         # apbsOptions['pqrFileName'] = form['pdb2pqrid']+'.pqr'
 
-        #ELEC section variables
-        apbsOptions['calcType'] = form["type"] 
-        
+        # ELEC section variables
+        apbsOptions['calcType'] = form["type"]
+
         apbsOptions['ofrac'] = locale.atof(form["ofrac"])
 
         apbsOptions['dimeNX'] = locale.atoi(form["dimenx"])
@@ -299,7 +301,7 @@ class Runner:
         apbsOptions['glenX'] = locale.atof(form["glenx"])
         apbsOptions['glenY'] = locale.atof(form["gleny"])
         apbsOptions['glenZ'] = locale.atof(form["glenz"])
-        
+
         apbsOptions['pdimeNX'] = locale.atof(form["pdimex"])
         apbsOptions['pdimeNY'] = locale.atof(form["pdimey"])
         apbsOptions['pdimeNZ'] = locale.atof(form["pdimez"])
@@ -324,7 +326,7 @@ class Runner:
             apbsOptions['fgzCent'] = locale.atoi(form["fgzcent"])
 
         # added conditional to avoid checking 'gcent' for incompatible methods
-        if apbsOptions['calcType'] in ['mg-manual','mg-dummy']:
+        if apbsOptions['calcType'] in ['mg-manual', 'mg-dummy']:
             if form["gcent"] == "mol":
                 apbsOptions['gridCenterMethod'] = "molecule"
                 apbsOptions['gridCenterMoleculeID'] = locale.atoi(form["gcentid"])
@@ -334,7 +336,6 @@ class Runner:
                 apbsOptions['gyCent'] = locale.atoi(form["gycent"])
                 apbsOptions['gzCent'] = locale.atoi(form["gzcent"])
 
-
         apbsOptions['mol'] = locale.atoi(form["mol"])
         apbsOptions['solveType'] = form["solvetype"]
         apbsOptions['boundaryConditions'] = form["bcfl"]
@@ -343,13 +344,13 @@ class Runner:
         apbsOptions['dielectricIonAccessibilityModel'] = form["srfm"]
         apbsOptions['biomolecularPointChargeMapMethod'] = form["chgm"]
         apbsOptions['surfaceConstructionResolution'] = locale.atof(form["sdens"])
-        apbsOptions['solventRadius'] = locale.atof(form["srad"])    
+        apbsOptions['solventRadius'] = locale.atof(form["srad"])
         apbsOptions['surfaceDefSupportSize'] = locale.atof(form["swin"])
         apbsOptions['temperature'] = locale.atof(form["temp"])
         apbsOptions['calcEnergy'] = form["calcenergy"]
         apbsOptions['calcForce'] = form["calcforce"]
 
-        for i in range(0,3):
+        for i in range(0, 3):
             chStr = 'charge%i' % i
             concStr = 'conc%i' % i
             radStr = 'radius%i' % i
@@ -360,9 +361,7 @@ class Runner:
             if form[radStr] != "":
                 apbsOptions[radStr] = locale.atof(form[radStr])
         apbsOptions['writeFormat'] = form["writeformat"]
-        #apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
+        # apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
         apbsOptions['writeStem'] = form["pdb2pqrid"]
 
-
         return apbsOptions
-
