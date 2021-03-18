@@ -56,12 +56,6 @@ def upload_status_file(job_id:str, object_filename: str, job_type: str, inputfil
                             Key=object_filename
     )
     
-def submit_ga_event_pdb2pqr(job_id, weboptions, jobtype=None, client_ip=None, analytics_id=None, analytics_dim_index=None, ga_client_id=None):
-    pass
-
-def submit_ga_event_apbs(job_id, analytics_id=None, analytics_dim_index=None):
-    pass
-
 def interpret_job_submission(event: dict, context=None):
     # Get basic job information from S3 event
     #   TODO: will need to modify to correctly retrieve info
