@@ -8,12 +8,6 @@ FARGATE_SERVICE = os.getenv('FARGATE_SERVICE')
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv('JOB_QUEUE_NAME')
 
-# Analytics variables
-GA_TRACKING_ID = os.environ.get('GA_TRACKING_ID', None)
-GA_JOBID_INDEX = os.environ.get('GA_JOBID_INDEX', None)
-if GA_TRACKING_ID == '': GA_TRACKING_ID = None
-if GA_JOBID_INDEX == '': GA_JOBID_INDEX = None
-
 def get_job_info(bucket_name: str, info_object_name: str) -> dict:
     # Download job info object from S3
     s3_client = boto3.client('s3')
