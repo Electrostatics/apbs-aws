@@ -105,12 +105,6 @@ def interpret_job_submission(event: dict, context=None):
     queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
     queue.send_message( MessageBody=json.dumps(sqs_json) )
 
-    # Send reporting data to GA
-    if GA_TRACKING_ID is not None:
-        ga_job_metadata = job_info['metadata']['ga']
-        source_ip = event['Records']['requestParameters']['sourceIPAddress']
-        job_runner.report_to_ga(GA_TRACKING_ID, ga_job_metadata, source_ip, analytics_dim_index=GA_JOBID_INDEX)
-        
     ecs_client = boto3.client('ecs')
     if ecs_client.describe_services(cluster=FARGATE_CLUSTER,services=[FARGATE_SERVICE],)['services'][0]['desiredCount'] == 0:
       ecs_client.update_service(cluster=FARGATE_CLUSTER,service=FARGATE_SERVICE,desiredCount=1)
