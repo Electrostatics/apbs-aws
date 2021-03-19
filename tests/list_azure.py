@@ -41,11 +41,15 @@ from api_service import generate_id_and_tokens
 
 
 class DirectoryClient:
-    def __init__(self, connection_string, container_name):
+    def __init__(self, connection_string, container_name, download_root=None):
         service_client = BlobServiceClient.from_connection_string(
             connection_string
         )
         self.client = service_client.get_container_client(container_name)
+        self.download_root = download_root
+        if download_root and not download_root.endswith("/"):
+            self.download_root += "/"
+            os.makedirs(self.download_root, exist_ok=True)
 
     def upload(self, source, dest):
         """
@@ -138,8 +142,8 @@ class DirectoryClient:
         """
         Download a single file to a path on the local filesystem
         """
-        if dest is None:
-            dest = source
+        if dest is None or self.download_root not in dest:
+            dest = self.download_root + source
 
         # dest is a directory if ending with '/' or '.', otherwise it's a file
         if dest.endswith("."):
@@ -424,19 +428,28 @@ except KeyError:
 # Create a client that is connected to Azure storage container
 
 try:
-    azure_client = DirectoryClient(CONNECTION_STRING, CONTAINER_NAME)
+    azure_client = DirectoryClient(
+        CONNECTION_STRING, CONTAINER_NAME, "azure_jobs"
+    )
 
     # TODO: Make this a command line argument
     max_jobs = 100
     jobs = get_jobs_from_cache(azure_client)
     for idx, job in enumerate(jobs, start=1):
         # if idx % 5 != 0:
-        #     continue
+        #    continue
+        # if "000buomdp2" not in job:
+        #    continue
         if "00fuze47xm" not in job:
             continue
         print(f"JOB: {job}")
         print(f"STUFF: {azure_client.ls_files(job, recursive=True)}")
         break
+        # TODO: Create function to find out if job is PDB2PQR or APBS
+        # Should be able to determine job type from files in ls_files()
+        # something like:
+        # if job_type(job) == "APBS":
+        # else:
         pdb_file = get_file(job, azure_client, "pdb2pqr_input_files", ".pdb")
         pqr_file = get_file(job, azure_client, "pdb2pqr_output_files", ".pqr")
         apbs_files = get_file(job, azure_client, "apbs_input_files", None)
