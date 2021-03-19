@@ -25,7 +25,7 @@ class Runner:
         try:
             # if 'invoke_method' in form and isinstance(form['invoke_method'], str):
             if 'invoke_method' in form:
-                logging.info('invoke_method found, value: %s' % str(form['invoke_method']))
+                logging.info('invoke_method found, value: %s', str(form['invoke_method']))
                 if form['invoke_method'].lower() == 'v2' or form['invoke_method'].lower() == 'cli':
                     self.invoke_method = 'cli'
                     self.cli_params = {
@@ -38,9 +38,9 @@ class Runner:
                     self.invoke_method = 'gui'
                     self.weboptions = WebOptions(form)
             else:
-                logging.warning('invoke_method not found: %s' % str('invoke_method' in form))
+                logging.warning('invoke_method not found: %s', str('invoke_method' in form))
                 if 'invoke_method' in form:
-                    logging.debug("form['invoke_method']: "+str(form['invoke_method']))
+                    logging.debug("form['invoke_method']: %s", str(form['invoke_method']))
                     logging.debug(type(form['invoke_method']))
                 self.invoke_method = 'gui'
                 self.weboptions = WebOptions(form)
@@ -103,7 +103,7 @@ class Runner:
             self.weboptions.pqrfilename = job_id+'.pqr'
 
             # Retrieve PDB2PQR command line arguments
-            command_line_args = self.weboptions.getCommandLine()
+            command_line_args = self.weboptions.get_command_line()
             if '--summary' in command_line_args:
                 command_line_args = command_line_args.replace('--summary', '')
 

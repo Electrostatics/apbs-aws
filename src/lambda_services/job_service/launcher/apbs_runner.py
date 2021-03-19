@@ -52,7 +52,7 @@ class Runner:
                     form[key] = str(form[key])
 
             self.form = form
-            self.apbsOptions = self.fieldStorageToDict(form)
+            self.apbs_options = self.field_storage_to_dict(form)
             # TODO: catch error if something wrong happes in fieldStorageToDict;
             #   handle in tesk_proxy_service
 
@@ -67,9 +67,9 @@ class Runner:
         # if not os.path.isdir(self.job_dir):
         #     os.mkdir(self.job_dir)
 
-    def prepare_job(self, output_bucket_name: str, input_bucket_name: str):
+    def prepare_job(self, output_bucket_name: str, input_bucket_name: str) -> str:
         # taken from mainInput()
-        logging.info(f'preparing job execution: {self.job_id} (apbs)')
+        logging.info('preparing job execution: %s (apbs)', self.job_id)
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
@@ -111,27 +111,27 @@ class Runner:
             # Using APBS input file name from PDB2PQR run
             infile_name = f'{job_id}.in'
 
-            apbsOptions = self.apbsOptions
+            apbs_options = self.apbs_options
 
             # Get text for infile string
             infile_str = utils.s3_download_file_str(output_bucket_name, job_id, infile_name)
 
             # Extracts PQR file name from the '*.in' file within storage bucket
             # pqrFileName = tesk_proxy_utils.apbs_extract_input_files(self.job_id, self.job_id+'.in', storage_host)[0]
-            pqrFileName = utils.apbs_extract_input_files(infile_str)[0]
-            apbsOptions['pqrFileName'] = pqrFileName
+            pqr_file_name = utils.apbs_extract_input_files(infile_str)[0]
+            apbs_options['pqrFileName'] = pqr_file_name
 
             # Get contents of updated APBS input file, based on form
-            apbsOptions['tempFile'] = "apbsinput.in"
-            new_infile_contents = utils.apbs_infile_creator(apbsOptions)
+            apbs_options['tempFile'] = "apbsinput.in"
+            new_infile_contents = utils.apbs_infile_creator(apbs_options)
 
             # Get contents of PQR file from PDB2PQR run
-            pqrfile_text = utils.s3_download_file_str(output_bucket_name, job_id, pqrFileName)
+            pqrfile_text = utils.s3_download_file_str(output_bucket_name, job_id, pqr_file_name)
 
             # Remove waters from molecule (PQR file) if requested by the user
             try:
                 if "removewater" in form and form["removewater"] == "on":
-                    pqr_filename_root, pqr_filename_ext = path.splitext(pqrFileName)
+                    pqr_filename_root, pqr_filename_ext = path.splitext(pqr_file_name)
 
                     # no_water_pqrname = f"{pqr_filename_root}-nowater{pqr_filename_ext}"
                     water_pqrname = f"{pqr_filename_root}-water{pqr_filename_ext}"
@@ -165,203 +165,203 @@ class Runner:
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            utils.s3_put_object(input_bucket_name, f"{job_id}/{apbsOptions['tempFile']}", new_infile_contents.encode('utf-8'))
-            utils.s3_put_object(input_bucket_name, f"{job_id}/{pqrFileName}", pqrfile_text.encode('utf-8'))
+            utils.s3_put_object(input_bucket_name, f"{job_id}/{apbs_options['tempFile']}", new_infile_contents.encode('utf-8'))
+            utils.s3_put_object(input_bucket_name, f"{job_id}/{pqr_file_name}", pqrfile_text.encode('utf-8'))
 
             # Set input files for status reporting
-            self.input_files.append(f"{job_id}/{pqrFileName}")
-            self.input_files.append(f"{job_id}/{apbsOptions['tempFile']}")
+            self.input_files.append(f"{job_id}/{pqr_file_name}")
+            self.input_files.append(f"{job_id}/{apbs_options['tempFile']}")
 
             # Return command line args
-            self.command_line_args = apbsOptions['tempFile']  # 'apbsinput.in'
+            self.command_line_args = apbs_options['tempFile']  # 'apbsinput.in'
             return self.command_line_args
 
-    def fieldStorageToDict(self, form: dict):
+    def field_storage_to_dict(self, form: dict) -> dict:
         """ Converts the CGI input from the web interface to a dictionary """
-        apbsOptions = {'writeCheck': 0}
+        apbs_options = {'writeCheck': 0}
 
         if "writecharge" in form and form["writecharge"] != "":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeCharge'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeCharge'] = True
         else:
-            apbsOptions['writeCharge'] = False
+            apbs_options['writeCharge'] = False
 
         if "writepot" in form and form["writepot"] != "":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writePot'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writePot'] = True
         else:
-            apbsOptions['writePot'] = False
+            apbs_options['writePot'] = False
 
         if "writesmol" in form and form["writesmol"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeSmol'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeSmol'] = True
         else:
-            apbsOptions['writeSmol'] = False
+            apbs_options['writeSmol'] = False
 
         if "asyncflag" in form and form["asyncflag"] == "on":
-            apbsOptions['async'] = locale.atoi(form["async"])
-            apbsOptions['asyncflag'] = True
+            apbs_options['async'] = locale.atoi(form["async"])
+            apbs_options['asyncflag'] = True
         else:
-            apbsOptions['asyncflag'] = False
+            apbs_options['asyncflag'] = False
 
         if "writesspl" in form and form["writesspl"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeSspl'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeSspl'] = True
         else:
-            apbsOptions['writeSspl'] = False
+            apbs_options['writeSspl'] = False
 
         if "writevdw" in form and form["writevdw"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeVdw'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeVdw'] = True
         else:
-            apbsOptions['writeVdw'] = False
+            apbs_options['writeVdw'] = False
 
         if "writeivdw" in form and form["writeivdw"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeIvdw'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeIvdw'] = True
         else:
-            apbsOptions['writeIvdw'] = False
+            apbs_options['writeIvdw'] = False
 
         if "writelap" in form and form["writelap"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeLap'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeLap'] = True
         else:
-            apbsOptions['writeLap'] = False
+            apbs_options['writeLap'] = False
 
         if "writeedens" in form and form["writeedens"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeEdens'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeEdens'] = True
         else:
-            apbsOptions['writeEdens'] = False
+            apbs_options['writeEdens'] = False
 
         if "writendens" in form and form["writendens"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeNdens'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeNdens'] = True
         else:
-            apbsOptions['writeNdens'] = False
+            apbs_options['writeNdens'] = False
 
         if "writeqdens" in form and form["writeqdens"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeQdens'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeQdens'] = True
         else:
-            apbsOptions['writeQdens'] = False
+            apbs_options['writeQdens'] = False
 
         if "writedielx" in form and form["writedielx"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeDielx'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeDielx'] = True
         else:
-            apbsOptions['writeDielx'] = False
+            apbs_options['writeDielx'] = False
 
         if "writediely" in form and form["writediely"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeDiely'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeDiely'] = True
         else:
-            apbsOptions['writeDiely'] = False
+            apbs_options['writeDiely'] = False
 
         if "writedielz" in form and form["writedielz"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeDielz'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeDielz'] = True
         else:
-            apbsOptions['writeDielz'] = False
+            apbs_options['writeDielz'] = False
 
         if "writekappa" in form and form["writekappa"] == "on":
-            apbsOptions['writeCheck'] += 1
-            apbsOptions['writeKappa'] = True
+            apbs_options['writeCheck'] += 1
+            apbs_options['writeKappa'] = True
         else:
-            apbsOptions['writeKappa'] = False
+            apbs_options['writeKappa'] = False
 
-        if apbsOptions['writeCheck'] > 4:
+        if apbs_options['writeCheck'] > 4:
             # TODO: 2021/03/02, Elvis - validation error; please raise exception here
             print("Please select a maximum of four write statements.", file=stderr)
             # os._exit(99)
 
         # READ section variables
-        apbsOptions['readType'] = "mol"
-        apbsOptions['readFormat'] = "pqr"
-        apbsOptions['pqrPath'] = ""
+        apbs_options['readType'] = "mol"
+        apbs_options['readFormat'] = "pqr"
+        apbs_options['pqrPath'] = ""
         # apbsOptions['pqrFileName'] = form['pdb2pqrid']+'.pqr'
 
         # ELEC section variables
-        apbsOptions['calcType'] = form["type"]
+        apbs_options['calcType'] = form["type"]
 
-        apbsOptions['ofrac'] = locale.atof(form["ofrac"])
+        apbs_options['ofrac'] = locale.atof(form["ofrac"])
 
-        apbsOptions['dimeNX'] = locale.atoi(form["dimenx"])
-        apbsOptions['dimeNY'] = locale.atoi(form["dimeny"])
-        apbsOptions['dimeNZ'] = locale.atoi(form["dimenz"])
+        apbs_options['dimeNX'] = locale.atoi(form["dimenx"])
+        apbs_options['dimeNY'] = locale.atoi(form["dimeny"])
+        apbs_options['dimeNZ'] = locale.atoi(form["dimenz"])
 
-        apbsOptions['cglenX'] = locale.atof(form["cglenx"])
-        apbsOptions['cglenY'] = locale.atof(form["cgleny"])
-        apbsOptions['cglenZ'] = locale.atof(form["cglenz"])
+        apbs_options['cglenX'] = locale.atof(form["cglenx"])
+        apbs_options['cglenY'] = locale.atof(form["cgleny"])
+        apbs_options['cglenZ'] = locale.atof(form["cglenz"])
 
-        apbsOptions['fglenX'] = locale.atof(form["fglenx"])
-        apbsOptions['fglenY'] = locale.atof(form["fgleny"])
-        apbsOptions['fglenZ'] = locale.atof(form["fglenz"])
+        apbs_options['fglenX'] = locale.atof(form["fglenx"])
+        apbs_options['fglenY'] = locale.atof(form["fgleny"])
+        apbs_options['fglenZ'] = locale.atof(form["fglenz"])
 
-        apbsOptions['glenX'] = locale.atof(form["glenx"])
-        apbsOptions['glenY'] = locale.atof(form["gleny"])
-        apbsOptions['glenZ'] = locale.atof(form["glenz"])
+        apbs_options['glenX'] = locale.atof(form["glenx"])
+        apbs_options['glenY'] = locale.atof(form["gleny"])
+        apbs_options['glenZ'] = locale.atof(form["glenz"])
 
-        apbsOptions['pdimeNX'] = locale.atof(form["pdimex"])
-        apbsOptions['pdimeNY'] = locale.atof(form["pdimey"])
-        apbsOptions['pdimeNZ'] = locale.atof(form["pdimez"])
+        apbs_options['pdimeNX'] = locale.atof(form["pdimex"])
+        apbs_options['pdimeNY'] = locale.atof(form["pdimey"])
+        apbs_options['pdimeNZ'] = locale.atof(form["pdimez"])
 
         if form["cgcent"] == "mol":
-            apbsOptions['coarseGridCenterMethod'] = "molecule"
-            apbsOptions['coarseGridCenterMoleculeID'] = locale.atoi(form["cgcentid"])
+            apbs_options['coarseGridCenterMethod'] = "molecule"
+            apbs_options['coarseGridCenterMoleculeID'] = locale.atoi(form["cgcentid"])
 
         elif form["cgcent"] == "coord":
-            apbsOptions['coarseGridCenterMethod'] = "coordinate"
-            apbsOptions['cgxCent'] = locale.atoi(form["cgxcent"])
-            apbsOptions['cgyCent'] = locale.atoi(form["cgycent"])
-            apbsOptions['cgzCent'] = locale.atoi(form["cgzcent"])
+            apbs_options['coarseGridCenterMethod'] = "coordinate"
+            apbs_options['cgxCent'] = locale.atoi(form["cgxcent"])
+            apbs_options['cgyCent'] = locale.atoi(form["cgycent"])
+            apbs_options['cgzCent'] = locale.atoi(form["cgzcent"])
 
         if form["fgcent"] == "mol":
-            apbsOptions['fineGridCenterMethod'] = "molecule"
-            apbsOptions['fineGridCenterMoleculeID'] = locale.atoi(form["fgcentid"])
+            apbs_options['fineGridCenterMethod'] = "molecule"
+            apbs_options['fineGridCenterMoleculeID'] = locale.atoi(form["fgcentid"])
         elif form["fgcent"] == "coord":
-            apbsOptions['fineGridCenterMethod'] = "coordinate"
-            apbsOptions['fgxCent'] = locale.atoi(form["fgxcent"])
-            apbsOptions['fgyCent'] = locale.atoi(form["fgycent"])
-            apbsOptions['fgzCent'] = locale.atoi(form["fgzcent"])
+            apbs_options['fineGridCenterMethod'] = "coordinate"
+            apbs_options['fgxCent'] = locale.atoi(form["fgxcent"])
+            apbs_options['fgyCent'] = locale.atoi(form["fgycent"])
+            apbs_options['fgzCent'] = locale.atoi(form["fgzcent"])
 
         # added conditional to avoid checking 'gcent' for incompatible methods
-        if apbsOptions['calcType'] in ['mg-manual', 'mg-dummy']:
+        if apbs_options['calcType'] in ['mg-manual', 'mg-dummy']:
             if form["gcent"] == "mol":
-                apbsOptions['gridCenterMethod'] = "molecule"
-                apbsOptions['gridCenterMoleculeID'] = locale.atoi(form["gcentid"])
+                apbs_options['gridCenterMethod'] = "molecule"
+                apbs_options['gridCenterMoleculeID'] = locale.atoi(form["gcentid"])
             elif form["gcent"] == "coord":
-                apbsOptions['gridCenterMethod'] = "coordinate"
-                apbsOptions['gxCent'] = locale.atoi(form["gxcent"])
-                apbsOptions['gyCent'] = locale.atoi(form["gycent"])
-                apbsOptions['gzCent'] = locale.atoi(form["gzcent"])
+                apbs_options['gridCenterMethod'] = "coordinate"
+                apbs_options['gxCent'] = locale.atoi(form["gxcent"])
+                apbs_options['gyCent'] = locale.atoi(form["gycent"])
+                apbs_options['gzCent'] = locale.atoi(form["gzcent"])
 
-        apbsOptions['mol'] = locale.atoi(form["mol"])
-        apbsOptions['solveType'] = form["solvetype"]
-        apbsOptions['boundaryConditions'] = form["bcfl"]
-        apbsOptions['biomolecularDielectricConstant'] = locale.atof(form["pdie"])
-        apbsOptions['dielectricSolventConstant'] = locale.atof(form["sdie"])
-        apbsOptions['dielectricIonAccessibilityModel'] = form["srfm"]
-        apbsOptions['biomolecularPointChargeMapMethod'] = form["chgm"]
-        apbsOptions['surfaceConstructionResolution'] = locale.atof(form["sdens"])
-        apbsOptions['solventRadius'] = locale.atof(form["srad"])
-        apbsOptions['surfaceDefSupportSize'] = locale.atof(form["swin"])
-        apbsOptions['temperature'] = locale.atof(form["temp"])
-        apbsOptions['calcEnergy'] = form["calcenergy"]
-        apbsOptions['calcForce'] = form["calcforce"]
+        apbs_options['mol'] = locale.atoi(form["mol"])
+        apbs_options['solveType'] = form["solvetype"]
+        apbs_options['boundaryConditions'] = form["bcfl"]
+        apbs_options['biomolecularDielectricConstant'] = locale.atof(form["pdie"])
+        apbs_options['dielectricSolventConstant'] = locale.atof(form["sdie"])
+        apbs_options['dielectricIonAccessibilityModel'] = form["srfm"]
+        apbs_options['biomolecularPointChargeMapMethod'] = form["chgm"]
+        apbs_options['surfaceConstructionResolution'] = locale.atof(form["sdens"])
+        apbs_options['solventRadius'] = locale.atof(form["srad"])
+        apbs_options['surfaceDefSupportSize'] = locale.atof(form["swin"])
+        apbs_options['temperature'] = locale.atof(form["temp"])
+        apbs_options['calcEnergy'] = form["calcenergy"]
+        apbs_options['calcForce'] = form["calcforce"]
 
         for i in range(0, 3):
-            chStr = 'charge%i' % i
-            concStr = 'conc%i' % i
-            radStr = 'radius%i' % i
-            if form[chStr] != "":
-                apbsOptions[chStr] = locale.atoi(form[chStr])
-            if form[concStr] != "":
-                apbsOptions[concStr] = locale.atof(form[concStr])
-            if form[radStr] != "":
-                apbsOptions[radStr] = locale.atof(form[radStr])
-        apbsOptions['writeFormat'] = form["writeformat"]
+            ch_str = 'charge%i' % i
+            conc_str = 'conc%i' % i
+            rad_str = 'radius%i' % i
+            if form[ch_str] != "":
+                apbs_options[ch_str] = locale.atoi(form[ch_str])
+            if form[conc_str] != "":
+                apbs_options[conc_str] = locale.atof(form[conc_str])
+            if form[rad_str] != "":
+                apbs_options[rad_str] = locale.atof(form[rad_str])
+        apbs_options['writeFormat'] = form["writeformat"]
         # apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
-        apbsOptions['writeStem'] = form["pdb2pqrid"]
+        apbs_options['writeStem'] = form["pdb2pqrid"]
 
-        return apbsOptions
+        return apbs_options

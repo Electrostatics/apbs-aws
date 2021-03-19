@@ -1,52 +1,23 @@
 import re
 from io import StringIO
 # from service.legacy.src import utilities
-import os
-import urllib
 
 
-def sanitizeFileName(fileName):
+def sanitize_fileName(file_name):
     # TODO: 2020/06/30, Elvis - log that sanitization is happening if pattern is seen
-    fileName = re.split(r'[/\\]', fileName)[-1]
-    fileName = fileName.replace(' ', '_')
+    file_name = re.split(r'[/\\]', file_name)[-1]
+    file_name = file_name.replace(' ', '_')
     # fileName = fileName.replace('-', '_')
-    return fileName
-
-
-def getPDBFile(path) -> str:
-    """
-        Obtain a PDB file.  First check the path given on the command
-        line - if that file is not available, obtain the file from the
-        PDB webserver at http://www.rcsb.org/pdb/ .
-        Parameters
-            path:  Name of PDB file to obtain (string)
-        Returns
-            file:  File object containing PDB file (file object)
-    """
-
-    # TODO: 2021/02/23, Elvis - Return the URL for the PDB file to download
-
-    file = None
-    if not os.path.isfile(path):
-        URLpath = "https://files.rcsb.org/download/" + path + ".pdb"
-        try:
-            file = urllib.urlopen(URLpath)
-            if file.getcode() != 200 or 'nosuchfile' in file.geturl():
-                raise IOError
-        except IOError:
-            return None
-    else:
-        file = open(path, 'rU')
-    return file
+    return file_name
 
 
 class WebOptionsError(Exception):
     def __init__(self, message, bad_key=None):
-        super(WebOptionsError, self).__init__(message)
+        super().__init__(message)
         self.bad_weboption = bad_key
 
 
-class WebOptions(object):
+class WebOptions():
     '''Helper class for gathering and querying options selected by the user'''
     def __init__(self, form):
         '''Gleans all information about the user selected options and uploaded files.
@@ -69,7 +40,6 @@ class WebOptions(object):
 
         if "PDBID" in form and form["PDBID"] and form["PDBSOURCE"] == 'ID':
             # TODO: 2021/02/23, Elvis - Use PDBID to get URL/set flag for PDB file download
-            pass
             # self.pdbfile = utilities.getPDBFile(form["PDBID"])
             # self.pdbfile = getPDBFile(form["PDBID"])
             self.user_did_upload = False
@@ -84,7 +54,7 @@ class WebOptions(object):
             self.user_did_upload = True
             # self.pdbfile = StringIO(self.pdbfilestring)
             # self.pdbfilename = sanitizeFileName(files["PDB"].filename) # pass filename through client
-            self.pdbfilename = sanitizeFileName(form['PDBFILE'])  # pass filename through client
+            self.pdbfilename = sanitize_fileName(form['PDBFILE'])  # pass filename through client
             # print("filename: "+self.pdbfilename)
         else:
             raise WebOptionsError('You need to specify a pdb ID or upload a pdb file.')
@@ -94,14 +64,14 @@ class WebOptions(object):
                 if 'PH' not in form:
                     raise WebOptionsError('Please provide a pH value.')
 
-                phHelp = 'Please choose a pH between 0.0 and 14.0.'
+                ph_help = 'Please choose a pH between 0.0 and 14.0.'
                 try:
                     ph = float(form["PH"])
                 except ValueError:
-                    raise WebOptionsError('The pH value provided must be a number!  ' + phHelp)
+                    raise WebOptionsError('The pH value provided must be a number!  ' + ph_help)
                 if ph < 0.0 or ph > 14.0:
                     text = "The entered pH of %.2f is invalid!  " % ph
-                    text += phHelp
+                    text += ph_help
                     raise WebOptionsError(text)
                 self.runoptions['ph'] = ph
                 # build propka and pdb2pka options
@@ -123,7 +93,7 @@ class WebOptions(object):
             # if "USERFF") and form["USERFF"].filename:
             # self.userfffilename = sanitizeFileName(form["USERFF"].filename)
             if "USERFFFILE" in form and form["USERFFFILE"] != "":
-                self.userfffilename = sanitizeFileName(form["USERFFFILE"])
+                self.userfffilename = sanitize_fileName(form["USERFFFILE"])
                 # self.userffstring = form["USERFF"]
                 self.runoptions['userff'] = StringIO(form["USERFFFILE"])
             else:
@@ -132,7 +102,7 @@ class WebOptions(object):
 
             # if form.has_key("USERNAMES") and form["USERNAMES"].filename:
             if "NAMESFILE" in form and form["NAMESFILE"] != "":
-                self.usernamesfilename = sanitizeFileName(form["NAMESFILE"])
+                self.usernamesfilename = sanitize_fileName(form["NAMESFILE"])
                 # self.usernamesstring = form["USERNAMES"]
                 self.runoptions['usernames'] = StringIO(form["NAMESFILE"])
             else:
@@ -154,7 +124,7 @@ class WebOptions(object):
         # if form.has_key("LIGAND") and form['LIGAND'].filename:
             # self.ligandfilename=sanitizeFileName(form["LIGAND"].filename)
         if "LIGANDFILE" in form and form['LIGANDFILE'] != '':
-            self.ligandfilename = sanitizeFileName(form["LIGANDFILE"])
+            self.ligandfilename = sanitize_fileName(form["LIGANDFILE"])
             # ligandfilestring = form["LIGAND"]
             # for Windows and Mac style newline compatibility for pdb2pka
             # ligandfilestring = ligandfilestring.replace('\r\n', '\n')
@@ -164,15 +134,15 @@ class WebOptions(object):
             self.runoptions['ligand'] = StringIO(form["LIGANDFILE"])
 
         if self.pdbfilename[-4:] == ".pdb":
-            self.pqrfilename = "%s.pqr" % self.pdbfilename[:-4]
+            self.pqrfilename = f"{self.pdbfilename[:-4]}.pqr"
         else:
-            self.pqrfilename = "%s.pqr" % self.pdbfilename
+            self.pqrfilename = f"{self.pdbfilename}.pqr"
 
         # Always turn on summary and verbose.
         self.runoptions['verbose'] = True
         self.runoptions['selectedExtensions'] = ['summary']
 
-    def getLoggingList(self):
+    def get_logging_list(self):
         '''Returns a list of options the user has turned on.
         Used for logging jobs later in usage.txt'''
         results = []
@@ -183,11 +153,11 @@ class WebOptions(object):
 
         return results
 
-    def getRunArguments(self):
+    def get_run_arguments(self):
         '''Returns argument suitable for runPDB2PQR'''
         return self.runoptions.copy()
 
-    def getOptions(self):
+    def get_options(self) -> dict:
         '''Returns all options for reporting to Google analytics'''
         options = self.runoptions.copy()
         options.update(self.otheroptions)
@@ -211,54 +181,54 @@ class WebOptions(object):
 
         return options
 
-    def getCommandLine(self):
-        commandLine = []
+    def get_command_line(self) -> str:
+        command_line = []
 
         if not self.runoptions['debump']:
-            commandLine.append('--nodebump')
+            command_line.append('--nodebump')
 
         if not self.runoptions['opt']:
-            commandLine.append('--noopt')
+            command_line.append('--noopt')
 
         if 'ph' in self.runoptions:
-            commandLine.append('--with-ph=%s' % self.runoptions['ph'])
+            command_line.append(f"--with-ph={self.runoptions['ph']}")
 
         if 'ph_calc_method' in self.runoptions:
-            commandLine.append('--ph-calc-method=%s' % self.runoptions['ph_calc_method'])
+            command_line.append(f"--ph-calc-method={self.runoptions['ph_calc_method']}")
 
         if self.runoptions['drop_water']:
-            commandLine.append('--drop-water')
+            command_line.append('--drop-water')
 
         if self.otheroptions['apbs']:
-            commandLine.append('--apbs-input')
+            command_line.append('--apbs-input')
 
         if self.otheroptions['whitespace']:
-            commandLine.append('--whitespace')
+            command_line.append('--whitespace')
 
         if 'userff' in self.runoptions and self.ff == 'user':
-            commandLine.append('--userff=%s' % self.userfffilename)
-            commandLine.append('--usernames=%s' % self.usernamesfilename)
+            command_line.append(f'--userff={self.userfffilename}')
+            command_line.append(f'--usernames={self.usernamesfilename}')
         else:
-            commandLine.append('--ff=%s' % self.ff)
+            command_line.append(f'--ff={self.ff}')
 
         if 'ffout' in self.runoptions:
-            commandLine.append('--ffout=%s' % self.runoptions['ffout'])
+            command_line.append(f"--ffout={self.runoptions['ffout']}")
 
         for o in ('chain', 'typemap', 'neutraln', 'neutralc', 'verbose'):
             if self.runoptions[o]:
-                commandLine.append('--' + o)
+                command_line.append('--' + o)
 
         if 'ligand' in self.runoptions:
-            commandLine.append('--ligand=%s' % self.ligandfilename)
+            command_line.append(f'--ligand={self.ligandfilename}')
 
         for ext in self.runoptions.get('selectedExtensions', []):
-            commandLine.append('--%s' % ext)
+            command_line.append(f'--{ext}')
 
-        commandLine.append(self.pdbfilename)
+        command_line.append(self.pdbfilename)
 
-        commandLine.append(self.pqrfilename)
+        command_line.append(self.pqrfilename)
 
-        return ' '.join(commandLine)
+        return ' '.join(command_line)
 
     def __contains__(self, item):
         '''Helper for checking for the presence of an option'''
