@@ -387,6 +387,7 @@
       user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config"
       key_name: "{{ key_name }}"
       security_groups: [ "{{ default_sg }}" ]
+      instance_profile_name: "{{ project }}-{{ deployment_group }}-ec2-role"
       state: present
     register: lc_info
     
