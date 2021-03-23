@@ -13,7 +13,7 @@ phases:
       - if [ "$branch" ]; then IMAGE_TAG=$branch; fi
       - lasttime=$(aws ecr describe-images --region $AWS_DEFAULT_REGION --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG | jq -r '.imageDetails[0].imagePushedAt')
       - dockerchange=$(find src/docker -newermt '@'$lasttime | wc -l)
-      - if [ "$dockerchange" ]; then echo Building the Docker image... ; fi
+      - if [ "$dockerchange" ]; then echo Building the Docker image... $dockerchange ; fi
       - docker build -t $IMAGE_REPO_NAME:main.base src/docker
       - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
       - cd $CODEBUILD_SRC_DIR/src/lambda_services/job_service; zip -r /tmp/job.zip .
