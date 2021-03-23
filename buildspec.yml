@@ -11,10 +11,14 @@ phases:
       - IMAGE_TAG=test
       - #branch=`echo $CODEBUILD_INITIATOR | cut -c32-`  
       - if [ "$branch" ]; then IMAGE_TAG=$branch; fi
-      - dockerchange=`find src/docker -newermt "@$(aws ecr describe-images --region us-west-2 --repository-name apbs --image-ids imageTag=test | jq -r '.imageDetails[0].imagePushedAt')" | wc -l`
-      - echo Building the Docker image... 
+      - dockerchange=`find src/docker -newermt "@$(aws ecr describe-images --region $AWS_DEFAULT_REGION --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG | jq -r '.imageDetails[0].imagePushedAt')" | wc -l`
+      - if [ "$dockerchange" ]; then echo Building the Docker image... ; fi
       - docker build -t $IMAGE_REPO_NAME:main.base src/docker
-      - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG      
+      - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - cd $CODEBUILD_SRC_DIR/src/lambda/services/job_services; zip -r /tmp/job.zip .
+      - cd $CODEBUILD_SRC_DIR/src/lambda/services/api_services; zip -r /tmp/id.zip .
+      - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zipfile /tmp/job.zip
+      - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zipfile /tmp/id.zip
   post_build:
     commands:
       - echo Build completed on `date`
