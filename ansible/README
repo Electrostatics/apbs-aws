@@ -1,12 +1,12 @@
 
 
-# create vault password
-echo 'passphrase' > vault_password
+Create a inventory set similar to inventories/apbs/test.
+Create the Apigateway and Web bucket and Codefront portal manually.
 
-# create ssm parameters
-ansible-playbook -i inventories/apbs/prod --vault-password-file vault_password deploy.yml 
-
-# set lambda permissions
-aws lambda --profile livewire get-policy --function-name arn:aws:lambda:us-west-2:747569575564:function:livewire-ansible-develop-api-auth
-
-aws lambda --profile livewire add-permission --function-name arn:aws:lambda:us-west-2:747569575564:function:livewire-ansible-test-api-auth --source-arn 'arn:aws:execute-api:us-west-2:747569575564:xkkcnw0931/authorizers/tnno6c' --principal apigateway.amazonaws.com --statement-id 538c5e84-9778-4797-a959-277f002f8f23 --action lambda:InvokeFunction
+Using AWS Cloudshell you can then checkout this repo and then run:
+bash ansible/cloudshell-ansible-setup.sh
+cd ansible
+# Then set your temporary AWS env tokens so boto will find them
+. env.sh
+# Run the ansible playbook to setup the backend env
+ansible-playbook -i inventories/apbs/test deploy.yml 

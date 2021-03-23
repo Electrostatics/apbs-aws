@@ -5,11 +5,10 @@
         "Effect": "Allow",
         "Principal": {
           "Service": [ 
-              "ec2.amazonaws.com",
-              "ecs.amazonaws.com"
+              "apigateway.amazonaws.com"
           ]
         },
         "Action": "sts:AssumeRole"
       }
     ]
-  }
+}

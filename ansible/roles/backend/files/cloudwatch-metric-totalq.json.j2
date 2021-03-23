@@ -1,0 +1,35 @@
+[
+      {
+        "Id": "{{ deployment_group}}-active",
+        "Expression": "(m1+m2)",
+        "Label": "ActiveTasks"
+      },
+      {
+        "Id": "m1",
+        "MetricStat": {
+          "Metric": {
+            "Namespace": "AWS/SQS",
+            "MetricName": "ApproximateNumberOfMessagesVisible",
+            "Dimensions": { "QueueName", "{{ project }}-{{ deployment_group }}-job-q" }
+          },
+          "Period": 60,
+          "Stat": "Maxium",
+          "Unit": "Count"
+        },
+        "ReturnData": false
+      },
+      {
+        "Id": "m2",
+        "MetricStat": {
+          "Metric": {
+            "Namespace": "AWS/SQS",
+            "MetricName": "ApproximateNumberOfMessagesNotVisible",
+            "Dimensions": { "QueueName", "{{ project }}-{{ deployment_group }}-job-q" }
+          },
+          "Period": 60,
+          "Stat": "Maxium",
+          "Unit": "Count"
+        },
+        "ReturnData": false
+      }    
+]
