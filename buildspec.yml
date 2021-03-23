@@ -15,8 +15,8 @@ phases:
       - if [ "$dockerchange" ]; then echo Building the Docker image... ; fi
       - docker build -t $IMAGE_REPO_NAME:main.base src/docker
       - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
-      - cd $CODEBUILD_SRC_DIR/src/lambda_services/job_services; zip -r /tmp/job.zip .
-      - cd $CODEBUILD_SRC_DIR/src/lambda_services/api_services; zip -r /tmp/id.zip .
+      - cd $CODEBUILD_SRC_DIR/src/lambda_services/job_service; zip -r /tmp/job.zip .
+      - cd $CODEBUILD_SRC_DIR/src/lambda_services/api_service; zip -r /tmp/id.zip .
       - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zip-file /tmp/job.zip
       - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zip-file /tmp/id.zip
   post_build:
