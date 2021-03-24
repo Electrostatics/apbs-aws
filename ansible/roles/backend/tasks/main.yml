@@ -240,7 +240,7 @@
       - lambda2
       - lambda
       - update
-    when: not lambda_job_config.response
+    when: not lambda_job_config
     
   - name: List function versions
     community.aws.lambda_info:
@@ -269,7 +269,7 @@
       - lambda2
       - lambda
       - update
-    when: not lambda_id_config.response
+    when: not lambda_id_config
 
   - name: ID Lambda api gateway   permissions
     community.aws.lambda_policy:
@@ -315,7 +315,7 @@
         essential: true
         image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
         environment:
-          - name: "JOBQ"
+          - name: "JOB_QUEUE_NAME"
             value: "{{ project }}-{{ deployment_group }}-job-q"
           - name: "OUTPUT_BUCKET"
             value: "{{ project }}-{{ deployment_group }}-output"
@@ -335,13 +335,13 @@
         essential: true
         image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
         environment:
-          - name: "JOBQ"
+          - name: "JOB_QUEUE_NAME"
             value: "{{ project }}-{{ deployment_group }}-job-q"
           - name: "OUTPUT_BUCKET"
             value: "{{ project }}-{{ deployment_group }}-output"
       launch_type: EC2
       task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
-      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-ec2-role"
+      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
       cpu: 512
       memory: 1GB
       state: present
