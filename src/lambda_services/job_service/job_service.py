@@ -118,7 +118,3 @@ def interpret_job_submission(event: dict, context=None):
     sqs_client = boto3.resource('sqs')
     queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
     queue.send_message(MessageBody=json.dumps(sqs_json))
-
-    ecs_client = boto3.client('ecs')
-    if ecs_client.describe_services(cluster=FARGATE_CLUSTER, services=[FARGATE_SERVICE],)['services'][0]['desiredCount'] == 0:
-        ecs_client.update_service(cluster=FARGATE_CLUSTER, service=FARGATE_SERVICE, desiredCount=1)
