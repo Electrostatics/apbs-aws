@@ -192,7 +192,7 @@
 
   - name: Create id-L lambda bundle
     archive:
-      path: "../src/lambda_services/api_service/"
+      path: "../lambda_services/api_service/"
       dest: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
       format: zip
     tags: 
@@ -202,7 +202,7 @@
       
   - name: Create job-L lambda bundle
     archive:
-      path: "../src/lambda_services/job_service/"
+      path: "../lambda_services/job_service/"
       dest: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
       format: zip
     tags: 
