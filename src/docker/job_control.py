@@ -195,6 +195,7 @@ def run_job(job: str, s3client: client) -> int:
 
     file = "MISSING"
     try:
+        # TODO: The system() should be replaced with subrocess.run()
         system(command)
         for file in listdir("."):
             s3client.upload_file(
