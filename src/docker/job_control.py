@@ -2,10 +2,11 @@
 """Software to run apbs and pdb2pqr jobs."""
 
 from os import chdir, getenv, listdir, makedirs, system
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads
-from logging import getLogger
+from logging import getLogger, ERROR, INFO
 from time import sleep, time
 from shutil import rmtree
 from typing import Any, Dict, List
@@ -13,6 +14,10 @@ from urllib import request
 from boto3 import client, resource
 
 _LOGGER = getLogger(__name__)
+# TODO: This may need to be increased or calculated based
+#       on complexity of the job (dimension of molecule?)
+#       The job could get launched multiple times if the
+#       job takes longer than Q_TIMEOUT
 Q_TIMEOUT = 300
 AWS_REGION = "us-west-2"
 MAX_TRIES = 60
@@ -68,7 +73,7 @@ def get_messages(sqs: client, qurl: str) -> Any:
 def update_status(
     s3client: client,
     jobid: str,
-    jobtype: JOBTYPE,
+    jobtype: str,
     status: JOBSTATUS,
     output_files: List,
 ) -> Dict:
@@ -83,13 +88,16 @@ def update_status(
     :rtype:  Dict
     """
     ups3 = resource("s3")
-    objectfile = f"{jobid}/{jobtype.name}-status.json"
+    objectfile = f"{jobid}/{jobtype}-status.json"
     s3obj = ups3.Object(S3_BUCKET, objectfile)
     statobj: dict = loads(s3obj.get()["Body"].read().decode("utf-8"))
 
-    statobj[jobtype]["status"] = status.name
+    statobj[jobtype]["status"] = status.name.lower()
     statobj[jobtype]["endTime"] = time()
-    # FIX TODO: What does FIX mean?
+    # TODO: There is a possible problem here where the output_files
+    #       may contain one or more of the input_files filenames.
+    #       We are not sure if this is a problem in this script or
+    #       if the problem is on the GUI side.
     statobj[jobtype]["outputFiles"] = output_files
 
     object_response = {}
@@ -135,14 +143,16 @@ def run_job(job: str, s3client: client) -> int:
             error,
         )
         return ret_val
-    rundir = f"{MEM_PATH}{job_info['job_id']}"
+    job_type = job_info["job_type"]
+    job_id = job_info["job_id"]
+    rundir = f"{MEM_PATH}{job_id}"
     inbucket = job_info["bucket_name"]
     makedirs(rundir, exist_ok=True)
     chdir(rundir)
 
     for file in job_info["input_files"]:
         if "https" in file:
-            name = f"{job_info['job_id']}/{file.split('/')[-1]}"
+            name = f"{job_id}/{file.split('/')[-1]}"
             try:
                 request.urlretrieve(file, f"{MEM_PATH}{name}")
             except Exception as error:
@@ -160,57 +170,64 @@ def run_job(job: str, s3client: client) -> int:
                 return cleanup_job(rundir)
     update_status(
         s3client,
-        job_info["job_id"],
-        job_info["job_type"],
+        job_id,
+        job_type,
         JOBSTATUS.RUNNING,
         [],
     )
 
-    if JOBTYPE.APBS.name in job_info["job_type"]:
+    job_output = f"> {job_type}.stdout.txt 2> {job_type}.stderr.txt"
+    if JOBTYPE.APBS.name.lower() in job_type:
         command = (
             "LD_LIBRARY_PATH=/app/APBS-3.0.0.Linux/lib "
             "/app/APBS-3.0.0.Linux/bin/apbs "
             f"{job_info['command_line_args']} "
-            "> apbs.stdout.txt 2> apbs.stderr.txt"
+            f"{job_output}"
         )
-    elif JOBTYPE.PDB2PQR.name in job_info["job_type"]:
+    elif JOBTYPE.PDB2PQR.name.lower() in job_type:
         command = (
             "/app/builds/pdb2pqr/pdb2pqr.py "
             f"{job_info['command_line_args']} "
-            "> pdb2pqr.stdout.txt 2> pdb2pqr.stderr.txt"
+            f"{job_output}"
         )
     else:
-        raise KeyError(f"Invalid job type, {job_info['job_type']}")
+        raise KeyError(f"Invalid job type, {job_type}")
 
-    file = ""
+    file = "MISSING"
     try:
         system(command)
         for file in listdir("."):
             s3client.upload_file(
-                f"{MEM_PATH}{job_info['job_id']}/{file}",
+                f"{MEM_PATH}{job_id}/{file}",
                 S3_BUCKET,
-                f"{job_info['job_id']}/{file}",
+                f"{job_id}/{file}",
             )
     except Exception as error:
         _LOGGER.error(
             "ERROR: Failed to upload file, %s \n\t%s",
-            f"{job_info['job_id']}/{file}",
+            f"{job_id}/{file}",
             error,
         )
-        ret_val = 0
+        # TODO: Should this return 1 because noone else will succeed?
+        ret_val = 1
 
+    # NOTE: This may be easier to read/implement if the following is correct:
+    # output_files = [
+    #    f"{job_id}/{file}"
+    #    for file in listdir(".")
+    #    if file not in job_info["input_files"]
+    # ]
     output_files = [
-        f"{job_info['job_id']}/{file}"
+        f"{job_id}/{file}"
         for file in listdir(".")
         for infile in job_info["input_files"]
         if file not in infile
     ]
-    chdir(MEM_PATH)
-    rmtree(rundir)
+    cleanup_job(rundir)
     update_status(
         s3client,
-        job_info["job_id"],
-        job_info["job_type"],
+        job_id,
+        job_type,
         JOBSTATUS.COMPLETE,
         output_files,
     )
@@ -218,10 +235,37 @@ def run_job(job: str, s3client: client) -> int:
     return ret_val
 
 
+def build_parser():
+    """Build argument parser.
+
+    :return:  argument parser
+    :rtype:  ArgumentParser
+    """
+    desc = f"\n\tRun the APBS or PDB2PQR process"
+
+    parser = ArgumentParser(
+        description=desc,
+        formatter_class=ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print out verbose output",
+    )
+    return parser
+
+
 def main() -> None:
     """Loop over the SQS Queue and run any jobs in the queue.
     :return:  None
     """
+
+    parser = build_parser()
+    args = parser.parse_args()
+
+    _LOGGER.setLevel(ERROR)
+    if args.verbose:
+        _LOGGER.setLevel(INFO)
 
     s3client = client("s3")
     sqs = client("sqs", region_name=AWS_REGION)
@@ -229,14 +273,16 @@ def main() -> None:
     qurl = queue_url["QueueUrl"]
     lasttime = datetime.now()
 
-    # TODO: Document what a mess structure looks like
+    # The structure of the SQS messages is documented at:
+    # https://docs.aws.amazon.com/AWSSimpleQueueService/
+    # latest/APIReference/API_ReceiveMessage.html
     mess = get_messages(sqs, qurl)
     while mess:
         for idx in mess["Messages"]:
-            if run_job(idx["Body"], s3client):
-                sqs.delete_message(
-                    QueueUrl=qurl, ReceiptHandle=idx["ReceiptHandle"]
-                )
+            run_job(idx["Body"], s3client)
+            sqs.delete_message(
+                QueueUrl=qurl, ReceiptHandle=idx["ReceiptHandle"]
+            )
         mess = get_messages(sqs, qurl)
     _LOGGER.info("DONE: %s", str(datetime.now() - lasttime))
 
