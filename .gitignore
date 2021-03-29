@@ -131,3 +131,6 @@ dmypy.json
 tests/azure_jobs
 tests/AZURE_CACHE.txt
 tests/list_jobs.sh
+
+# VS Code
+.vscode/
