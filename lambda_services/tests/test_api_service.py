@@ -1,6 +1,6 @@
 """Tests for the generating unique IDs and S3 tokens."""
 from copy import copy
-from src.lambda_services.api_service.api_service import generate_id_and_tokens
+from lambda_services.api_service.api_service import generate_id_and_tokens
 
 
 def test_generate_id_and_tokens():
