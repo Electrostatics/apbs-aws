@@ -212,18 +212,19 @@ def run_job(job: str, s3client: client) -> int:
         # TODO: Should this return 1 because noone else will succeed?
         ret_val = 1
 
-    # NOTE: This may be easier to read/implement if the following is correct:
-    # output_files = [
-    #    f"{job_id}/{file}"
-    #    for file in listdir(".")
-    #    if file not in job_info["input_files"]
-    # ]
-    output_files = [
-        f"{job_id}/{file}"
-        for file in listdir(".")
-        for infile in job_info["input_files"]
-        if file not in infile
+    # TODO: 2021/03/30, Elvis - Will need to address how we bundle output
+    #       subdirectory for PDB2PKA when used; I previous bundled it as a zip
+
+    # Create list of output files
+    input_files_no_id = [  # Remove job_id prefix from input file list
+        "".join(name.split("/")[1:]) for name in job_info["input_files"]
     ]
+    output_files = [
+        f"{job_id}/{filename}"
+        for filename in listdir(".")
+        if filename not in input_files_no_id
+    ]
+
     cleanup_job(rundir)
     update_status(
         s3client,
@@ -242,7 +243,7 @@ def build_parser():
     :return:  argument parser
     :rtype:  ArgumentParser
     """
-    desc = f"\n\tRun the APBS or PDB2PQR process"
+    desc = "\n\tRun the APBS or PDB2PQR process"
 
     parser = ArgumentParser(
         description=desc,
