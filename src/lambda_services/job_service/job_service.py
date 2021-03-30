@@ -126,9 +126,8 @@ def interpret_job_submission(event: dict, context=None):
     jobinfo_object_name: str = event["Records"][0]["s3"]["object"]["key"]
     bucket_name: str = event["Records"][0]["s3"]["bucket"]["name"]
     job_id = jobinfo_object_name.split("/")[0]
-    job_type = jobinfo_object_name.split("-")[0].split("/")[
-        1
-    ]  # Assumes 'pdb2pqr-job.json', or similar format
+    # Assumes 'pdb2pqr-job.json', or similar format
+    job_type = jobinfo_object_name.split("-")[0].split("/")[1]  
 
     # If PDB2PQR:
     #   - Obtain job configuration from config file
