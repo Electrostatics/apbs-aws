@@ -4,7 +4,7 @@ import time
 import json
 import logging
 import boto3
-from launcher import pdb2pqr_runner, apbs_runner
+from .launcher import pdb2pqr_runner, apbs_runner
 
 OUTPUT_BUCKET = os.getenv("OUTPUT_BUCKET")
 FARGATE_CLUSTER = os.getenv("FARGATE_CLUSTER")
@@ -127,7 +127,7 @@ def interpret_job_submission(event: dict, context=None):
     bucket_name: str = event["Records"][0]["s3"]["bucket"]["name"]
     job_id = jobinfo_object_name.split("/")[0]
     # Assumes 'pdb2pqr-job.json', or similar format
-    job_type = jobinfo_object_name.split("-")[0].split("/")[1]  
+    job_type = jobinfo_object_name.split("-")[0].split("/")[1]
 
     # If PDB2PQR:
     #   - Obtain job configuration from config file
