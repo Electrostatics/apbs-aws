@@ -11,6 +11,10 @@ FARGATE_SERVICE = os.getenv('FARGATE_SERVICE')
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv('JOB_QUEUE_NAME')
 
+# Initialize logger
+LOGGER = logging.getLogger()
+LOGGER.setLevel(os.getenv('LOG_LEVEL', logging.INFO))
+
 
 def get_job_info(bucket_name: str, info_object_name: str) -> dict:
     """Retrieve job configuraiton JSON object from S3, and return as dict.
@@ -147,8 +151,8 @@ def interpret_job_submission(event: dict, context=None):
     else:
         status = "invalid"
         message = "Invalid job type. No job executed"
-        logging.error("Invalid job type - Job ID: %s, Job Type: %s",
-                      job_id, job_type)
+        LOGGER.error("Invalid job type - Job ID: %s, Job Type: %s",
+                     job_id, job_type)
 
     # Create and upload status file to S3
     status_filename = f'{job_type}-status.json'
