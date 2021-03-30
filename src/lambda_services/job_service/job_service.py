@@ -36,7 +36,7 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
         raise
 
 
-def build_status_dict(job_id: str, job_type: str, status: str, 
+def build_status_dict(job_id: str, job_type: str, status: str,
                       inputfile_list: list, outputfile_list: list,
                       message: str = None) -> dict:
     """Build a dictionary for the initial status
@@ -83,9 +83,6 @@ def build_status_dict(job_id: str, job_type: str, status: str,
     return initial_status_dict
 
 
-# def upload_status_file(job_id: str, object_filename: str, job_type: str,
-#                        status: str, inputfile_list: list, outputfile_list: list,
-#                        message: str = None):
 def upload_status_file(object_filename: str, initial_status_dict: dict):
     """Upload the initial status object to S3
 
@@ -98,10 +95,10 @@ def upload_status_file(object_filename: str, initial_status_dict: dict):
     #                           they're constructed on a per-job basis
 
     s3_client = boto3.client('s3')
-    object_response: dict = s3_client.put_object(
-                            Body=json.dumps(initial_status_dict),
-                            Bucket=OUTPUT_BUCKET,
-                            Key=object_filename
+    s3_client.put_object(
+        Body=json.dumps(initial_status_dict),
+        Bucket=OUTPUT_BUCKET,
+        Key=object_filename
     )
 
 
@@ -117,12 +114,10 @@ def interpret_job_submission(event: dict, context=None):
     jobinfo_object_name: str = event['Records'][0]['s3']['object']['key']
     bucket_name: str = event['Records'][0]['s3']['bucket']['name']
     job_id = jobinfo_object_name.split('/')[0]
-
-    # Obtain job configuration from config file
-    job_info_form = get_job_info(bucket_name, jobinfo_object_name)['form']
     job_type = jobinfo_object_name.split('-')[0].split('/')[1]  # Assumes 'pdb2pqr-job.json', or similar format
 
     # If PDB2PQR:
+    #   - Obtain job configuration from config file
     #   - Use weboptions if from web
     #   - Interpret as is if using only command line args
     input_files = None
@@ -130,14 +125,17 @@ def interpret_job_submission(event: dict, context=None):
     message = None
     status = "pending"
     if job_type == 'pdb2pqr':
+        job_info_form = get_job_info(bucket_name, jobinfo_object_name)['form']
         job_runner = pdb2pqr_runner.Runner(job_info_form, job_id)
         job_command_line_args = job_runner.prepare_job()
         input_files = job_runner.input_files
         output_files = job_runner.output_files
 
     # If APBS:
+    #   - Obtain job configuration from config file
     #   - Use form data to interpret job
     elif job_type == 'apbs':
+        job_info_form = get_job_info(bucket_name, jobinfo_object_name)['form']
         job_runner = apbs_runner.Runner(job_info_form, job_id)
         job_command_line_args = job_runner.prepare_job(OUTPUT_BUCKET, bucket_name)
         input_files = job_runner.input_files
@@ -155,17 +153,20 @@ def interpret_job_submission(event: dict, context=None):
     # Create and upload status file to S3
     status_filename = f'{job_type}-status.json'
     status_object_name = f'{job_id}/{status_filename}'
-    initial_status: dict = build_status_dict(job_id, job_type, status, input_files, output_files, message)
+    initial_status: dict = build_status_dict(job_id, job_type,
+                                             status, input_files,
+                                             output_files, message)
     upload_status_file(status_object_name, initial_status)
 
     # Submit run info to SQS
-    sqs_json = {
-        "job_id": job_id,
-        "job_type": job_type,
-        "bucket_name": bucket_name,
-        "input_files": job_runner.input_files,
-        "command_line_args": job_command_line_args,
-    }
-    sqs_client = boto3.resource('sqs')
-    queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
-    queue.send_message(MessageBody=json.dumps(sqs_json))
+    if status != "invalid":
+        sqs_json = {
+            "job_id": job_id,
+            "job_type": job_type,
+            "bucket_name": bucket_name,
+            "input_files": job_runner.input_files,
+            "command_line_args": job_command_line_args,
+        }
+        sqs_client = boto3.resource('sqs')
+        queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
+        queue.send_message(MessageBody=json.dumps(sqs_json))
