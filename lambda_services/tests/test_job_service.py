@@ -1,5 +1,5 @@
 """Tests for interpreting and handling job configuration submissions."""
-from src.lambda_services.job_service.job_service import build_status_dict
+from lambda_services.job_service.job_service import build_status_dict
 
 
 def test_build_status_dict_valid_job():
@@ -11,9 +11,9 @@ def test_build_status_dict_valid_job():
     input_files = ["sampleId.in", "1fas.pqr"]
     output_files = []
     job_status = "pending"
-    status_dict: dict = build_status_dict(job_id, job_type, job_status,
-                                          input_files, output_files,
-                                          message=None)
+    status_dict: dict = build_status_dict(
+        job_id, job_type, job_status, input_files, output_files, message=None
+    )
     assert "jobid" in status_dict
     assert "jobtype" in status_dict
     assert job_type in status_dict
@@ -35,9 +35,14 @@ def test_build_status_dict_invalid_job():
     output_files = None
     job_status = "invalid"
     invalid_message = "Invalid job type"
-    status_dict: dict = build_status_dict(job_id, job_type, job_status,
-                                          input_files, output_files,
-                                          message=invalid_message)
+    status_dict: dict = build_status_dict(
+        job_id,
+        job_type,
+        job_status,
+        input_files,
+        output_files,
+        message=invalid_message,
+    )
     assert "status" in status_dict[job_type]
     assert "message" in status_dict[job_type]
     assert status_dict[job_type]["status"] == "invalid"
