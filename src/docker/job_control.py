@@ -213,7 +213,8 @@ def run_job(job: str, s3client: client) -> int:
         ret_val = 1
 
     # TODO: 2021/03/30, Elvis - Will need to address how we bundle output
-    #       subdirectory for PDB2PKA when used; I previous bundled it as a zip
+    #       subdirectory for PDB2PKA when used; I previous bundled it as
+    #       a compressed tarball (i.e. "{job_id}-pdb2pka_output.tar.gz")
 
     # Create list of output files
     input_files_no_id = [  # Remove job_id prefix from input file list
