@@ -279,7 +279,6 @@
       action: lambda:InvokeFunction
       principal: apigateway.amazonaws.com
       source_arn: "arn:aws:execute-api:{{ aws_region }}:{{ aws_account_id }}:{{ gateway_name }}/*/*/jobid"
-      source_account: "{{ aws_account_id }}"
 
   - name: Job Lambda S3 event notification permissions
     community.aws.lambda_policy:
