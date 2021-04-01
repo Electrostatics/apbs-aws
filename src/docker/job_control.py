@@ -218,7 +218,7 @@ def run_job(job: str, s3client: client) -> int:
 
     # Create list of output files
     input_files_no_id = [  # Remove job_id prefix from input file list
-        "".join(name.split("/")[1:]) for name in job_info["input_files"]
+        "".join(name.split("/")[-1]) for name in job_info["input_files"]
     ]
     output_files = [
         f"{job_id}/{filename}"
