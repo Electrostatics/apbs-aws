@@ -23,7 +23,7 @@ DESCRIPTION:
 """
 
 from collections import deque
-import os
+from os import makedirs, path as ospath
 import time
 from azure.storage.blob import BlobServiceClient
 
@@ -37,13 +37,13 @@ class AzureClient:
         self.download_root = download_root
         if download_root and not download_root.endswith("/"):
             self.download_root += "/"
-            os.makedirs(self.download_root, exist_ok=True)
+            makedirs(self.download_root, exist_ok=True)
 
     def upload(self, source, dest):
         """
         Upload a file or directory to a path inside the container
         """
-        if os.path.isdir(source):
+        if ospath.isdir(source):
             self.upload_dir(source, dest)
         else:
             self.upload_file(source, dest)
@@ -71,11 +71,11 @@ class AzureClient:
             if not dest.endswith("/"):
                 dest += "/"
             # append the directory name from source to the destination
-            dest += os.path.basename(os.path.normpath(source)) + "/"
+            dest += ospath.basename(ospath.normpath(source)) + "/"
 
             blobs = [source + blob for blob in blobs]
             for blob in blobs:
-                blob_dest = dest + os.path.relpath(blob, source)
+                blob_dest = dest + ospath.relpath(blob, source)
                 self.download_file(blob, blob_dest)
         else:
             self.download_file(source, dest)
@@ -139,10 +139,10 @@ class AzureClient:
 
         blob_dest = dest
         if dest.endswith("/"):
-            blob_dest = dest + os.path.basename(source)
+            blob_dest = dest + ospath.basename(source)
 
         print(f"    Downloading {source} to {blob_dest}")
-        os.makedirs(os.path.dirname(blob_dest), exist_ok=True)
+        makedirs(ospath.dirname(blob_dest), exist_ok=True)
         bc = self.client.get_blob_client(blob=source)
         with open(blob_dest, "wb") as file:
             data = bc.download_blob()
@@ -194,7 +194,7 @@ class AzureClient:
         blob_iter = self.client.list_blobs(name_starts_with=path)
         files = []
         for blob in blob_iter:
-            relative_path = os.path.relpath(blob.name, path)
+            relative_path = ospath.relpath(blob.name, path)
             if recursive or "/" not in relative_path:
                 files.append(relative_path)
         return files
@@ -209,7 +209,7 @@ class AzureClient:
         blob_iter = self.client.list_blobs(name_starts_with=path)
         dirs = []
         for blob in blob_iter:
-            relative_dir = os.path.dirname(os.path.relpath(blob.name, path))
+            relative_dir = ospath.dirname(path.relpath(blob.name, path))
             if (
                 relative_dir
                 and (recursive or "/" not in relative_dir)
