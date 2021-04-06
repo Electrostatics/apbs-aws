@@ -1,14 +1,44 @@
-"""Main program to process jobs from Azure to AWS."""
+"""Main program to process jobs on AWS."""
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from contextlib import ExitStack
+from dataclasses import dataclass, field
 from datetime import datetime
 from logging import getLogger, ERROR, INFO
+from io import TextIOWrapper
 from os import path as ospath
+from os import listdir
+from subprocess import check_call, CalledProcessError
 from sys import exit
-
-from azureapbs import AzureClient
+from time import sleep, time
+from rclone import Rclone
 
 _LOGGER = getLogger(__name__)
+PID = 0
+
+
+@dataclass
+class job_group:
+    filename: str
+    fh: TextIOWrapper = None
+    jobs: list = field(default_factory=list)
+    count: int = 0
+
+    def append(self, element):
+        self.jobs.append(element)
+
+
+def handler(signal_received, frame):
+    global PID
+
+    kill_cmd = f"kill -9 {PID}"
+
+    try:
+        _LOGGER.critical("\n" + " " * 20 + f" {time.strftime('%H:%M:%S')}")
+        check_call(kill_cmd, shell=True)
+    except CalledProcessError as cpe:
+        _LOGGER.critical("ERROR: %s", cpe)
+        exit(0)
 
 
 def get_job_type(file_list):
@@ -28,7 +58,7 @@ def get_job_type(file_list):
     return "unknown"
 
 
-def get_jobs_from_cache(jobid_cache, job_filelist_cache, azure_client):
+def get_jobs_from_cache(jobid_cache, job_filelist_cache):
     jobs = []
     jobs_done = []
     if ospath.exists(job_filelist_cache) and ospath.isfile(job_filelist_cache):
@@ -42,12 +72,18 @@ def get_jobs_from_cache(jobid_cache, job_filelist_cache, azure_client):
                 if curline not in jobs_done:
                     jobs.append(curline)
     else:
-        jobs = azure_client.walk2(5000, 100000)
-        with open(jobid_cache, "w") as outfile:
-            for job in jobs:
-                print(job, file=outfile)
-    # print(f"JOBS: {len(jobs)} {jobs}")
-    # exit(1)
+        raise FileNotFoundError()
+    return jobs
+
+
+def get_job_ids_from_cache(cache_file):
+    jobs = []
+    if ospath.exists(cache_file) and ospath.isfile(cache_file):
+        with open(cache_file, "r") as fh:
+            for curline in fh:
+                job_id = curline.strip("\n").split(" ")[0].strip("/")
+                if job_id is not None:
+                    jobs.append(job_id)
     return jobs
 
 
@@ -57,7 +93,7 @@ def build_parser():
     :return:  argument parser
     :rtype:  ArgumentParser
     """
-    desc = f"\n\tCopy jobs from Azure to AWS"
+    desc = f"\n\tProcess jobs on AWS"
 
     parser = ArgumentParser(
         description=desc,
@@ -69,45 +105,16 @@ def build_parser():
         help="Print out verbose output",
     )
     parser.add_argument(
-        "--azconnection",
-        type=str,
-        default="MISSING",
-        required=True,
-        help=(
-            "Azure connection string that looks something like"
-            "'DefaultEndpointsProtocol=https;AccountName=apbsminio;"
-            "AccountKey=ReallyLongSequenceOfCharactersThatMakeUpTheHashedKeyForYour"
-            "AccountThatWouldBeHardToMemorizeOrUnderstand;"
-            "EndpointSuffix=core.windows.net'"
-        ),
-    )
-    parser.add_argument(
-        "--azcontainer",
-        type=str,
-        default="MISSING",
-        required=True,
-        help=("Azure storage container name"),
-    )
-    parser.add_argument(
-        "--cachedir",
-        type=str,
-        default="MISSING",
-        required=True,
-        help=("Local download directory to cache jobs from Azure"),
-    )
-    parser.add_argument(
         "--cachejoblist",
         type=str,
         default="cache_meta/AZURE_CACHE.txt",
-        help=("Local download file to cache job ids from Azure"),
+        help=("Local file to hold job ids"),
     )
     parser.add_argument(
         "--cachejobfilelist",
         type=str,
         default="cache_meta/AZURE_FILELIST_CACHE.txt",
-        help=(
-            "Local download file to cache list of files for job ids from Azure"
-        ),
+        help=("Local download file to cache list of files for job ids"),
     )
     parser.add_argument(
         "--apitoken",
@@ -119,7 +126,27 @@ def build_parser():
         "--jobid",
         type=str,
         default=None,
-        help=("Azure Jobid"),
+        help=("Jobid"),
+    )
+    parser.add_argument(
+        "--rcloneconfig",
+        type=str,
+        default="S3",
+        help=("rclone config to use (rclone listremotes)"),
+    )
+    parser.add_argument(
+        "--rcloneremotepath",
+        type=str,
+        default="apbs-azure-migration",
+        help=("rclone remote path for config"),
+    )
+    parser.add_argument(
+        "--rclonemountpath",
+        type=str,
+        # TODO: This could be os.environ($HOME)/RCLONE_MOUNT or something
+        default=None,
+        required=True,
+        help=("rclone directory to mount remote path"),
     )
     parser.add_argument(
         "--maxjobs",
@@ -137,39 +164,41 @@ def main() -> None:
     """
 
     args = build_parser()
+    rclone = Rclone(args.rcloneconfig)
 
     _LOGGER.setLevel(ERROR)
     if args.verbose:
         _LOGGER.setLevel(INFO)
 
-    # Create a client that is connected to Azure storage container
-
-    try:
-        azure_client = AzureClient(
-            args.azconnection, args.azcontainer, args.cachedir
-        )
-    except Exception as sysexc:
-        print(f"ERROR: Exception, {sysexc}")
-        exit(1)
-
     # TODO: Make this a command line argument
-    jobs = get_jobs_from_cache(
-        args.cachejoblist, args.cachejobfilelist, azure_client
-    )
+    # jobs = get_jobs_from_cache(args.cachejoblist, args.cachejobfilelist)
     job_types = {"apbs": 0, "pdb2pqr": 0, "combined": 0, "unknown": 0}
     firsttime = datetime.now()
     lasttime = firsttime
-    apbs_fh = open("cache_apbs.txt", "a")
-    pdb2pqr_fh = open("cache_pdb2pqr.txt", "a")
-    combined_fh = open("cache_combined.txt", "a")
-    unknown_fh = open("cache_unknown.txt", "a")
+    filenames = [
+        "cache_meta/cache_apbs.txt",
+        "cache_meta/cache_pdb2pqr.txt",
+        "cache_meta/cache_combined.txt",
+        "cache_meta/cache_unknown.txt",
+    ]
     job_caches = {
-        "apbs": apbs_fh,
-        "pdb2pqr": pdb2pqr_fh,
-        "combined": combined_fh,
-        "unknown": unknown_fh,
+        "apbs": job_group(filename="cache_meta/cache_apbs.txt"),
+        "pdb2pqr": job_group(filename="cache_meta/cache_pdb2pqr.txt"),
+        "combined": job_group(filename="cache_meta/cache_combined.txt"),
     }
-    for idx, job in enumerate(jobs, start=1):
+
+    with ExitStack() as stack:
+        for key, target in job_caches.items():
+            fname = target.filename
+            file_handle = stack.enter_context(open(fname))
+            job_list = get_job_ids_from_cache(fname)
+            target.fh = file_handle
+            target.jobs = job_list
+            target.count = len(job_list)
+            print(f"THING: {key} {target.count}")
+
+    key = "apbs"
+    for idx, job in enumerate(job_caches[key].jobs, start=1):
         if idx % 50 == 0:
             interval_time = datetime.now()
             print(
@@ -180,17 +209,22 @@ def main() -> None:
             break
         if args.jobid is not None and args.jobid not in job:
             continue
-        # print(f"JOB: {job}")
-        file_list = azure_client.ls_files(job, recursive=True)
+        print(f"MOUNTPATH: {args.rclonemountpath}")
+        rclone.mount(args.rcloneremotepath + f"/{job}", args.rclonemountpath)
+        file_list = []
+        attempts = 0
+        max_attempts = 20
+        while not file_list and attempts < max_attempts:
+            file_list = listdir(args.rclonemountpath)
+            print(f"ATTEMPT: {attempts}, LIST: {file_list}")
+            attempts += 1
+            sleep(1)
+        print(f"FILES: {file_list}")
         job_type = get_job_type(file_list)
+        print(f"JOBTYPE: {job} = {job_type}")
         job_types[job_type] += 1
-        print(f"{job} {file_list}", file=job_caches[job_type])
 
     _LOGGER.info("DONE: %s", str(datetime.now() - lasttime))
-    apbs_fh.close()
-    pdb2pqr_fh.close()
-    combined_fh.close()
-    unknown_fh.close()
     print(f"{job_types}")
 
 
