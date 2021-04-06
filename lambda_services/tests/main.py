@@ -4,16 +4,31 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import datetime
-from logging import getLogger, ERROR, INFO
+from logging import (
+    basicConfig,
+    DEBUG,
+    Formatter,
+    getLogger,
+    ERROR,
+    INFO,
+    StreamHandler,
+)
 from io import TextIOWrapper
 from os import path as ospath
 from os import listdir
 from subprocess import check_call, CalledProcessError
 from sys import exit
-from time import sleep, time
+from time import time
+from apbsjob import ApbsJob
 from rclone import Rclone
 
 _LOGGER = getLogger(__name__)
+# basicConfig(format="%(levelname)s:%(message)s", level=ERROR)
+ch = StreamHandler()
+formatter = Formatter("%(levelname)s:%(message)s")
+ch.setFormatter(formatter)
+_LOGGER.addHandler(ch)
+
 PID = 0
 
 
@@ -146,13 +161,20 @@ def build_parser():
         # TODO: This could be os.environ($HOME)/RCLONE_MOUNT or something
         default=None,
         required=True,
-        help=("rclone directory to mount remote path"),
+        help=("The directory for rclone to mount remote path"),
     )
     parser.add_argument(
         "--maxjobs",
-        type=int,
         default=None,
+        type=int,
         help=("The maximum number of jobs to process"),
+    )
+    parser.add_argument(
+        "--loglevel",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        nargs=1,
+        help=("Set verbosity of output"),
     )
     # Add CACHE FILLENAME
     return parser.parse_args()
@@ -166,21 +188,17 @@ def main() -> None:
     args = build_parser()
     rclone = Rclone(args.rcloneconfig)
 
-    _LOGGER.setLevel(ERROR)
-    if args.verbose:
-        _LOGGER.setLevel(INFO)
+    basicConfig(format="%(levelname)s:%(message)s", level=args.loglevel)
+    ch = StreamHandler()
+    # formatter = Formatter("%(levelname)s:%(message)s")
+    # ch.setFormatter(formatter)
+    _LOGGER.addHandler(ch)
 
     # TODO: Make this a command line argument
     # jobs = get_jobs_from_cache(args.cachejoblist, args.cachejobfilelist)
     job_types = {"apbs": 0, "pdb2pqr": 0, "combined": 0, "unknown": 0}
     firsttime = datetime.now()
     lasttime = firsttime
-    filenames = [
-        "cache_meta/cache_apbs.txt",
-        "cache_meta/cache_pdb2pqr.txt",
-        "cache_meta/cache_combined.txt",
-        "cache_meta/cache_unknown.txt",
-    ]
     job_caches = {
         "apbs": job_group(filename="cache_meta/cache_apbs.txt"),
         "pdb2pqr": job_group(filename="cache_meta/cache_pdb2pqr.txt"),
@@ -195,37 +213,38 @@ def main() -> None:
             target.fh = file_handle
             target.jobs = job_list
             target.count = len(job_list)
-            print(f"THING: {key} {target.count}")
+            _LOGGER.debug("THING: %s %s", key, target.count)
 
     key = "apbs"
     for idx, job in enumerate(job_caches[key].jobs, start=1):
         if idx % 50 == 0:
             interval_time = datetime.now()
-            print(
-                f"IDX: {idx} {str(interval_time - lasttime)} {str(interval_time - firsttime)}"
+            _LOGGER.debug(
+                "IDX: %s %s %s",
+                idx,
+                str(interval_time - lasttime),
+                str(interval_time - firsttime),
             )
             lasttime = interval_time
         if args.maxjobs is not None and idx > args.maxjobs:
             break
         if args.jobid is not None and args.jobid not in job:
             continue
-        print(f"MOUNTPATH: {args.rclonemountpath}")
+        _LOGGER.debug("MOUNTPATH: %s", args.rclonemountpath)
         rclone.mount(args.rcloneremotepath + f"/{job}", args.rclonemountpath)
-        file_list = []
-        attempts = 0
-        max_attempts = 20
-        while not file_list and attempts < max_attempts:
-            file_list = listdir(args.rclonemountpath)
-            print(f"ATTEMPT: {attempts}, LIST: {file_list}")
-            attempts += 1
-            sleep(1)
-        print(f"FILES: {file_list}")
+        file_list = listdir(args.rclonemountpath)
+        _LOGGER.debug("FILES: %s", file_list)
         job_type = get_job_type(file_list)
-        print(f"JOBTYPE: {job} = {job_type}")
+        _LOGGER.debug("JOBTYPE: %s = %s", job, job_type)
+        if job_type in "apbs":
+            new_job = ApbsJob(job, args.rclonemountpath, file_list)
+            _LOGGER.info("RUNTIME: %s", new_job.execution_time())
+            new_job.build_apbs_job()
         job_types[job_type] += 1
+        break
 
     _LOGGER.info("DONE: %s", str(datetime.now() - lasttime))
-    print(f"{job_types}")
+    _LOGGER.info("JOBTYPES = %s", job_types)
 
 
 if __name__ == "__main__":
