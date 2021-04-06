@@ -19,13 +19,24 @@ classes to use the remove storage as if it is local.
 """
 
 
-def check_rclone_program():
-    rclone_prog = "rclone"
-    ret = find_executable(rclone_prog)
+def check_for_program(program: str):
+    """Check for the existance of an executable program in the user's PATH
+
+    Args:
+        program (str, optional): [the name of the executable].
+
+    Raises:
+        FileNotFoundError: The executable could not be found
+
+    Returns:
+        ret (str): The full path to the executable
+    """
+    ret = find_executable(program)
     if ret is None:
         _LOGGER.critical(
-            "ERROR: rclone not found\n\t"
-            "Please install rclone firstly: https://rclone.org/downloads/"
+            "ERROR: %s not found\n\t"
+            "Please install rclone firstly: https://rclone.org/downloads/",
+            program,
         )
         raise FileNotFoundError()
     return ret
@@ -49,11 +60,12 @@ class Rclone:
         self.mount_path = None
         self._LOGGER = getLogger(__class__.__name__)
 
-        ret = check_rclone_program()
+        ret = check_for_program("rclone")
         self._LOGGER.info("INFO: rclone is detected: %s", ret)
 
     def mount(self, remote_path, mount_path):
         """Mount the remote path to the local mount path
+
         :param str remote_path: the remote path to mount
         :param str mount_path: the local path where the remote is mounted
         """

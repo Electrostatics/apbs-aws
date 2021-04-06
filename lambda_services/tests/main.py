@@ -7,11 +7,9 @@ from datetime import datetime
 from logging import (
     basicConfig,
     DEBUG,
-    Formatter,
     getLogger,
     ERROR,
     INFO,
-    StreamHandler,
 )
 from io import TextIOWrapper
 from os import path as ospath
@@ -21,14 +19,9 @@ from sys import exit
 from time import time
 from apbsjob import ApbsJob
 from rclone import Rclone
+import logging
 
 _LOGGER = getLogger(__name__)
-# basicConfig(format="%(levelname)s:%(message)s", level=ERROR)
-ch = StreamHandler()
-formatter = Formatter("%(levelname)s:%(message)s")
-ch.setFormatter(formatter)
-_LOGGER.addHandler(ch)
-
 PID = 0
 
 
@@ -173,7 +166,6 @@ def build_parser():
         "--loglevel",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        nargs=1,
         help=("Set verbosity of output"),
     )
     # Add CACHE FILLENAME
@@ -188,11 +180,10 @@ def main() -> None:
     args = build_parser()
     rclone = Rclone(args.rcloneconfig)
 
-    basicConfig(format="%(levelname)s:%(message)s", level=args.loglevel)
-    ch = StreamHandler()
-    # formatter = Formatter("%(levelname)s:%(message)s")
-    # ch.setFormatter(formatter)
-    _LOGGER.addHandler(ch)
+    basicConfig(
+        format="%(levelname)s:%(message)s",
+        level=getattr(logging, args.loglevel),
+    )
 
     # TODO: Make this a command line argument
     # jobs = get_jobs_from_cache(args.cachejoblist, args.cachejobfilelist)
@@ -238,12 +229,14 @@ def main() -> None:
         _LOGGER.debug("JOBTYPE: %s = %s", job, job_type)
         if job_type in "apbs":
             new_job = ApbsJob(job, args.rclonemountpath, file_list)
-            _LOGGER.info("RUNTIME: %s", new_job.execution_time())
+            _LOGGER.info("RUNTIME: %s", new_job.get_execution_time())
+            _LOGGER.info("MEMORY: %s", new_job.get_memory_usage())
+            _LOGGER.info("STORAGE: %s", new_job.get_storage_usage())
             new_job.build_apbs_job()
         job_types[job_type] += 1
         break
 
-    _LOGGER.info("DONE: %s", str(datetime.now() - lasttime))
+    _LOGGER.info("TIME TO RUN: %s", str(datetime.now() - lasttime))
     _LOGGER.info("JOBTYPES = %s", job_types)
 
 
