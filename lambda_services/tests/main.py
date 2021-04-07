@@ -27,6 +27,7 @@ PID = 0
 
 @dataclass
 class job_group:
+    # NOTE: https://docs.python.org/3/library/dataclasses.html
     filename: str
     fh: TextIOWrapper = None
     jobs: list = field(default_factory=list)
