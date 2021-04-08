@@ -196,13 +196,11 @@ def run_job(job: str, s3client: client) -> int:
     job_stderr_filename = f"{job_type}.stderr.txt"
     if JOBTYPE.APBS.name.lower() in job_type:
         command = (
-            "/app/APBS-3.0.0.Linux/bin/apbs "
-            f"{job_info['command_line_args']}"
+            f"apbs {job_info['command_line_args']}"
         )
     elif JOBTYPE.PDB2PQR.name.lower() in job_type:
         command = (
-            "/app/builds/pdb2pqr/pdb2pqr.py "
-            f"{job_info['command_line_args']}"
+            f"pdb2pqr.py {job_info['command_line_args']}"
         )
     else:
         raise KeyError(f"Invalid job type, {job_type}")
