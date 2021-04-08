@@ -16,6 +16,7 @@ RUN wget https://github.com/Electrostatics/apbs-pdb2pqr/releases/download/vAPBS-
 
 ENV LD_LIBRARY_PATH=/app/APBS-3.0.0.Linux/lib
 ENV PATH="${PATH}:/app/APBS-3.0.0.Linux/bin"
+ENV PATH="${PATH}:/app/builds/pdb2pqr"
 
 RUN apt update -y \
     && apt install python python-setuptools wget zip libpython2.7 libmaloc-dev python3 python3-boto3 -y \

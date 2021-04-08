@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Software to run apbs and pdb2pqr jobs."""
 
-from os import chdir, getenv, listdir, makedirs, system
+from os import chdir, getenv, listdir, makedirs
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
@@ -11,6 +11,7 @@ from time import sleep, time
 from shutil import rmtree
 from typing import Any, Dict, List
 from urllib import request
+from subprocess import run, PIPE
 from boto3 import client, resource
 
 _LOGGER = getLogger(__name__)
@@ -123,6 +124,21 @@ def cleanup_job(rundir: str) -> int:
     return 1
 
 
+def execute_command(
+    command_line_str: str, stdout_filename: str, stderr_filename: str
+):
+    command_split = command_line_str.split()
+    proc = run(command_split, stdout=PIPE, stderr=PIPE)
+
+    # Write stdout to file
+    with open(stdout_filename, "w") as fout:
+        fout.write(proc.stdout.decode("utf-8"))
+
+    # Write stderr to file
+    with open(stderr_filename, "w") as fout:
+        fout.write(proc.stderr.decode("utf-8"))
+
+
 def run_job(job: str, s3client: client) -> int:
     """Remove the directory for the job.
 
@@ -176,27 +192,18 @@ def run_job(job: str, s3client: client) -> int:
         [],
     )
 
-    job_output = f"> {job_type}.stdout.txt 2> {job_type}.stderr.txt"
     if JOBTYPE.APBS.name.lower() in job_type:
-        command = (
-            "LD_LIBRARY_PATH=/app/APBS-3.0.0.Linux/lib "
-            "/app/APBS-3.0.0.Linux/bin/apbs "
-            f"{job_info['command_line_args']} "
-            f"{job_output}"
-        )
+        command = f"apbs {job_info['command_line_args']}"
     elif JOBTYPE.PDB2PQR.name.lower() in job_type:
-        command = (
-            "/app/builds/pdb2pqr/pdb2pqr.py "
-            f"{job_info['command_line_args']} "
-            f"{job_output}"
-        )
+        command = f"pdb2pqr.py {job_info['command_line_args']}"
     else:
         raise KeyError(f"Invalid job type, {job_type}")
 
     file = "MISSING"
     try:
-        # TODO: The system() should be replaced with subrocess.run()
-        system(command)
+        execute_command(
+            command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
+        )
         for file in listdir("."):
             s3client.upload_file(
                 f"{MEM_PATH}{job_id}/{file}",
