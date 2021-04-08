@@ -2,7 +2,7 @@
 FROM public.ecr.aws/j4g5x5m8/pdb2pqr:latest as pdb2pqr-build
 
 # Copy builds to cleaner base
-FROM ubuntu:18.04 as pdb2pqr-final
+FROM public.ecr.aws/ubuntu/ubuntu:18.04 as pdb2pqr-final
 COPY --from=pdb2pqr-build /app/builds /app/builds
 
 WORKDIR /app
