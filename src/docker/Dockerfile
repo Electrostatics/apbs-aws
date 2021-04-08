@@ -28,6 +28,7 @@ RUN apt update -y \
     && wget https://files.pythonhosted.org/packages/f3/f4/7e20ef40b118478191cec0b58c3192f822cace858c19505c7670961b76b2/networkx-2.2.zip \
     && unzip networkx-2.2.zip \
     && cd networkx-2.2 \
+    && pip install decorator==4.4.2 \
     && python setup.py install \
     && cd .. \
     # Cleanup and remove unnecessary packages
