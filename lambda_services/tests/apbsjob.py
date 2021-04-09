@@ -8,8 +8,6 @@ from typing import List
 from utiljob import get_contents
 import re
 
-_LOGGER = getLogger(__name__)
-
 """ApbsJob is used to hold information about an APBS job."""
 
 """
@@ -64,9 +62,9 @@ class ApbsJob(JobInterface):
         lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
         for line in lines:
             if line.startswith("Final memory usage"):
-                self._LOGGER.info("MEM LINE: %s", line)
+                self._LOGGER.debug("MEM LINE: %s", line)
                 values = re.findall("\d+\.?\d+", line)
-                self._LOGGER.info("VALUES: %s", values)
+                self._LOGGER.debug("VALUES: %s", values)
                 mem_used["total"] = values[0]
                 mem_used["high"] = values[1]
         return mem_used
@@ -97,7 +95,6 @@ class ApbsJob(JobInterface):
             if filename.endswith(".pqr") or filename in "apbsinput.in":
                 job["form"]["file_list"].append(filename)
 
-        _LOGGER.debug("JOB: %s", job)
         with open(
             Path(self.file_path) / Path(f"{self.job_type}-job.json"), "w"
         ) as outfile:

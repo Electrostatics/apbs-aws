@@ -129,6 +129,7 @@ def build_parser():
 
 
 def create_job(API_TOKEN_URL, rclone, args, job_id, job_types) -> None:
+    start_time = datetime.now()
     _LOGGER.debug("MOUNTPATH: %s", args.rclonemountpath)
     rclone.mount(args.rcloneremotepath + f"/{job_id}", args.rclonemountpath)
     file_list = listdir(args.rclonemountpath)
@@ -141,12 +142,14 @@ def create_job(API_TOKEN_URL, rclone, args, job_id, job_types) -> None:
         new_job = ApbsJob(job_id, args.rclonemountpath, file_list)
     if job_type in "pdb2pqr":
         new_job = Pdb2PqrJob(job_id, args.rclonemountpath, file_list)
-    _LOGGER.debug("JOB: %s", new_job)
+    _LOGGER.info("=" * 60)
+    _LOGGER.info("JOB: %s", new_job)
     new_job.build_job_file()
     _LOGGER.info("RUNTIME: %s", new_job.get_execution_time())
     _LOGGER.info("MEMORY: %s", new_job.get_memory_usage())
     _LOGGER.info("STORAGE: %s", new_job.get_storage_usage())
     submit_aws_job(API_TOKEN_URL, new_job)
+    _LOGGER.info("TIME TO CREATE JOB: %s", str(datetime.now() - start_time))
 
 
 def main() -> None:

@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import List
 from utiljob import get_contents
 
-_LOGGER = getLogger(__name__)
-
 """Pdb2PqrJob is used to hold information about an PDB2PQR job."""
 
 """
@@ -127,4 +125,3 @@ class Pdb2PqrJob(JobInterface):
             Path(self.file_path) / Path(f"{self.job_type}-job.json"), "w"
         ) as outfile:
             outfile.write(dumps(job, indent=4))
-        _LOGGER.debug("JOB: %s", job)

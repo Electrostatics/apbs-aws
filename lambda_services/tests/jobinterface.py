@@ -5,10 +5,9 @@ The JobInterface is the set of properties and functions that must
 be implemented for an APBS, PDB2PQR, and a combined APBS/PDB2PQR job.
 """
 
-from pathlib import Path
 from os.path import isdir, isfile
+from pathlib import Path
 from typing import List
-
 from utiljob import get_contents
 
 
@@ -36,7 +35,7 @@ class JobInterface:
 
         self.file_path = Path(file_path)
         for filename in file_list:
-            self._LOGGER.info("FILENAME: %s", filename)
+            self._LOGGER.debug("FILENAME: %s", filename)
             full_filename = self.file_path / filename
             if isfile(full_filename):
                 self.file_list[filename] = full_filename
@@ -47,10 +46,9 @@ class JobInterface:
 
     def __str__(self):
         return (
-            f"JOB:\n"
-            f"  Id:          {self.job_id}\n"
-            f"  Type:        {self.job_type}\n"
-            f"  Input Files: {self.job_input_files}"
+            f"Id: {self.job_id}, "
+            f"Type: {self.job_type}, "
+            f"Input Files: {self.job_input_files}"
         )
 
     @property

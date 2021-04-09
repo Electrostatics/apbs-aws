@@ -61,7 +61,7 @@ class Rclone:
         self._LOGGER = getLogger(__class__.__name__)
 
         ret = check_for_program("rclone")
-        self._LOGGER.info("INFO: rclone is detected: %s", ret)
+        self._LOGGER.debug("INFO: rclone is detected: %s", ret)
 
     def mount(self, remote_path, mount_path):
         """Mount the remote path to the local mount path
@@ -121,7 +121,7 @@ class Rclone:
         ret = None
         try:
             ret = check_output(cmd, shell=True)
-            self._LOGGER.info(
+            self._LOGGER.debug(
                 "COMMAND: %s, is okay:\n\t%s",
                 cmd,
                 ret.decode("utf-8").replace("\0", ""),

@@ -20,7 +20,7 @@ DESCRIPTION:
 
 def get_contents(filename):
     lines = []
-    _LOGGER.info("GET_CONTENTS: %s", filename)
+    _LOGGER.debug("GET_CONTENTS: %s", filename)
     if isfile(filename):
         with open(filename, "r") as fh:
             for curline in fh:
@@ -80,7 +80,7 @@ def submit_aws_job(API_TOKEN_URL, job):
     _LOGGER.debug("POST RESPONSE: %s", json_response)
     for file in json_response["urls"]:
         url = json_response["urls"][file]
-        # _LOGGER.debug(f"FILE: {file}, URL: {url}")
+        _LOGGER.debug(f"FILE: {file}, URL: {url}")
         if f"{job_type}-job.json" in file:
             save_url = url
             save_file = file
