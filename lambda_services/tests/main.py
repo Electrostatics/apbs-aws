@@ -15,7 +15,6 @@ from rclone import Rclone
 from utiljob import get_job_ids_from_cache, get_job_type, submit_aws_job
 
 _LOGGER = getLogger(__name__)
-PID = 0
 
 
 @dataclass
