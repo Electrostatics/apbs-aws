@@ -1,9 +1,9 @@
 # coding: utf-8
 
+from jobinterface import JobInterface
 from json import dumps
 from logging import getLogger, ERROR, INFO
 from pathlib import Path
-from os.path import isdir, isfile
 from typing import List
 from utiljob import get_contents
 import re
@@ -17,7 +17,7 @@ DESCRIPTION:
 """
 
 
-class ApbsJob:
+class ApbsJob(JobInterface):
     def __init__(self, jobid: str, file_path: str, file_list: List = []):
         """The job consists of input and output files from an APBS job
 
@@ -42,29 +42,9 @@ class ApbsJob:
         # *.in
         # *.prq
 
+        self.job_type = "apbs"
         self._LOGGER = getLogger(__class__.__name__)
-        self.jobid = jobid
-        self.file_path = None
-        self.file_list = {}
-        if not isdir(file_path):
-            raise TypeError(
-                "Expected file path to be a directory: %s", type(file_path)
-            )
-
-        self.file_path = Path(file_path)
-        for filename in file_list:
-            self._LOGGER.info("FILENAME: %s", filename)
-            full_filename = self.file_path / filename
-            if isfile(full_filename):
-                self.file_list[filename] = full_filename
-
-    def get_execution_time(self):
-        """
-        Subtract apbs_start_time from apbs_end_time to get number of seconds
-        """
-        starttime = get_contents(self.file_list["apbs_start_time"])[0]
-        endtime = get_contents(self.file_list["apbs_end_time"])[0]
-        return int(float(endtime) - float(starttime))
+        super().__init__(jobid, file_path, file_list)
 
     def get_memory_usage(self):
         """Get the memory used and high water memory that could have been used
@@ -81,7 +61,7 @@ class ApbsJob:
         #       the apbs_stdout.txt file. The line looks like:
         # Final memory usage:  0.001 MB total, 2666.345 MB high water
         mem_used = {"total": None, "high": None}
-        lines = get_contents(self.file_list["apbs_stdout.txt"])
+        lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
         for line in lines:
             if line.startswith("Final memory usage"):
                 self._LOGGER.info("MEM LINE: %s", line)
@@ -91,21 +71,14 @@ class ApbsJob:
                 mem_used["high"] = values[1]
         return mem_used
 
-    def get_storage_usage(self):
-        return sum(
-            f.stat().st_size
-            for f in self.file_path.glob("**/*")
-            if f.is_file()
-        )
-
-    def build_apbs_job(self):
+    def build_job_file(self):
         """
         Create an apbs-job.json file to simulate what the Web/Gui/React
         application would create if a user submitted the job.
         """
-        job_file = {
+        job = {
             "form": {
-                "job_id": self.jobid,
+                "job_id": self.job_id,
                 "invoke_method": "v2",
                 "file_list": [],
             }
@@ -122,9 +95,10 @@ class ApbsJob:
 
         for filename in self.file_list:
             if filename.endswith(".pqr") or filename in "apbsinput.in":
-                job_file["form"]["file_list"].append(filename)
+                job["form"]["file_list"].append(filename)
 
+        _LOGGER.debug("JOB: %s", job)
         with open(
-            Path(self.file_path) / Path("apbs-job.json"), "w"
+            Path(self.file_path) / Path(f"{self.job_type}-job.json"), "w"
         ) as outfile:
-            outfile.write(dumps(job_file, indent=4))
+            outfile.write(dumps(job, indent=4))

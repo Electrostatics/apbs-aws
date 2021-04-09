@@ -12,12 +12,13 @@ from logging import (
     INFO,
 )
 from io import TextIOWrapper
-from os import path as ospath
-from os import listdir
+from os import environ, listdir
 from subprocess import check_call, CalledProcessError
 from sys import exit
 from time import time
 from apbsjob import ApbsJob
+from pdb2pqrjob import Pdb2PqrJob
+from utiljob import get_job_ids_from_cache, get_job_type, submit_aws_job
 from rclone import Rclone
 import logging
 
@@ -48,52 +49,6 @@ def handler(signal_received, frame):
     except CalledProcessError as cpe:
         _LOGGER.critical("ERROR: %s", cpe)
         exit(0)
-
-
-def get_job_type(file_list):
-    apbs_job_type = False
-    pdb2pqr_job_type = False
-    for filename in file_list:
-        if filename.endswith(".dx") or filename in "apbs_end_time":
-            apbs_job_type = True
-        if filename.endswith(".propka") or filename in "pdb2pqr_end_time":
-            pdb2pqr_job_type = True
-    if apbs_job_type and pdb2pqr_job_type:
-        return "combined"
-    if apbs_job_type:
-        return "apbs"
-    if pdb2pqr_job_type:
-        return "pdb2pqr"
-    return "unknown"
-
-
-def get_jobs_from_cache(jobid_cache, job_filelist_cache):
-    jobs = []
-    jobs_done = []
-    if ospath.exists(job_filelist_cache) and ospath.isfile(job_filelist_cache):
-        with open(job_filelist_cache, "r") as fh:
-            for curline in fh:
-                jobs_done.append(curline.strip("\n"))
-    if ospath.exists(jobid_cache) and ospath.isfile(jobid_cache):
-        with open(jobid_cache, "r") as fh:
-            for curline in fh:
-                curline = curline.strip("\n")
-                if curline not in jobs_done:
-                    jobs.append(curline)
-    else:
-        raise FileNotFoundError()
-    return jobs
-
-
-def get_job_ids_from_cache(cache_file):
-    jobs = []
-    if ospath.exists(cache_file) and ospath.isfile(cache_file):
-        with open(cache_file, "r") as fh:
-            for curline in fh:
-                job_id = curline.strip("\n").split(" ")[0].strip("/")
-                if job_id is not None:
-                    jobs.append(job_id)
-    return jobs
 
 
 def build_parser():
@@ -173,6 +128,27 @@ def build_parser():
     return parser.parse_args()
 
 
+def create_job(API_TOKEN_URL, rclone, args, job_id, job_types) -> None:
+    _LOGGER.debug("MOUNTPATH: %s", args.rclonemountpath)
+    rclone.mount(args.rcloneremotepath + f"/{job_id}", args.rclonemountpath)
+    file_list = listdir(args.rclonemountpath)
+    _LOGGER.debug("FILES: %s", file_list)
+    job_type = get_job_type(file_list)
+    _LOGGER.debug("JOBTYPE: %s = %s", job_id, job_type)
+    job_types[job_type] += 1
+    new_job = None
+    if job_type in "apbs":
+        new_job = ApbsJob(job_id, args.rclonemountpath, file_list)
+    if job_type in "pdb2pqr":
+        new_job = Pdb2PqrJob(job_id, args.rclonemountpath, file_list)
+    _LOGGER.debug("JOB: %s", new_job)
+    new_job.build_job_file()
+    _LOGGER.info("RUNTIME: %s", new_job.get_execution_time())
+    _LOGGER.info("MEMORY: %s", new_job.get_memory_usage())
+    _LOGGER.info("STORAGE: %s", new_job.get_storage_usage())
+    submit_aws_job(API_TOKEN_URL, new_job)
+
+
 def main() -> None:
     """
     :return:  None
@@ -186,11 +162,16 @@ def main() -> None:
         level=getattr(logging, args.loglevel),
     )
 
+    API_TOKEN_URL = None
+    try:
+        API_TOKEN_URL = environ["API_TOKEN_URL"]
+    except KeyError:
+        _LOGGER.critical("API_TOKEN_URL must be set")
+        exit(1)
+
     # TODO: Make this a command line argument
     # jobs = get_jobs_from_cache(args.cachejoblist, args.cachejobfilelist)
     job_types = {"apbs": 0, "pdb2pqr": 0, "combined": 0, "unknown": 0}
-    firsttime = datetime.now()
-    lasttime = firsttime
     job_caches = {
         "apbs": job_group(filename="cache_meta/cache_apbs.txt"),
         "pdb2pqr": job_group(filename="cache_meta/cache_pdb2pqr.txt"),
@@ -205,37 +186,26 @@ def main() -> None:
             target.fh = file_handle
             target.jobs = job_list
             target.count = len(job_list)
-            _LOGGER.debug("THING: %s %s", key, target.count)
+            _LOGGER.debug("STACK: %s %s", key, target.count)
 
-    key = "apbs"
-    for idx, job in enumerate(job_caches[key].jobs, start=1):
-        if idx % 50 == 0:
-            interval_time = datetime.now()
-            _LOGGER.debug(
-                "IDX: %s %s %s",
-                idx,
-                str(interval_time - lasttime),
-                str(interval_time - firsttime),
-            )
-            lasttime = interval_time
-        if args.maxjobs is not None and idx > args.maxjobs:
-            break
-        if args.jobid is not None and args.jobid not in job:
-            continue
-        _LOGGER.debug("MOUNTPATH: %s", args.rclonemountpath)
-        rclone.mount(args.rcloneremotepath + f"/{job}", args.rclonemountpath)
-        file_list = listdir(args.rclonemountpath)
-        _LOGGER.debug("FILES: %s", file_list)
-        job_type = get_job_type(file_list)
-        _LOGGER.debug("JOBTYPE: %s = %s", job, job_type)
-        if job_type in "apbs":
-            new_job = ApbsJob(job, args.rclonemountpath, file_list)
-            _LOGGER.info("RUNTIME: %s", new_job.get_execution_time())
-            _LOGGER.info("MEMORY: %s", new_job.get_memory_usage())
-            _LOGGER.info("STORAGE: %s", new_job.get_storage_usage())
-            new_job.build_apbs_job()
-        job_types[job_type] += 1
-        break
+    firsttime = datetime.now()
+    lasttime = firsttime
+    for key in ["apbs", "pdb2pqr"]:
+        for idx, job_id in enumerate(job_caches[key].jobs, start=1):
+            if idx % 50 == 0:
+                interval_time = datetime.now()
+                _LOGGER.debug(
+                    "IDX: %s %s %s",
+                    idx,
+                    str(interval_time - lasttime),
+                    str(interval_time - firsttime),
+                )
+                lasttime = interval_time
+            if args.maxjobs is not None and idx > args.maxjobs:
+                break
+            if args.jobid is not None and args.jobid not in job_id:
+                continue
+            create_job(API_TOKEN_URL, rclone, args, job_id, job_types)
 
     _LOGGER.info("TIME TO RUN: %s", str(datetime.now() - lasttime))
     _LOGGER.info("JOBTYPES = %s", job_types)
