@@ -1,27 +1,26 @@
 # coding: utf-8
 
-from jobinterface import JobInterface
-from json import dumps
-from logging import getLogger, ERROR, INFO
-from pathlib import Path
-from typing import List
-from utiljob import get_contents
-
 """Pdb2PqrJob is used to hold information about an PDB2PQR job."""
 
-"""
-DESCRIPTION:
-"""
+from json import dumps
+from logging import getLogger
+from pathlib import Path
+from typing import List
+
+from jobinterface import JobInterface
+from utiljob import get_contents, JOBTYPE
 
 
 class Pdb2PqrJob(JobInterface):
-    def __init__(self, jobid: str, file_path: str, file_list: List = []):
+    """The concrete implementation of an APBS job."""
+
+    def __init__(self, jobid: str, file_path: str, file_list: List):
         """The job consists of input and output files from an PDB2PQR job
 
         Args:
             jobid (str): The unique string for an Azure blog or AWS bucket
             file_path (str): The absolute path to the mounted directory
-            file_list (List, optional): The list of files for the job
+            file_list (List): The list of files for the job
 
         Raises:
             TypeError: The file_path is not a directory
@@ -39,8 +38,8 @@ class Pdb2PqrJob(JobInterface):
         # *.in
         # *.prq
 
-        self.job_type = "pdb2pqr"
-        self._LOGGER = getLogger(__class__.__name__)
+        self.job_type = JOBTYPE.PDB2PQR.name.lower()
+        self._logger = getLogger(__class__.__name__)
         super().__init__(jobid, file_path, file_list)
 
     def get_memory_usage(self):
@@ -54,6 +53,15 @@ class Pdb2PqrJob(JobInterface):
         return mem_used
 
     def get_pdb2pqr_flags(self, pqr_file):
+        """Extract the command line arguments thhat were used to run pdb2pqr.
+
+        Args:
+            pqr_file (str): The name of the pqr filename where the command
+                            line argument are stored
+
+        Returns:
+            Dict: A dictionary of command line parameters for a PDB2PQR job
+        """
         flags = {}
         # lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
         lines = get_contents(self.file_list[pqr_file])
@@ -109,7 +117,7 @@ class Pdb2PqrJob(JobInterface):
         pdb_file = None
         pqr_file = None
         for filename in self.file_list:
-            self._LOGGER.debug("PQR FILENAME: %s", filename)
+            self._logger.debug("PQR FILENAME: %s", filename)
             if filename.endswith(".pqr"):
                 pqr_file = filename
             if filename.endswith(".pdb"):

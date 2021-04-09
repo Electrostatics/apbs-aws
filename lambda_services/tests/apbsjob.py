@@ -1,28 +1,26 @@
 # coding: utf-8
-
-from jobinterface import JobInterface
-from json import dumps
-from logging import getLogger, ERROR, INFO
-from pathlib import Path
-from typing import List
-from utiljob import get_contents
-import re
-
 """ApbsJob is used to hold information about an APBS job."""
 
-"""
-DESCRIPTION:
-"""
+from logging import getLogger
+from json import dumps
+from pathlib import Path
+import re
+from typing import List
+
+from jobinterface import JobInterface
+from utiljob import get_contents, JOBTYPE
 
 
 class ApbsJob(JobInterface):
-    def __init__(self, jobid: str, file_path: str, file_list: List = []):
+    """The concrete implementation of an APBS job."""
+
+    def __init__(self, jobid: str, file_path: str, file_list: List):
         """The job consists of input and output files from an APBS job
 
         Args:
             jobid (str): The unique string for an Azure blog or AWS bucket
             file_path (str): The absolute path to the mounted directory
-            file_list (List, optional): The list of files for the job
+            file_list (List): The list of files for the job
 
         Raises:
             TypeError: The file_path is not a directory
@@ -40,8 +38,8 @@ class ApbsJob(JobInterface):
         # *.in
         # *.prq
 
-        self.job_type = "apbs"
-        self._LOGGER = getLogger(__class__.__name__)
+        self.job_type = JOBTYPE.APBS.name.lower()
+        self._logger = getLogger(__class__.__name__)
         super().__init__(jobid, file_path, file_list)
 
     def get_memory_usage(self):
@@ -62,9 +60,9 @@ class ApbsJob(JobInterface):
         lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
         for line in lines:
             if line.startswith("Final memory usage"):
-                self._LOGGER.debug("MEM LINE: %s", line)
-                values = re.findall("\d+\.?\d+", line)
-                self._LOGGER.debug("VALUES: %s", values)
+                self._logger.debug("MEM LINE: %s", line)
+                values = re.findall("\d+\.?\d+", line)  # noqa W605
+                self._logger.debug("VALUES: %s", values)
                 mem_used["total"] = values[0]
                 mem_used["high"] = values[1]
         return mem_used

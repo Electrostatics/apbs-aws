@@ -1,36 +1,56 @@
 # coding: utf-8
 
+from sys import exc_info, exit
+from enum import Enum
 from json import dumps
 from logging import getLogger
-from pathlib import Path
-from requests import post, put
 from os.path import isfile
 from os import chdir, getcwd
 from os import path as ospath
-from sys import exc_info
+from pathlib import Path
+from requests import post, put
 
 _LOGGER = getLogger(__name__)
 
 """Utilities for APBS and PDB2PQR jobs."""
 
-"""
-DESCRIPTION:
-"""
+
+class JOBTYPE(Enum):
+    """The valid values for a job's type."""
+
+    APBS = 1
+    PDB2PQR = 2
+    COMBINED = 3
+    UNKNOWN = 4
 
 
 def get_contents(filename):
+    """[summary]
+
+    Args:
+        filename (str): The full path of the file to read from.
+
+    Returns:
+        List: The lines of the file with the newlines stripped.
+    """
     lines = []
     _LOGGER.debug("GET_CONTENTS: %s", filename)
     if isfile(filename):
-        with open(filename, "r") as fh:
-            for curline in fh:
+        with open(filename, "r") as fptr:
+            for curline in fptr:
                 curline = curline.strip("\n")
                 if curline:
                     lines.append(curline)
     return lines
 
 
-def submit_aws_job(API_TOKEN_URL, job):
+def submit_aws_job(api_token_url, job):
+    """Upload all the files to submit a job.
+
+    Args:
+        API_TOKEN_URL (str): The AWS REST endpoint to submit a job.
+        job (JobInterface): The job that holds the data to be submitted.
+    """
     job_id = job.job_id
     job_type = job.job_type
     job_file = f"{job_type}-job.json"
@@ -38,7 +58,6 @@ def submit_aws_job(API_TOKEN_URL, job):
     job_work_dir = job.file_path
     # job_type is "apbs" or "pdb2pqr"
     # data_files are the list of files inside the job_file that came from
-    # {job_type}_input_files
     _LOGGER.debug("JOB: %s", job)
     _LOGGER.debug("DATAFILES: %s: ", upload_files)
 
@@ -46,13 +65,14 @@ def submit_aws_job(API_TOKEN_URL, job):
 
     try:
         chdir(job_work_dir)
-    except:
+    except OSError as oerr:
         _LOGGER.error("ERROR: JOB: %s", job)
         _LOGGER.error(
-            "ERROR: Can't change from directory, %s, to %s because %s}",
+            "ERROR: Can't change from directory, %s, to %s because %s: %s}",
             cwd,
             job_work_dir,
             exc_info(),
+            oerr,
         )
         exit(1)
     finally:
@@ -70,28 +90,28 @@ def submit_aws_job(API_TOKEN_URL, job):
         job_request["file_list"].append(file)
     _LOGGER.debug("REQUEST: %s", dumps(job_request))
 
-    response = post(API_TOKEN_URL, json=job_request)
+    response = post(api_token_url, json=job_request)
 
-    # NOTE: Must send *-job.json file last because that is what triggers the S3 event
-    #       to start the job
+    # NOTE: Must send *-job.json file last because that is what triggers
+    #       the S3 event to start the job
     save_url = None
     save_file = None
     json_response = response.json()
     _LOGGER.debug("POST RESPONSE: %s", json_response)
     for file in json_response["urls"]:
         url = json_response["urls"][file]
-        _LOGGER.debug(f"FILE: {file}, URL: {url}")
+        _LOGGER.debug("FILE: %s, URL: %s", file, url)
         if f"{job_type}-job.json" in file:
             save_url = url
             save_file = file
             continue
         full_filepath = Path(job_work_dir) / file
-        upload = put(url, data=open(full_filepath, "rb"))
+        _ = put(url, data=open(full_filepath, "rb"))
 
     # NOTE: Send the "*-job.json" file to start the job
     if save_url is not None and save_file is not None:
         full_filepath = Path(job_work_dir) / save_file
-        upload = put(save_url, data=open(full_filepath, "rb"))
+        _ = put(save_url, data=open(full_filepath, "rb"))
     else:
         _LOGGER.error(
             "ERROR: Can't find JOB file, %s",
@@ -106,9 +126,8 @@ def get_job_type(file_list):
         file_list List: a list of filenames from a job directory
 
     Returns:
-        str: A keyword of "apbs", "pdb2pqr", "combined", or "unknown"
+        str: A keyword of one of the names in the JOBTYPE Enum
     """
-    # TODO: NOTE: this should return an ENUM
     apbs_job_type = False
     pdb2pqr_job_type = False
     for filename in file_list:
@@ -117,37 +136,29 @@ def get_job_type(file_list):
         if filename.endswith(".propka") or filename in "pdb2pqr_end_time":
             pdb2pqr_job_type = True
     if apbs_job_type and pdb2pqr_job_type:
-        return "combined"
+        return JOBTYPE.COMBINED.name.lower()
     if apbs_job_type:
-        return "apbs"
+        return JOBTYPE.APBS.name.lower()
     if pdb2pqr_job_type:
-        return "pdb2pqr"
-    return "unknown"
-
-
-def get_jobs_from_cache(jobid_cache, job_filelist_cache):
-    jobs = []
-    jobs_done = []
-    if ospath.exists(job_filelist_cache) and ospath.isfile(job_filelist_cache):
-        with open(job_filelist_cache, "r") as fh:
-            for curline in fh:
-                jobs_done.append(curline.strip("\n"))
-    if ospath.exists(jobid_cache) and ospath.isfile(jobid_cache):
-        with open(jobid_cache, "r") as fh:
-            for curline in fh:
-                curline = curline.strip("\n")
-                if curline not in jobs_done:
-                    jobs.append(curline)
-    else:
-        raise FileNotFoundError()
-    return jobs
+        return JOBTYPE.PDB2PQR.name.lower()
+    return JOBTYPE.UNKNOWN.name.lower()
 
 
 def get_job_ids_from_cache(cache_file):
+    """Read in all the job ids from a file.
+
+    Args:
+        cache_file (str): The full filename of the file holding jobs ids.
+
+    Returns:
+        List: The list of job ids in th cache_file.
+    """
+
+    # TODO: This should do more error handling.
     jobs = []
     if ospath.exists(cache_file) and ospath.isfile(cache_file):
-        with open(cache_file, "r") as fh:
-            for curline in fh:
+        with open(cache_file, "r") as fptr:
+            for curline in fptr:
                 job_id = curline.strip("\n").split(" ")[0].strip("/")
                 if job_id is not None:
                     jobs.append(job_id)

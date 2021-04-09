@@ -1,8 +1,9 @@
 # coding: utf-8
-"""Rclone is used to mount remote directories for easier processing of files."""
+
+"""Rclone is used to mount remote directories for accessing files."""
 
 from distutils.spawn import find_executable
-from logging import getLogger, ERROR, INFO
+from logging import getLogger
 from os import listdir
 from os.path import abspath, exists, ismount
 from subprocess import check_output, CalledProcessError
@@ -20,16 +21,16 @@ classes to use the remove storage as if it is local.
 
 
 def check_for_program(program: str):
-    """Check for the existance of an executable program in the user's PATH
+    """Check for the existance of an executable program in the user's PATH.
 
     Args:
-        program (str, optional): [the name of the executable].
+        program (str): The name of the executable.
 
     Raises:
-        FileNotFoundError: The executable could not be found
+        FileNotFoundError: The executable could not be found.
 
     Returns:
-        ret (str): The full path to the executable
+        ret (str): The full path to the executable.
     """
     ret = find_executable(program)
     if ret is None:
@@ -43,6 +44,8 @@ def check_for_program(program: str):
 
 
 class Rclone:
+    """A wrapper around the rclone command."""
+
     def __init__(self, config_name):
         """Create interface to rclone executable.
 
@@ -54,7 +57,7 @@ class Rclone:
         To find a list of configs, run the following:
             rclone listremotes
 
-        :param str config_name: The string for the config to use
+        :param str config_name: The string for the config to use.
         """
         self.config_name = config_name
         self.mount_path = None
@@ -64,10 +67,10 @@ class Rclone:
         self._LOGGER.debug("INFO: rclone is detected: %s", ret)
 
     def mount(self, remote_path, mount_path):
-        """Mount the remote path to the local mount path
+        """Mount the remote path to the local mount path.
 
-        :param str remote_path: the remote path to mount
-        :param str mount_path: the local path where the remote is mounted
+        :param str remote_path: the remote path to mount.
+        :param str mount_path: the local path where the remote is mounted.
         """
 
         # So we can unmount the mount_path later
@@ -101,10 +104,11 @@ class Rclone:
             sleep(1)
 
     def umount(self):
-        """Unmount the remote path from the local mount path
-        :param str mount_path: the local path where the remote is mounted
+        """Unmount the remote path from the local mount path.
+
+        :param str mount_path: the local path where the remote is mounted.
         """
-        _LOGGER.debug(f"DEBUG: UMOUNT: {self.mount_path}")
+        _LOGGER.debug("DEBUG: UMOUNT: %s", self.mount_path)
         cmd = f"umount {self.mount_path}"
         self.runcmd(cmd)
 
@@ -118,6 +122,11 @@ class Rclone:
             sleep(1)
 
     def runcmd(self, cmd):
+        """A wrapper to run a external process.
+
+        Args:
+            cmd (str): The command and command line arguments to execute.
+        """
         ret = None
         try:
             ret = check_output(cmd, shell=True)
