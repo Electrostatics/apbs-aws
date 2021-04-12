@@ -192,7 +192,7 @@
 
   - name: Create id-L lambda bundle
     archive:
-      path: "../lambda_services/api_service/"
+      path: "../lambda_services/api_service"
       dest: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
       format: zip
     tags: 
@@ -202,7 +202,7 @@
       
   - name: Create job-L lambda bundle
     archive:
-      path: "../lambda_services/job_service/"
+      path: "../lambda_services/job_service"
       dest: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
       format: zip
     tags: 
@@ -226,7 +226,7 @@
       zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
-      handler: "job_service.interpret_job_submission"
+      handler: "job_service.job_service.interpret_job_submission"
       memory_size: 512
       timeout: 360 
       environment_variables: 
@@ -258,7 +258,7 @@
       zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
       runtime: 'python3.6'
       role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-id-role"
-      handler: "api_service.generate_id_and_tokens"
+      handler: "api_service.api_service.generate_id_and_tokens"
       memory_size: 512
       timeout: 360 
       environment_variables: 
@@ -279,7 +279,6 @@
       action: lambda:InvokeFunction
       principal: apigateway.amazonaws.com
       source_arn: "arn:aws:execute-api:{{ aws_region }}:{{ aws_account_id }}:{{ gateway_name }}/*/*/jobid"
-      source_account: "{{ aws_account_id }}"
 
   - name: Job Lambda S3 event notification permissions
     community.aws.lambda_policy:

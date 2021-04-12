@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Software to run apbs and pdb2pqr jobs."""
 
-from os import chdir, getenv, listdir, makedirs, system
+from os import chdir, getenv, listdir, makedirs
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
@@ -11,6 +11,7 @@ from time import sleep, time
 from shutil import rmtree
 from typing import Any, Dict, List
 from urllib import request
+from subprocess import run, PIPE
 from boto3 import client, resource
 
 _LOGGER = getLogger(__name__)
@@ -123,6 +124,21 @@ def cleanup_job(rundir: str) -> int:
     return 1
 
 
+def execute_command(
+    command_line_str: str, stdout_filename: str, stderr_filename: str
+):
+    command_split = command_line_str.split()
+    proc = run(command_split, stdout=PIPE, stderr=PIPE)
+
+    # Write stdout to file
+    with open(stdout_filename, "w") as fout:
+        fout.write(proc.stdout.decode("utf-8"))
+
+    # Write stderr to file
+    with open(stderr_filename, "w") as fout:
+        fout.write(proc.stderr.decode("utf-8"))
+
+
 def run_job(job: str, s3client: client) -> int:
     """Remove the directory for the job.
 
@@ -176,27 +192,18 @@ def run_job(job: str, s3client: client) -> int:
         [],
     )
 
-    job_output = f"> {job_type}.stdout.txt 2> {job_type}.stderr.txt"
     if JOBTYPE.APBS.name.lower() in job_type:
-        command = (
-            "LD_LIBRARY_PATH=/app/APBS-3.0.0.Linux/lib "
-            "/app/APBS-3.0.0.Linux/bin/apbs "
-            f"{job_info['command_line_args']} "
-            f"{job_output}"
-        )
+        command = f"apbs {job_info['command_line_args']}"
     elif JOBTYPE.PDB2PQR.name.lower() in job_type:
-        command = (
-            "/app/builds/pdb2pqr/pdb2pqr.py "
-            f"{job_info['command_line_args']} "
-            f"{job_output}"
-        )
+        command = f"pdb2pqr.py {job_info['command_line_args']}"
     else:
         raise KeyError(f"Invalid job type, {job_type}")
 
     file = "MISSING"
     try:
-        # TODO: The system() should be replaced with subrocess.run()
-        system(command)
+        execute_command(
+            command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
+        )
         for file in listdir("."):
             s3client.upload_file(
                 f"{MEM_PATH}{job_id}/{file}",
@@ -212,18 +219,20 @@ def run_job(job: str, s3client: client) -> int:
         # TODO: Should this return 1 because noone else will succeed?
         ret_val = 1
 
-    # NOTE: This may be easier to read/implement if the following is correct:
-    # output_files = [
-    #    f"{job_id}/{file}"
-    #    for file in listdir(".")
-    #    if file not in job_info["input_files"]
-    # ]
-    output_files = [
-        f"{job_id}/{file}"
-        for file in listdir(".")
-        for infile in job_info["input_files"]
-        if file not in infile
+    # TODO: 2021/03/30, Elvis - Will need to address how we bundle output
+    #       subdirectory for PDB2PKA when used; I previous bundled it as
+    #       a compressed tarball (i.e. "{job_id}-pdb2pka_output.tar.gz")
+
+    # Create list of output files
+    input_files_no_id = [  # Remove job_id prefix from input file list
+        "".join(name.split("/")[-1]) for name in job_info["input_files"]
     ]
+    output_files = [
+        f"{job_id}/{filename}"
+        for filename in listdir(".")
+        if filename not in input_files_no_id
+    ]
+
     cleanup_job(rundir)
     update_status(
         s3client,
@@ -242,7 +251,7 @@ def build_parser():
     :return:  argument parser
     :rtype:  ArgumentParser
     """
-    desc = f"\n\tRun the APBS or PDB2PQR process"
+    desc = "\n\tRun the APBS or PDB2PQR process"
 
     parser = ArgumentParser(
         description=desc,
