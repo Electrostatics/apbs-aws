@@ -82,16 +82,26 @@ class ApbsJob(JobInterface):
         # Open up the apbs_input_files to find the files needed
         # to build a apbs-job.json that looks like the following:
         # {
-        #   "job_id": "000buomdp2",
-        #   "file_list": [
-        #       "apbsinput.in",
-        #       "000buomdp2.pqr"
-        #   ],
+        #   "form" : {
+        #     "job_id": "000buomdp2",
+        #     "file_list": [
+        #         "apbsinput.in",
+        #         "000buomdp2.pqr"
+        #     ],
+        #     "filename": "apbsinput.in"
+        #   }
         # }
 
+        use_hardcoded_apbsinput = False
+        if "apbsinput.in" in self.file_list:
+            use_hardcoded_apbsinput = True
+            job["form"]["filename"] = "apbsinput.in"
+
         for filename in self.file_list:
-            if filename.endswith(".pqr") or filename in "apbsinput.in":
+            if filename.endswith(".pqr"):
                 job["form"]["file_list"].append(filename)
+            if filename.endswith(".in") and not use_hardcoded_apbsinput:
+                job["form"]["filename"] = filename
 
         with open(
             Path(self.file_path) / Path(f"{self.job_type}-job.json"), "w"

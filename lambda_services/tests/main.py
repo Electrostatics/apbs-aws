@@ -176,8 +176,14 @@ def main() -> None:
 
     firsttime = datetime.now()
     lasttime = firsttime
+    if args.jobids:
+        _LOGGER.debug("Looking for jobs: %s", args.jobids)
     for key in ["apbs", "pdb2pqr"]:
         for idx, job_id in enumerate(job_caches[key].jobs, start=1):
+            if args.maxjobs is not None and idx > args.maxjobs:
+                break
+            if args.jobids is not None and job_id not in args.jobids:
+                continue
             if idx % 50 == 0:
                 interval_time = datetime.now()
                 _LOGGER.debug(
@@ -187,10 +193,6 @@ def main() -> None:
                     str(interval_time - firsttime),
                 )
                 lasttime = interval_time
-            if args.maxjobs is not None and idx > args.maxjobs:
-                break
-            if args.jobids is not None and job_id not in args.jobids:
-                continue
             create_job(rclone, args, job_id, job_types)
 
     _LOGGER.info("TIME TO RUN: %s", str(datetime.now() - lasttime))
