@@ -7,11 +7,14 @@ from datetime import datetime
 from enum import Enum
 from json import dumps, loads
 from logging import getLogger, ERROR, INFO
-from time import sleep, time
+from os.path import isfile
+from pathlib import Path
+from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
+from subprocess import run, PIPE
+from time import sleep, time
 from typing import Any, Dict, List
 from urllib import request
-from subprocess import run, PIPE
 from boto3 import client, resource
 
 _LOGGER = getLogger(__name__)
@@ -34,6 +37,7 @@ class JOBTYPE(Enum):
 
     APBS = 1
     PDB2PQR = 2
+    UNKNOWN = 3
 
 
 class JOBSTATUS(Enum):
@@ -41,6 +45,185 @@ class JOBSTATUS(Enum):
 
     COMPLETE = 1
     RUNNING = 2
+    UNKNOWN = 3
+
+
+class JobMetrics:
+    """
+    A way to collect metrics from a subprocess.
+
+    To get memory, we use resource.getrusage(RUSAGE_CHILDREN).
+    To avoid accumulating the memory usage from all subprocesses
+    we subtract the previous rusage values to get a delta for
+    just the current subprocess.
+
+    To get the time to run metrics we subtract the start time from
+    the end time (e.g., {jobtype}_end_time - {jobtype}_start_time)
+
+    To get the disk usage we sum up the stats of all the files in
+    the output directory.
+
+    The result for each job will to to output a file named:
+        {jobtype}-metrics.json
+    Where {jobtype} will be apbs or pdb2pqr.
+    The contents of the file will be JSON and look like:
+    {
+        "metrics": {
+            "rusage": {
+                "ru_utime": 0.004102999999999999,
+                "ru_stime": 0.062483999999999984,
+                "ru_maxrss": 1003520,
+                "ru_ixrss": 0,
+                "ru_idrss": 0,
+                "ru_isrss": 0,
+                "ru_minflt": 823,
+                "ru_majflt": 0,
+                "ru_nswap": 0,
+                "ru_inblock": 0,
+                "ru_oublock": 0,
+                "ru_msgsnd": 0,
+                "ru_msgrcv": 0,
+                "ru_nsignals": 0,
+                "ru_nvcsw": 903,
+                "ru_nivcsw": 4
+            },
+            "runtime_in_seconds": 262,
+            "disk_storage_in_bytes": 4003345,
+        },
+    }
+    """
+
+    def __init__(self):
+        """Capture the initial state of the resource usage."""
+        metrics = getrusage(RUSAGE_CHILDREN)
+        self.job_type = None
+        self.output_dir = None
+        self.values: Dict = {}
+        self.values["ru_utime"] = metrics.ru_utime
+        self.values["ru_stime"] = metrics.ru_stime
+        self.values["ru_maxrss"] = metrics.ru_maxrss
+        self.values["ru_ixrss"] = metrics.ru_ixrss
+        self.values["ru_idrss"] = metrics.ru_idrss
+        self.values["ru_isrss"] = metrics.ru_isrss
+        self.values["ru_minflt"] = metrics.ru_minflt
+        self.values["ru_majflt"] = metrics.ru_majflt
+        self.values["ru_nswap"] = metrics.ru_nswap
+        self.values["ru_inblock"] = metrics.ru_inblock
+        self.values["ru_oublock"] = metrics.ru_oublock
+        self.values["ru_msgsnd"] = metrics.ru_msgsnd
+        self.values["ru_msgrcv"] = metrics.ru_msgrcv
+        self.values["ru_nsignals"] = metrics.ru_nsignals
+        self.values["ru_nvcsw"] = metrics.ru_nvcsw
+        self.values["ru_nivcsw"] = metrics.ru_nivcsw
+
+    def get_rusage_delta(self):
+        """
+        Caluculate the difference between the last time getrusage
+        was called and now.
+
+        Returns:
+            Dict: The rusage values as a dictionary
+        """
+        metrics = getrusage(RUSAGE_CHILDREN)
+        self.values["ru_utime"] = metrics.ru_utime - self.values["ru_utime"]
+        self.values["ru_stime"] = metrics.ru_stime - self.values["ru_stime"]
+        self.values["ru_maxrss"] = metrics.ru_maxrss - self.values["ru_maxrss"]
+        self.values["ru_ixrss"] = metrics.ru_ixrss - self.values["ru_ixrss"]
+        self.values["ru_idrss"] = metrics.ru_idrss - self.values["ru_idrss"]
+        self.values["ru_isrss"] = metrics.ru_isrss - self.values["ru_isrss"]
+        self.values["ru_minflt"] = metrics.ru_minflt - self.values["ru_minflt"]
+        self.values["ru_majflt"] = metrics.ru_majflt - self.values["ru_majflt"]
+        self.values["ru_nswap"] = metrics.ru_nswap - self.values["ru_nswap"]
+        self.values["ru_inblock"] = (
+            metrics.ru_inblock - self.values["ru_inblock"]
+        )
+        self.values["ru_oublock"] = (
+            metrics.ru_oublock - self.values["ru_oublock"]
+        )
+        self.values["ru_msgsnd"] = metrics.ru_msgsnd - self.values["ru_msgsnd"]
+        self.values["ru_msgrcv"] = metrics.ru_msgrcv - self.values["ru_msgrcv"]
+        self.values["ru_nsignals"] = (
+            metrics.ru_nsignals - self.values["ru_nsignals"]
+        )
+        self.values["ru_nvcsw"] = metrics.ru_nvcsw - self.values["ru_nvcsw"]
+        self.values["ru_nivcsw"] = metrics.ru_nivcsw - self.values["ru_nivcsw"]
+        return self.values
+
+    def get_execution_time(self):
+        """
+        Subtract "{job_type}_start_time from "{job_type}_end_time to get the
+        number of seconds it took to run.
+
+        Returns:
+            int: The execution time in seconds.
+        """
+        starttime = get_contents(
+            self.output_dir / f"{self.job_type}_start_time"
+        )
+        endtime = get_contents(self.output_dir / f"{self.job_type}_end_time")
+        return int(float(endtime) - float(starttime))
+
+    def get_storage_usage(self):
+        """Get the total number of bytes of the output files.
+
+        Returns:
+            int: The total bytes in all the files in the job directory
+        """
+        return sum(
+            f.stat().st_size
+            for f in self.output_dir.glob("**/*")
+            if f.is_file()
+        )
+
+    def get_metrics(self):
+        """
+        Create a dictionare of memory usage, execution time, and amount of
+        disk storage used.
+
+        Returns:
+            Dict: A dictionary of (memory), execution time, and disk storage.
+        """
+        metrics = {
+            "metrics": {"rusage": {}},
+            "runtime_in_seconds": 0,
+            "disk_storage_in_bytes": 0,
+        }
+        metrics["metrics"]["rusage"] = self.get_rusage_delta()
+        metrics["metrics"]["runtime_in_seconds"] = self.get_execution_time()
+        metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
+        return metrics
+
+    def write_metrics(self, job_type, output_dir: str):
+        """Get the metrics of the latest subprocess and create the output file.
+
+        Args:
+            job_type (str): Either "apbs" or "pdb2pqr".
+            output_dir (str): The directory to find the output files.
+        """
+        self.job_type = job_type
+        self.output_dir = Path(output_dir)
+        with open("{job_type}-metrics.json", "w") as fout:
+            fout.write(dumps(self.get_metrics(), indent=4))
+
+
+def get_contents(filename):
+    """[summary]
+
+    Args:
+        filename (str): The full path of the file to read from.
+
+    Returns:
+        List: The lines of the file with the newlines stripped.
+    """
+    lines = []
+    _LOGGER.debug("GET_CONTENTS: %s", filename)
+    if isfile(filename):
+        with open(filename, "r") as fptr:
+            for curline in fptr:
+                curline = curline.strip("\n")
+                if curline:
+                    lines.append(curline)
+    return lines
 
 
 def get_messages(sqs: client, qurl: str) -> Any:
@@ -139,7 +322,7 @@ def execute_command(
         fout.write(proc.stderr.decode("utf-8"))
 
 
-def run_job(job: str, s3client: client) -> int:
+def run_job(job: str, s3client: client, metrics: JobMetrics) -> int:
     """Remove the directory for the job.
 
     :param job:  The job file describing what needs to be run.
@@ -204,6 +387,11 @@ def run_job(job: str, s3client: client) -> int:
         execute_command(
             command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
+
+        # We need to create the {job_type}-metrics.json before we upload
+        # the files to the S3_BUCKET.
+        metrics.write_metrics(job_type, ".")
+
         for file in listdir("."):
             s3client.upload_file(
                 f"{MEM_PATH}{job_id}/{file}",
@@ -283,13 +471,15 @@ def main() -> None:
     qurl = queue_url["QueueUrl"]
     lasttime = datetime.now()
 
+    metrics = JobMetrics()
+
     # The structure of the SQS messages is documented at:
     # https://docs.aws.amazon.com/AWSSimpleQueueService/
     # latest/APIReference/API_ReceiveMessage.html
     mess = get_messages(sqs, qurl)
     while mess:
         for idx in mess["Messages"]:
-            run_job(idx["Body"], s3client)
+            run_job(idx["Body"], s3client, metrics)
             sqs.delete_message(
                 QueueUrl=qurl, ReceiptHandle=idx["ReceiptHandle"]
             )
