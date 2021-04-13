@@ -162,8 +162,8 @@ class AzureClient:
             return None
 
         file_path = self.download_file(path)
-        with open(file_path, "r") as fh:
-            for line in fh:
+        with open(file_path, "r") as fptr:
+            for line in fptr:
                 full_path = line.strip("\n")
                 if file_ext is None or full_path.endswith(file_ext):
                     # print(f"      DATAFILE: {full_path}")
