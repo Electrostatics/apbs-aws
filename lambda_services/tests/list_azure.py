@@ -33,10 +33,9 @@ import os
 import sys
 import time
 from azure.storage.blob import BlobServiceClient
-import boto3
 import requests
 
-sys.path.append("../src/lambda_services/api_service")
+sys.path.append("../lambda_services/api_service")
 from api_service import generate_id_and_tokens
 
 
@@ -174,8 +173,8 @@ class DirectoryClient:
             return None
 
         file_path = self.download_file(path)
-        with open(file_path, "r") as fh:
-            for line in fh:
+        with open(file_path, "r") as fptr:
+            for line in fptr:
                 full_path = line.strip("\n")
                 if file_ext is None or full_path.endswith(file_ext):
                     # print(f"      DATAFILE: {full_path}")
@@ -252,12 +251,12 @@ def get_file(job, client, file, ext):
 def get_pdb2pqr_flags(pqr_file):
     flags = {}
     try:
-        with open(pqr_file, "r") as fh:
-            for curline in fh:
+        with open(pqr_file, "r") as fptr:
+            for curline in fptr:
                 if curline.startswith(
                     "REMARK   1 Command line used to generate this file:"
                 ):
-                    options = fh.readline().strip("\n")
+                    options = fptr.readline().strip("\n")
                     break
     except Exception as ose:
         print(f"ERROR: Can't read file: {pqr_file}")
@@ -392,9 +391,9 @@ def get_jobs_from_cache(azure_client):
     jobs = []
     cache_file = "AZURE_CACHE.txt"
     if os.path.exists(cache_file) and os.path.isfile(cache_file):
-        with open(cache_file, "r") as fh:
-            for curline in fh:
-                jobs.append(fh.readline().strip("\n"))
+        with open(cache_file, "r") as fptr:
+            for curline in fptr:
+                jobs.append(fptr.readline().strip("\n"))
     else:
         jobs = azure_client.walk2(5000, 100000)
         with open(cache_file, "w") as outfile:
@@ -422,7 +421,7 @@ except IndexError:
 try:
     API_TOKEN_URL = os.environ["API_TOKEN_URL"]
 except KeyError:
-    print("AZURE_STORAGE_CONNECTION_STRING must be set")
+    print("API_TOKEN_URL must be set")
     sys.exit(1)
 
 # Create a client that is connected to Azure storage container
@@ -444,7 +443,6 @@ try:
             continue
         print(f"JOB: {job}")
         print(f"STUFF: {azure_client.ls_files(job, recursive=True)}")
-        break
         # TODO: Create function to find out if job is PDB2PQR or APBS
         # Should be able to determine job type from files in ls_files()
         # something like:

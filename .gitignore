@@ -128,9 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-tests/azure_jobs
-tests/AZURE_CACHE.txt
-tests/list_jobs.sh
+*/tests/cache*
+*/tests/list_jobs.sh
+*/tests/NOTES.txt
 
 # VS Code
 .vscode/
