@@ -202,7 +202,7 @@ class JobMetrics:
         """
         self.job_type = job_type
         self.output_dir = Path(output_dir)
-        with open("{job_type}-metrics.json", "w") as fout:
+        with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(self.get_metrics(), indent=4))
 
 
