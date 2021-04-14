@@ -98,6 +98,7 @@ class JobMetrics:
         metrics = getrusage(RUSAGE_CHILDREN)
         self.job_type = None
         self.output_dir = None
+        self.start_time = 0
         self.values: Dict = {}
         self.values["ru_utime"] = metrics.ru_utime
         self.values["ru_stime"] = metrics.ru_stime
@@ -149,22 +150,6 @@ class JobMetrics:
         self.values["ru_nivcsw"] = metrics.ru_nivcsw - self.values["ru_nivcsw"]
         return self.values
 
-    def get_execution_time(self):
-        """
-        Subtract "{job_type}_start_time from "{job_type}_end_time to get the
-        number of seconds it took to run.
-
-        Returns:
-            int: The execution time in seconds.
-        """
-        starttime = get_contents(
-            self.output_dir / f"{self.job_type}_start_time"
-        )[0]
-        endtime = get_contents(self.output_dir / f"{self.job_type}_end_time")[
-            0
-        ]
-        return int(float(endtime) - float(starttime))
-
     def get_storage_usage(self):
         """Get the total number of bytes of the output files.
 
@@ -189,7 +174,7 @@ class JobMetrics:
             "metrics": {"rusage": {}},
         }
         metrics["metrics"]["rusage"] = self.get_rusage_delta()
-        metrics["metrics"]["runtime_in_seconds"] = self.get_execution_time()
+        metrics["metrics"]["runtime_in_seconds"] = int(time() - self.start_time)
         metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
@@ -208,25 +193,6 @@ class JobMetrics:
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(self.get_metrics(), indent=4))
 
-
-def get_contents(filename):
-    """[summary]
-
-    Args:
-        filename (str): The full path of the file to read from.
-
-    Returns:
-        List: The lines of the file with the newlines stripped.
-    """
-    lines = []
-    _LOGGER.debug("GET_CONTENTS: %s", filename)
-    if isfile(filename):
-        with open(filename, "r") as fptr:
-            for curline in fptr:
-                curline = curline.strip("\n")
-                if curline:
-                    lines.append(curline)
-    return lines
 
 
 def get_messages(sqs: client, qurl: str) -> Any:
@@ -387,6 +353,7 @@ def run_job(job: str, s3client: client, metrics: JobMetrics) -> int:
 
     file = "MISSING"
     try:
+        metrics.start_time=time()
         execute_command(
             command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
