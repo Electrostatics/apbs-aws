@@ -159,8 +159,10 @@ class JobMetrics:
         """
         starttime = get_contents(
             self.output_dir / f"{self.job_type}_start_time"
-        )
-        endtime = get_contents(self.output_dir / f"{self.job_type}_end_time")
+        )[0]
+        endtime = get_contents(self.output_dir / f"{self.job_type}_end_time")[
+            0
+        ]
         return int(float(endtime) - float(starttime))
 
     def get_storage_usage(self):
@@ -185,12 +187,11 @@ class JobMetrics:
         """
         metrics = {
             "metrics": {"rusage": {}},
-            "runtime_in_seconds": 0,
-            "disk_storage_in_bytes": 0,
         }
         metrics["metrics"]["rusage"] = self.get_rusage_delta()
         metrics["metrics"]["runtime_in_seconds"] = self.get_execution_time()
         metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
+        _LOGGER.debug("METRICS: %s", metrics)
         return metrics
 
     def write_metrics(self, job_type, output_dir: str):
@@ -202,6 +203,8 @@ class JobMetrics:
         """
         self.job_type = job_type
         self.output_dir = Path(output_dir)
+        _LOGGER.debug("JOBTYPE: %s", self.job_type)
+        _LOGGER.debug("OUTPUTDIR: %s", self.output_dir)
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(self.get_metrics(), indent=4))
 
