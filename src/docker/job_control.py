@@ -99,6 +99,7 @@ class JobMetrics:
         self.job_type = None
         self.output_dir = None
         self.start_time = 0
+        self.end_time = 0
         self.values: Dict = {}
         self.values["ru_utime"] = metrics.ru_utime
         self.values["ru_stime"] = metrics.ru_stime
@@ -162,6 +163,16 @@ class JobMetrics:
             if f.is_file()
         )
 
+    def set_start_time(self, job_type):
+        self.start_time=time()
+        with open(f"{job_type}_start_time", "w") as fout:
+            fout.write(int(self.start_time))
+        
+    def set_end_time(self, job_type):
+        self.end_time=time()
+        with open(f"{job_type}_end_time", "w") as fout:
+            fout.write(int(self.end_time))
+        
     def get_metrics(self):
         """
         Create a dictionare of memory usage, execution time, and amount of
@@ -174,7 +185,7 @@ class JobMetrics:
             "metrics": {"rusage": {}},
         }
         metrics["metrics"]["rusage"] = self.get_rusage_delta()
-        metrics["metrics"]["runtime_in_seconds"] = int(time() - self.start_time)
+        metrics["metrics"]["runtime_in_seconds"] = int(self.end_time - self.start_time)
         metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
@@ -353,10 +364,11 @@ def run_job(job: str, s3client: client, metrics: JobMetrics) -> int:
 
     file = "MISSING"
     try:
-        metrics.start_time=time()
+        metrics.set_start_time(job_type)
         execute_command(
             command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
+        metrics.set_end_time(job_type)
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_BUCKET.
