@@ -7,7 +7,6 @@ from datetime import datetime
 from enum import Enum
 from json import dumps, loads
 from logging import getLogger, ERROR, INFO
-from os.path import isfile
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
@@ -163,16 +162,29 @@ class JobMetrics:
             if f.is_file()
         )
 
+    # TODO: intendo: 2021/04/15
+    #       The creation of the start time and end time files
+    #       is not necesssary and should be removed in the future.
     def set_start_time(self, job_type):
-        self.start_time=time()
+        """Create a file with the current time to denote that the job started.
+
+        Args:
+            job_type (str): The value of "apbs" or "pdb2pqr"
+        """
+        self.start_time = time()
         with open(f"{job_type}_start_time", "w") as fout:
             fout.write(str(self.start_time))
-        
+
     def set_end_time(self, job_type):
-        self.end_time=time()
+        """Create a file with the current time to denote that the job ended.
+
+        Args:
+            job_type (str): The value of "apbs" or "pdb2pqr"
+        """
+        self.end_time = time()
         with open(f"{job_type}_end_time", "w") as fout:
             fout.write(str(self.end_time))
-        
+
     def get_metrics(self):
         """
         Create a dictionare of memory usage, execution time, and amount of
@@ -185,7 +197,9 @@ class JobMetrics:
             "metrics": {"rusage": {}},
         }
         metrics["metrics"]["rusage"] = self.get_rusage_delta()
-        metrics["metrics"]["runtime_in_seconds"] = int(self.end_time - self.start_time)
+        metrics["metrics"]["runtime_in_seconds"] = int(
+            self.end_time - self.start_time
+        )
         metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
@@ -203,7 +217,6 @@ class JobMetrics:
         _LOGGER.debug("OUTPUTDIR: %s", self.output_dir)
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(self.get_metrics(), indent=4))
-
 
 
 def get_messages(sqs: client, qurl: str) -> Any:
@@ -290,7 +303,18 @@ def cleanup_job(rundir: str) -> int:
 def execute_command(
     command_line_str: str, stdout_filename: str, stderr_filename: str
 ):
+    """Spawn a subprocess and collect all the information about it.
+
+    Args:
+        command_line_str (str): The command and arguments.
+        stdout_filename (str): The name of the output file for stdout.
+        stderr_filename (str): The name of the output file for stderr.
+    """
     command_split = command_line_str.split()
+    # TODO: intendo 2021/04/15
+    #       We should wrap the run call with a try/except and add check=Trues
+    #       to the run command so that a CalledProcessError is caught if the
+    #       command fails and we can log the error.
     proc = run(command_split, stdout=PIPE, stderr=PIPE)
 
     # Write stdout to file
