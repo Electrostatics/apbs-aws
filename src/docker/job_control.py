@@ -166,12 +166,12 @@ class JobMetrics:
     def set_start_time(self, job_type):
         self.start_time=time()
         with open(f"{job_type}_start_time", "w") as fout:
-            fout.write(int(self.start_time))
+            fout.write(str(self.start_time))
         
     def set_end_time(self, job_type):
         self.end_time=time()
         with open(f"{job_type}_end_time", "w") as fout:
-            fout.write(int(self.end_time))
+            fout.write(str(self.end_time))
         
     def get_metrics(self):
         """
