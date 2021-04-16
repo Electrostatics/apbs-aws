@@ -21,14 +21,19 @@ _LOGGER = getLogger(__name__)
 #       on complexity of the job (dimension of molecule?)
 #       The job could get launched multiple times if the
 #       job takes longer than Q_TIMEOUT
-Q_TIMEOUT = 300
-AWS_REGION = "us-west-2"
-MAX_TRIES = 60
-RETRY_TIME = 15
+Q_TIMEOUT = getenv("SQS_QUEUE_TIMEOUT", 300)
+AWS_REGION = getenv("SQS_AWS_REGION", "us-west-2")
+MAX_TRIES = getenv("SQS_MAX_TRIES", 60)
+RETRY_TIME = getenv("SQS_RETRY_TIME", 15)
 
 MEM_PATH = "/dev/shm/test/"
 S3_BUCKET = getenv("OUTPUT_BUCKET")
 QUEUE = getenv("JOB_QUEUE_NAME")
+
+if S3_BUCKET is None:
+    raise ValueError("Environment variable 'OUTPUT_BUCKET' is not set")
+if QUEUE is None:
+    raise ValueError("Environment variable 'JOB_QUEUE_NAME' is not set")
 
 
 class JOBTYPE(Enum):
