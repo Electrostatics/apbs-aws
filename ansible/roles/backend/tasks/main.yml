@@ -130,7 +130,19 @@
       state: present
       policy_json: "{{ lookup('template','files/iam-policy-apbs-role.json.j2') }}"
     tags: iam
-
+    
+  - name: Create dead SQS queue
+    sqs_queue:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-dead-job"
+      default_visibility_timeout: 60
+      message_retention_period: 1209600
+      maximum_message_size: 4096
+      delivery_delay: 0
+      receive_message_wait_time: 0
+    tags: sqs
+    
   - name: Create SQS queue
     sqs_queue:
       profile: "{{ aws_profile }}"
@@ -141,6 +153,9 @@
       maximum_message_size: 4096
       delivery_delay: 0
       receive_message_wait_time: 0
+      redrive_policy:
+        maxReceiveCount: 1
+        deadLetterTargetArn: "arn:aws:sqs:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-dead-job"
     tags: sqs
 
 
