@@ -1,4 +1,5 @@
 """Interpret APBS/PDBP2QR job configurations and submit to SQS."""
+from json.decoder import JSONDecodeError
 import os
 import time
 import json
@@ -39,7 +40,8 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
             object_response["Body"].read().decode("utf-8")
         )
         return job_info
-    except Exception:
+    except JSONDecodeError as jerr:
+        LOGGER.error("Can't decode JSON: %s, (%s)", object_response, jerr)
         raise
 
 
