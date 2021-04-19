@@ -331,7 +331,7 @@ def execute_command(
         fout.write(proc.stderr.decode("utf-8"))
 
 
-def run_job(job: str, s3client: client, metrics: JobMetrics) -> int:
+def run_job(job: str, s3client: client, metrics: JobMetrics, queue_url: str, receipt_handle: str) -> int:
     """Remove the directory for the job.
 
     :param job:  The job file describing what needs to be run.
@@ -390,6 +390,13 @@ def run_job(job: str, s3client: client, metrics: JobMetrics) -> int:
         command = f"pdb2pqr.py {job_info['command_line_args']}"
     else:
         raise KeyError(f"Invalid job type, {job_type}")
+    
+    if 'max_run_time' in job_info:
+        sqs.change_message_visibility(
+            QueueUrl=queue_url,
+            ReceiptHandle=receipt_handle,
+            VisibilityTimeout=int(job_info['max_run_time'])
+        )
 
     file = "MISSING"
     try:
@@ -490,7 +497,7 @@ def main() -> None:
     mess = get_messages(sqs, qurl)
     while mess:
         for idx in mess["Messages"]:
-            run_job(idx["Body"], s3client, metrics)
+            run_job(idx["Body"], s3client, metrics, qurl, idx["ReceiptHandle"])
             sqs.delete_message(
                 QueueUrl=qurl, ReceiptHandle=idx["ReceiptHandle"]
             )
