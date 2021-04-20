@@ -341,25 +341,25 @@
     state: present
     network_mode: awsvpc
 
-- name: Create task definition for ec2
-  community.aws.ecs_taskdefinition:
-    family: "{{ project }}-{{ deployment_group }}-apbs-ec2"
-    containers:
-      - name: "apbs"
-        essential: true
-        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
-        environment:
-          - name: "JOB_QUEUE_NAME"
-            value: "{{ project }}-{{ deployment_group }}-job-q"
-          - name: "OUTPUT_BUCKET"
-            value: "{{ project }}-{{ deployment_group }}-output"
-      launch_type: EC2
-      task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
-      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-      cpu: 512
-      memory: 1GB
-      state: present
-      network_mode: bridge
+  - name: Create task definition for ec2
+    community.aws.ecs_taskdefinition:
+      family: "{{ project }}-{{ deployment_group }}-apbs-ec2"
+      containers:
+        - name: "apbs"
+          essential: true
+          image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
+          environment:
+            - name: "JOB_QUEUE_NAME"
+              value: "{{ project }}-{{ deployment_group }}-job-q"
+            - name: "OUTPUT_BUCKET"
+              value: "{{ project }}-{{ deployment_group }}-output"
+        launch_type: EC2
+        task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
+        execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
+        cpu: 512
+        memory: 2GB
+        state: present
+        network_mode: bridge
 
 
   - name: create ECS fargate service on VPC network
