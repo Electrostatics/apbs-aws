@@ -390,8 +390,9 @@ def run_job(job: str, s3client: client, metrics: JobMetrics, queue_url: str, rec
         command = f"pdb2pqr.py {job_info['command_line_args']}"
     else:
         raise KeyError(f"Invalid job type, {job_type}")
-    
+
     if 'max_run_time' in job_info:
+        sqs = client("sqs", region_name=AWS_REGION)
         sqs.change_message_visibility(
             QueueUrl=queue_url,
             ReceiptHandle=receipt_handle,
