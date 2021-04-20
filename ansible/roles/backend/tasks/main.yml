@@ -378,28 +378,6 @@
                       - '{{ default_sg }}'
             desired_count: 0
             
-  - name: create ECS ec2 service on VPC network
-    community.aws.ecs_service:
-            state: present
-            name: "{{ project }}-{{ deployment_group }}-ec2-service"
-            cluster: "{{ project }}-{{ deployment_group }}-cluster"
-            launch_type: EC2
-            task_definition: '{{ project }}-{{ deployment_group }}-apbs-ec2:1'
-            desired_count: 0
-            
-  - name: Run a shell command to get current ECS ami
-    shell: aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended | jq -r '.Parameters[0].Value' | jq -r '.image_id'
-    register: ecs_ami
-    ignore_errors: true          
- 
-  - name: Create launch configuration
-    community.aws.ec2_lc:
-      name: "{{ project }}-{{ deployment_group }}-ecs-lc"
-      image_id: "{{ ecs_ami.stdout }}"
-      assign_public_ip: yes
-      security_groups:
-        - "{{ default_sg }}"
-    desired_count: 0
 
   - name: create ECS ec2 service on VPC network
     community.aws.ecs_service:
