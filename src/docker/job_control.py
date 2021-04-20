@@ -331,7 +331,13 @@ def execute_command(
         fout.write(proc.stderr.decode("utf-8"))
 
 
-def run_job(job: str, s3client: client, metrics: JobMetrics, queue_url: str, receipt_handle: str) -> int:
+def run_job(
+    job: str,
+    s3client: client,
+    metrics: JobMetrics,
+    queue_url: str,
+    receipt_handle: str,
+) -> int:
     """Remove the directory for the job.
 
     :param job:  The job file describing what needs to be run.
@@ -391,12 +397,12 @@ def run_job(job: str, s3client: client, metrics: JobMetrics, queue_url: str, rec
     else:
         raise KeyError(f"Invalid job type, {job_type}")
 
-    if 'max_run_time' in job_info:
+    if "max_run_time" in job_info:
         sqs = client("sqs", region_name=AWS_REGION)
         sqs.change_message_visibility(
             QueueUrl=queue_url,
             ReceiptHandle=receipt_handle,
-            VisibilityTimeout=int(job_info['max_run_time'])
+            VisibilityTimeout=int(job_info["max_run_time"]),
         )
 
     file = "MISSING"
