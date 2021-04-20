@@ -11,6 +11,7 @@ FARGATE_CLUSTER = os.getenv("FARGATE_CLUSTER")
 FARGATE_SERVICE = os.getenv("FARGATE_SERVICE")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv("JOB_QUEUE_NAME")
+JOB_MAX_RUNTIME = int(os.getenv("JOB_MAX_RUNTIME"))
 
 # Initialize logger
 LOGGER = logging.getLogger()
@@ -137,12 +138,14 @@ def interpret_job_submission(event: dict, context=None):
     output_files = None
     message = None
     status = "pending"
+    timeout_seconds = None
     if job_type == "pdb2pqr":
         job_info_form = get_job_info(bucket_name, jobinfo_object_name)["form"]
         job_runner = pdb2pqr_runner.Runner(job_info_form, job_id)
         job_command_line_args = job_runner.prepare_job()
         input_files = job_runner.input_files
         output_files = job_runner.output_files
+        timeout_seconds = job_runner.estimated_max_runtime
 
     # If APBS:
     #   - Obtain job configuration from config file
@@ -155,6 +158,7 @@ def interpret_job_submission(event: dict, context=None):
         )
         input_files = job_runner.input_files
         output_files = job_runner.output_files
+        timeout_seconds = job_runner.estimated_max_runtime
 
     # If no valid job type
     #   - Construct "invalid" status
@@ -176,12 +180,16 @@ def interpret_job_submission(event: dict, context=None):
 
     # Submit run info to SQS
     if status != "invalid":
+        if timeout_seconds is None:
+            timeout_seconds = JOB_MAX_RUNTIME
+
         sqs_json = {
             "job_id": job_id,
             "job_type": job_type,
             "bucket_name": bucket_name,
             "input_files": job_runner.input_files,
             "command_line_args": job_command_line_args,
+            "max_run_time": timeout_seconds,
         }
         sqs_client = boto3.resource("sqs")
         queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)

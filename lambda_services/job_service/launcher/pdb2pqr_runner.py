@@ -10,6 +10,7 @@ class JobDirectoryExistsError(Exception):
         self.expression = expression
 
 
+# TODO: 2021/04/19, Elvis - Make Runner class into interface
 class Runner:
     def __init__(self, form, job_id):
         # self.starttime = None
@@ -21,6 +22,7 @@ class Runner:
         self.job_id = job_id
         self.input_files = []
         self.output_files = []
+        self.estimated_max_runtime = None
 
         try:
             # if 'invoke_method' in form and isinstance(form['invoke_method'], str):
