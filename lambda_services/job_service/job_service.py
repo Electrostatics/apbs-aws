@@ -11,7 +11,7 @@ FARGATE_CLUSTER = os.getenv("FARGATE_CLUSTER")
 FARGATE_SERVICE = os.getenv("FARGATE_SERVICE")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv("JOB_QUEUE_NAME")
-JOB_MAX_RUNTIME = int(os.getenv("JOB_MAX_RUNTIME"))
+JOB_MAX_RUNTIME = int(os.getenv("JOB_MAX_RUNTIME",2000))
 
 # Initialize logger
 LOGGER = logging.getLogger()
