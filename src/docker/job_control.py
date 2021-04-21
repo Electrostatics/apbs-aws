@@ -21,10 +21,10 @@ _LOGGER = getLogger(__name__)
 #       on complexity of the job (dimension of molecule?)
 #       The job could get launched multiple times if the
 #       job takes longer than Q_TIMEOUT
-Q_TIMEOUT = getenv("SQS_QUEUE_TIMEOUT", 300)
+Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", 300))
 AWS_REGION = getenv("SQS_AWS_REGION", "us-west-2")
-MAX_TRIES = getenv("SQS_MAX_TRIES", 60)
-RETRY_TIME = getenv("SQS_RETRY_TIME", 15)
+MAX_TRIES = int(getenv("SQS_MAX_TRIES", 60))
+RETRY_TIME = int(getenv("SQS_RETRY_TIME", 15))
 
 MEM_PATH = "/dev/shm/test/"
 S3_BUCKET = getenv("OUTPUT_BUCKET")
