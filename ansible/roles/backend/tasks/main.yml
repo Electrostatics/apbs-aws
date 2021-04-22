@@ -477,7 +477,7 @@
     set_fact:
       down_metric: "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2', convert_data=False) | string }}"
       
-  - name: Create an alarm scale down fargate tasks (broken)
+  - name: Create an alarm scale down fargate tasks
     shell: >
       aws cloudwatch put-metric-alarm --region {{ aws_region }} 
       --alarm-name "{{ project }}-{{ deployment_group }}-q-down" 
