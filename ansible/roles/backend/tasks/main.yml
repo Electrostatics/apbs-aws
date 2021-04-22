@@ -479,10 +479,9 @@
       --alarm-name "{{ project }}-{{ deployment_group }}-q-down" 
       --alarm-description "{{ aws_region }} job-q check"
       --alarm-actions "{{ down_policy.response.policy_arn }}"
-      --unit "Count"
       --evaluation-periods 3
       --threshold "0.1"
       --comparison-operator LessThanThreshold
       --treat-missing-data "ignore"
-      --metrics "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2') }}"
+      --metrics "$({{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2') }})"
     ignore_errors: true
