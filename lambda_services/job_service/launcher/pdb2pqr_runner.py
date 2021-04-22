@@ -22,7 +22,7 @@ class Runner:
         self.job_id = job_id
         self.input_files = []
         self.output_files = []
-        self.estimated_max_runtime = None
+        self.estimated_max_runtime = 2700
 
         try:
             # if 'invoke_method' in form and isinstance(form['invoke_method'], str):
