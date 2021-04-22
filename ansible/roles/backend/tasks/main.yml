@@ -336,10 +336,11 @@
       launch_type: FARGATE
       task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
       execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-      cpu: 512
-      memory: 1GB
+      cpu: 1024
+      memory: 2GB
       state: present
       network_mode: awsvpc
+    register: fargate_task
 
   - name: Create task definition for ec2
     community.aws.ecs_taskdefinition:
@@ -356,10 +357,11 @@
       launch_type: EC2
       task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
       execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-      cpu: 512
+      cpu: 1024
       memory: 2GB
       state: present
       network_mode: bridge
+    register: ec2_task
 
 
   - name: create ECS fargate service on VPC network
@@ -368,7 +370,7 @@
             name: "{{ project }}-{{ deployment_group }}-fargate-service"
             cluster: "{{ project }}-{{ deployment_group }}-cluster"
             launch_type: FARGATE
-            task_definition: '{{ project }}-{{ deployment_group }}-apbs-fargate:1'
+            task_definition: '{{ fargate_task.taskdefinition.taskDefinitionArn }}'
             network_configuration:
                     subnets:
                       - '{{ vpc_subnet_id }}'
@@ -385,7 +387,7 @@
       name: "{{ project }}-{{ deployment_group }}-ec2-service"
       cluster: "{{ project }}-{{ deployment_group }}-cluster"
       launch_type: EC2
-      task_definition: "{{ project }}-{{ deployment_group }}-apbs-ec2:1"
+      task_definition: "{{ ec_task.taskdefinition.taskDefinitionArn }}"
       desired_count: 0
 
   - name: Run a shell command to get current ECS ami
