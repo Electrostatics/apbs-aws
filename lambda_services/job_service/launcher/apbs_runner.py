@@ -30,7 +30,7 @@ class Runner:
         self.command_line_args = None
         self.input_files = []
         self.output_files = []
-        self.estimated_max_runtime = None
+        self.estimated_max_runtime = 7200
         # Load kubeconfig
         # config.load_incluster_config()
         # config.load_kube_config()
