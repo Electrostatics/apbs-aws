@@ -10,7 +10,7 @@
           "Metric": {
             "Namespace": "AWS/SQS",
             "MetricName": "ApproximateNumberOfMessagesVisible",
-            "Dimensions": { "QueueName", "{{ project }}-{{ deployment_group }}-job-q" }
+            "Dimensions": [{ "Name":"QueueName", "Value":"{{ project }}-{{ deployment_group }}-job-q" }]
           },
           "Period": 60,
           "Stat": "Maximum",
@@ -24,7 +24,7 @@
           "Metric": {
             "Namespace": "AWS/SQS",
             "MetricName": "ApproximateNumberOfMessagesNotVisible",
-            "Dimensions": { "QueueName", "{{ project }}-{{ deployment_group }}-job-q" }
+            "Dimensions": [{ "Name":"QueueName", "Value":"{{ project }}-{{ deployment_group }}-job-q" }]
           },
           "Period": 60,
           "Stat": "Maximum",
