@@ -473,6 +473,10 @@
       dimensions: { "QueueName": "{{ project }}-{{ deployment_group }}-job-q" }
       alarm_actions: ["{{ up_policy.response.policy_arn }}"]
 
+  - name: set down metric
+    set_fact:
+      down_metric: "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2', convert_data=False) | string }}"
+      
   - name: Create an alarm scale down fargate tasks (broken)
     shell: >
       aws cloudwatch put-metric-alarm --region {{ aws_region }} 
@@ -483,5 +487,5 @@
       --threshold "0.1"
       --comparison-operator LessThanThreshold
       --treat-missing-data "ignore"
-      --metrics "$({{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2') }})"
+      --metrics '{{ down_metric }}'
     ignore_errors: true
