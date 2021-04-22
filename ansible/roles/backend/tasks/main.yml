@@ -130,7 +130,19 @@
       state: present
       policy_json: "{{ lookup('template','files/iam-policy-apbs-role.json.j2') }}"
     tags: iam
-
+    
+  - name: Create dead SQS queue
+    sqs_queue:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-dead-job"
+      default_visibility_timeout: 60
+      message_retention_period: 1209600
+      maximum_message_size: 4096
+      delivery_delay: 0
+      receive_message_wait_time: 0
+    tags: sqs
+    
   - name: Create SQS queue
     sqs_queue:
       profile: "{{ aws_profile }}"
@@ -141,6 +153,9 @@
       maximum_message_size: 4096
       delivery_delay: 0
       receive_message_wait_time: 0
+      redrive_policy:
+        maxReceiveCount: 1
+        deadLetterTargetArn: "arn:aws:sqs:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-dead-job"
     tags: sqs
 
 
@@ -318,33 +333,35 @@
             value: "{{ project }}-{{ deployment_group }}-job-q"
           - name: "OUTPUT_BUCKET"
             value: "{{ project }}-{{ deployment_group }}-output"
-    launch_type: FARGATE
-    task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
-    execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-    cpu: 512
-    memory: 1GB
-    state: present
-    network_mode: awsvpc
+      launch_type: FARGATE
+      task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
+      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
+      cpu: 1024
+      memory: 2GB
+      state: present
+      network_mode: awsvpc
+    register: fargate_task
 
-- name: Create task definition for ec2
-  community.aws.ecs_taskdefinition:
-    family: "{{ project }}-{{ deployment_group }}-apbs-ec2"
-    containers:
-      - name: "apbs"
-        essential: true
-        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
-        environment:
-          - name: "JOB_QUEUE_NAME"
-            value: "{{ project }}-{{ deployment_group }}-job-q"
-          - name: "OUTPUT_BUCKET"
-            value: "{{ project }}-{{ deployment_group }}-output"
+  - name: Create task definition for ec2
+    community.aws.ecs_taskdefinition:
+      family: "{{ project }}-{{ deployment_group }}-apbs-ec2"
+      containers:
+        - name: "apbs"
+          essential: true
+          image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
+          environment:
+            - name: "JOB_QUEUE_NAME"
+              value: "{{ project }}-{{ deployment_group }}-job-q"
+            - name: "OUTPUT_BUCKET"
+              value: "{{ project }}-{{ deployment_group }}-output"
       launch_type: EC2
       task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
       execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-      cpu: 512
-      memory: 1GB
+      cpu: 1024
+      memory: 2GB
       state: present
       network_mode: bridge
+    register: ec2_task
 
 
   - name: create ECS fargate service on VPC network
@@ -353,7 +370,7 @@
             name: "{{ project }}-{{ deployment_group }}-fargate-service"
             cluster: "{{ project }}-{{ deployment_group }}-cluster"
             launch_type: FARGATE
-            task_definition: '{{ project }}-{{ deployment_group }}-apbs-fargate:1'
+            task_definition: '{{ fargate_task.taskdefinition.taskDefinitionArn }}'
             network_configuration:
                     subnets:
                       - '{{ vpc_subnet_id }}'
@@ -363,133 +380,114 @@
                       - '{{ default_sg }}'
             desired_count: 0
             
+
   - name: create ECS ec2 service on VPC network
     community.aws.ecs_service:
-            state: present
-            name: "{{ project }}-{{ deployment_group }}-ec2-service"
-            cluster: "{{ project }}-{{ deployment_group }}-cluster"
-            launch_type: EC2
-            task_definition: '{{ project }}-{{ deployment_group }}-apbs-ec2:1'
-            desired_count: 0
-            
+      state: present
+      name: "{{ project }}-{{ deployment_group }}-ec2-service"
+      cluster: "{{ project }}-{{ deployment_group }}-cluster"
+      launch_type: EC2
+      task_definition: "{{ ec_task.taskdefinition.taskDefinitionArn }}"
+      desired_count: 0
+
   - name: Run a shell command to get current ECS ami
     shell: aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended | jq -r '.Parameters[0].Value' | jq -r '.image_id'
     register: ecs_ami
-    ignore_errors: true          
- 
+    ignore_errors: true
+
   - name: Create launch configuration
     community.aws.ec2_lc:
       name: "{{ project }}-{{ deployment_group }}-ecs-lc"
       image_id: "{{ ecs_ami.stdout }}"
       assign_public_ip: yes
-      security_groups:
-        - "{{ default_sg }}"
-    desired_count: 0
+      instance_type: t3.medium
+      user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config"
+      key_name: "{{ key_name }}"
+      security_groups: ["{{ default_sg }}"]
+      instance_profile_name: "{{ project }}-{{ deployment_group }}-ec2-role"
+      state: present
+    register: lc_info
 
-- name: create ECS ec2 service on VPC network
-  community.aws.ecs_service:
-    state: present
-    name: "{{ project }}-{{ deployment_group }}-ec2-service"
-    cluster: "{{ project }}-{{ deployment_group }}-cluster"
-    launch_type: EC2
-    task_definition: "{{ project }}-{{ deployment_group }}-apbs-ec2:1"
-    desired_count: 0
+  - name: Create ASG
+    community.aws.ec2_asg:
+      name: "{{ project }}-{{ deployment_group }}-ecs-asg"
+      state: present
+      availability_zones: ["{{ az_id }}", "{{ az_id2}}"]
+      launch_config_name: "{{ project }}-{{ deployment_group }}-ecs-lc"
+      min_size: 1
+      max_size: 1
+      desired_capacity: 1
+      vpc_zone_identifier: ["{{ vpc_subnet_id }}", "{{ vpc_subnet_id2 }}"]
 
-- name: Run a shell command to get current ECS ami
-  shell: aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended | jq -r '.Parameters[0].Value' | jq -r '.image_id'
-  register: ecs_ami
-  ignore_errors: true
+  - name: Scale up policy
+    community.aws.aws_application_scaling_policy:
+      state: present
+      policy_name: "up_{{ deployment_group }}"
+      service_namespace: ecs
+      resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
+      scalable_dimension: ecs:service:DesiredCount
+      policy_type: StepScaling
+      minimum_tasks: 0
+      maximum_tasks: 6
+      step_scaling_policy_configuration:
+        AdjustmentType: ChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            ScalingAdjustment: 1
+        Cooldown: 63
+        MetricAggregationType: Average
+    register: up_policy
 
-- name: Create launch configuration
-  community.aws.ec2_lc:
-    name: "{{ project }}-{{ deployment_group }}-ecs-lc"
-    image_id: "{{ ecs_ami.stdout }}"
-    assign_public_ip: yes
-    instance_type: t3.medium
-    user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config"
-    key_name: "{{ key_name }}"
-    security_groups: ["{{ default_sg }}"]
-    instance_profile_name: "{{ project }}-{{ deployment_group }}-ec2-role"
-    state: present
-  register: lc_info
+  - name: Scale down policy
+    community.aws.aws_application_scaling_policy:
+      state: present
+      policy_name: "down_{{ deployment_group }}"
+      service_namespace: ecs
+      resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
+      scalable_dimension: ecs:service:DesiredCount
+      policy_type: StepScaling
+      minimum_tasks: 0
+      maximum_tasks: 6
+      step_scaling_policy_configuration:
+        AdjustmentType: ChangeInCapacity
+        StepAdjustments:
+          - MetricIntervalUpperBound: 0
+            ScalingAdjustment: -1
+        Cooldown: 63
+        MetricAggregationType: Average
+    register: down_policy
 
-- name: Create ASG
-  community.aws.ec2_asg:
-    name: "{{ project }}-{{ deployment_group }}-ecs-asg"
-    state: present
-    availability_zones: ["{{ az_id }}", "{{ az_id2}}"]
-    launch_config_name: "{{ project }}-{{ deployment_group }}-ecs-lc"
-    min_size: 1
-    max_size: 1
-    desired_capacity: 1
-    vpc_zone_identifier: ["{{ vpc_subnet_id }}", "{{ vpc_subnet_id2 }}"]
+  - name: Create an alarm scale up fargate tasks
+    community.aws.ec2_metric_alarm:
+      state: present
+      region: "{{ aws_region }}"
+      name: "{{ project }}-{{ deployment_group }}-q-up"
+      metric: "ApproximateNumberOfMessagesVisible"
+      namespace: "AWS/SQS"
+      treat_missing_data: "ignore"
+      statistic: "Average"
+      comparison: GreaterThanOrEqualToThreshold
+      threshold: 1.0
+      period: 60
+      evaluation_periods: 1
+      unit: "Count"
+      description: "{{ aws_region }} job-q check"
+      dimensions: { "QueueName": "{{ project }}-{{ deployment_group }}-job-q" }
+      alarm_actions: ["{{ up_policy.response.policy_arn }}"]
 
-- name: Scale up policy
-  community.aws.aws_application_scaling_policy:
-    state: present
-    policy_name: "up_{{ deployment_group }}"
-    service_namespace: ecs
-    resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
-    scalable_dimension: ecs:service:DesiredCount
-    policy_type: StepScaling
-    minimum_tasks: 0
-    maximum_tasks: 6
-    step_scaling_policy_configuration:
-      AdjustmentType: ChangeInCapacity
-      StepAdjustments:
-        - MetricIntervalLowerBound: 0
-          ScalingAdjustment: 1
-      Cooldown: 63
-      MetricAggregationType: Average
-  register: up_policy
-
-- name: Scale down policy
-  community.aws.aws_application_scaling_policy:
-    state: present
-    policy_name: "down_{{ deployment_group }}"
-    service_namespace: ecs
-    resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
-    scalable_dimension: ecs:service:DesiredCount
-    policy_type: StepScaling
-    minimum_tasks: 0
-    maximum_tasks: 6
-    step_scaling_policy_configuration:
-      AdjustmentType: ChangeInCapacity
-      StepAdjustments:
-        - MetricIntervalUpperBound: 0
-          ScalingAdjustment: -1
-      Cooldown: 63
-      MetricAggregationType: Average
-  register: down_policy
-
-- name: Create an alarm scale up fargate tasks
-  community.aws.ec2_metric_alarm:
-    state: present
-    region: "{{ aws_region }}"
-    name: "{{ project }}-{{ deployment_group }}-q-up"
-    metric: "ApproximateNumberOfMessagesVisible"
-    namespace: "AWS/SQS"
-    treat_missing_data: "ignore"
-    statistic: "Average"
-    comparison: GreaterThanOrEqualToThreshold
-    threshold: 1.0
-    period: 60
-    evaluation_periods: 1
-    unit: "Count"
-    description: "{{ aws_region }} job-q check"
-    dimensions: { "QueueName": "{{ project }}-{{ deployment_group }}-job-q" }
-    alarm_actions: ["{{ up_policy.response.policy_arn }}"]
-
-- name: Create an alarm scale down fargate tasks (broken)
-  shell: >
-    aws cloudwatch put-metric-alarm --region {{ aws_region }} 
-    --alarm-name "{{ project }}-{{ deployment_group }}-q-down" 
-    --alarm-description "{{ aws_region }} job-q check"
-    --alarm-actions "{{ down_policy.response.policy_arn }}"
-    --unit "Count"
-    --evaluation-periods 3
-    --threshold "0.1"
-    --comparison-operator LessThanThreshold
-    --treat-missing-data "ignore"
-    --metrics "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2') }}"
-  ignore_errors: true
+  - name: set down metric
+    set_fact:
+      down_metric: "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2', convert_data=False) | string }}"
+      
+  - name: Create an alarm scale down fargate tasks
+    shell: >
+      aws cloudwatch put-metric-alarm --region {{ aws_region }} 
+      --alarm-name "{{ project }}-{{ deployment_group }}-q-down" 
+      --alarm-description "{{ aws_region }} job-q check"
+      --alarm-actions "{{ down_policy.response.policy_arn }}"
+      --evaluation-periods 3
+      --threshold "0.1"
+      --comparison-operator LessThanThreshold
+      --treat-missing-data "ignore"
+      --metrics '{{ down_metric }}'
+    ignore_errors: true
