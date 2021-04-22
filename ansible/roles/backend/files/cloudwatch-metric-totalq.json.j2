@@ -1,6 +1,6 @@
 [
       {
-        "Id": "{{ deployment_group}}-active",
+        "Id": "{{ deployment_group}}active",
         "Expression": "(m1+m2)",
         "Label": "ActiveTasks"
       },
@@ -13,7 +13,7 @@
             "Dimensions": { "QueueName", "{{ project }}-{{ deployment_group }}-job-q" }
           },
           "Period": 60,
-          "Stat": "Maxium",
+          "Stat": "Maximum",
           "Unit": "Count"
         },
         "ReturnData": false
@@ -27,7 +27,7 @@
             "Dimensions": { "QueueName", "{{ project }}-{{ deployment_group }}-job-q" }
           },
           "Period": 60,
-          "Stat": "Maxium",
+          "Stat": "Maximum",
           "Unit": "Count"
         },
         "ReturnData": false
