@@ -142,7 +142,7 @@ class Runner(JobSetup):
 
                     # Send original PQR file (with water) to S3 output bucket
                     utils.s3_put_object(output_bucket_name, f"{job_id}/{water_pqrname}", pqrfile_text.encode('utf-8'))
-                    self.output_files.append(f"{job_id}/{water_pqrname}")
+                    self.add_output_file(f"{job_id}/{water_pqrname}")
 
                     # Replace PQR file text with version with water removed
                     pqrfile_text = nowater_pqrfile_text
