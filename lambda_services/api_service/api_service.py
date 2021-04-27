@@ -2,6 +2,7 @@
 from random import choices
 from string import ascii_lowercase, digits
 from typing import List
+from datetime import date
 import os
 import boto3
 
@@ -52,8 +53,9 @@ def generate_id_and_tokens(event: dict, context=None) -> dict:
 
     # Create URLs with S3 tokens
     url_dict = {}
+    date_jobid_prefix = f"{date.today().isoformat()}/{job_id}"  # UTC or local?
     for file_name in file_list:
-        token_url = create_s3_url(bucket_name, file_name, job_id)
+        token_url = create_s3_url(bucket_name, file_name, date_jobid_prefix)
         url_dict[file_name] = token_url
 
     # Generate JSON response
