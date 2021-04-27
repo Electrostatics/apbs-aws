@@ -5,6 +5,7 @@ import locale
 import logging
 # import requests
 
+from .jobsetup import JobSetup
 from . import utils
 
 
@@ -20,8 +21,9 @@ class MissingFilesError(FileNotFoundError):
         self.missing_files = file_list
 
 
-class Runner:
-    def __init__(self, form, job_id=None):
+class Runner(JobSetup):
+    def __init__(self, form, job_id, job_date):
+        super().__init__(job_id, job_date)
         self.job_id = None
         self.form = None
         self.infile_name = None
@@ -95,7 +97,8 @@ class Runner:
                 object_name = f"{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
                     # TODO: 2021/03/04, Elvis - Update input files via a common function
-                    self.input_files.append(f"{job_id}/{str(name)}")
+                    self.add_input_file(f"{job_id}/{str(name)}")
+                    # self.input_files.append(f"{job_id}/{str(name)}")
                 else:
                     missing_files.append(str(name))
 
@@ -104,7 +107,8 @@ class Runner:
 
             # Set input files and return command line args
             self.command_line_args = infile_name
-            self.input_files.append(f"{job_id}/{infile_name}")
+            self.add_input_file(f"{job_id}/{infile_name}")
+            # self.input_files.append(f"{job_id}/{infile_name}")
 
             return self.command_line_args
 
@@ -170,8 +174,10 @@ class Runner:
             utils.s3_put_object(input_bucket_name, f"{job_id}/{pqr_file_name}", pqrfile_text.encode('utf-8'))
 
             # Set input files for status reporting
-            self.input_files.append(f"{job_id}/{pqr_file_name}")
-            self.input_files.append(f"{job_id}/{apbs_options['tempFile']}")
+            self.add_input_file(f"{job_id}/{pqr_file_name}")
+            self.add_input_file(f"{job_id}/{apbs_options['tempFile']}")
+            # self.input_files.append(f"{job_id}/{pqr_file_name}")
+            # self.input_files.append(f"{job_id}/{apbs_options['tempFile']}")
 
             # Return command line args
             self.command_line_args = apbs_options['tempFile']  # 'apbsinput.in'

@@ -11,7 +11,7 @@ FARGATE_CLUSTER = os.getenv("FARGATE_CLUSTER")
 FARGATE_SERVICE = os.getenv("FARGATE_SERVICE")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = os.getenv("JOB_QUEUE_NAME")
-JOB_MAX_RUNTIME = int(os.getenv("JOB_MAX_RUNTIME",2000))
+JOB_MAX_RUNTIME = int(os.getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
 LOGGER = logging.getLogger()
@@ -142,7 +142,7 @@ def interpret_job_submission(event: dict, context=None):
     timeout_seconds = None
     if job_type == "pdb2pqr":
         job_info_form = get_job_info(bucket_name, jobinfo_object_name)["form"]
-        job_runner = pdb2pqr_runner.Runner(job_info_form, job_id)
+        job_runner = pdb2pqr_runner.Runner(job_info_form, job_id, job_date)
         job_command_line_args = job_runner.prepare_job()
         input_files = job_runner.input_files
         output_files = job_runner.output_files
@@ -173,7 +173,7 @@ def interpret_job_submission(event: dict, context=None):
 
     # Create and upload status file to S3
     status_filename = f"{job_type}-status.json"
-    status_object_name = f"{job_id}/{status_filename}"
+    status_object_name = f"{job_date}/{job_id}/{status_filename}"
     initial_status: dict = build_status_dict(
         job_id, job_type, status, input_files, output_files, message
     )

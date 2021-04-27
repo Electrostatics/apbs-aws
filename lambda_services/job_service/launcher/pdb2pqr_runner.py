@@ -2,6 +2,7 @@ import os
 # import glob
 # import requests
 import logging
+from .jobsetup import JobSetup
 from .weboptions import WebOptions, WebOptionsError
 
 
@@ -11,8 +12,9 @@ class JobDirectoryExistsError(Exception):
 
 
 # TODO: 2021/04/19, Elvis - Make Runner class into interface
-class Runner:
-    def __init__(self, form, job_id):
+class Runner(JobSetup):
+    def __init__(self, form: dict, job_id: str, job_date: str):
+        super().__init__(job_id, job_date)
         # self.starttime = None
         # self.job_id = None
         self.weboptions = None
@@ -84,22 +86,27 @@ class Runner:
             if self.weboptions.user_did_upload:
                 # Update input files
                 # TODO: 2021/03/04, Elvis - Update input files via a common function
-                self.input_files.append(f'{job_id}/{self.weboptions.pdbfilename}')
+                # self.input_files.append(f'{job_id}/{self.weboptions.pdbfilename}')
+                self.add_input_file(f'{job_id}/{self.weboptions.pdbfilename}')
 
             else:
                 if os.path.splitext(self.weboptions.pdbfilename)[1] != '.pdb':
                     self.weboptions.pdbfilename = self.weboptions.pdbfilename+'.pdb'  # add pdb extension to pdbfilename
 
                     # Add url to RCSB PDB file to input file list
-                    self.input_files.append(f'https://files.rcsb.org/download/{self.weboptions.pdbfilename}')
+                    self.add_input_file(f'https://files.rcsb.org/download/{self.weboptions.pdbfilename}')
+                    # self.input_files.append(f'https://files.rcsb.org/download/{self.weboptions.pdbfilename}')
 
             # Check for userff, names, ligand files to add to input_file list
             if hasattr(self.weboptions, 'ligandfilename'):
-                self.input_files.append(f'{job_id}/{self.weboptions.ligandfilename}')
+                self.add_input_file(f'{job_id}/{self.weboptions.ligandfilename}')
+                # self.input_files.append(f'{job_id}/{self.weboptions.ligandfilename}')
             if hasattr(self.weboptions, 'userfffilename'):
-                self.input_files.append(f'{job_id}/{self.weboptions.userfffilename}')
+                self.add_input_file(f'{job_id}/{self.weboptions.userfffilename}')
+                # self.input_files.append(f'{job_id}/{self.weboptions.userfffilename}')
             if hasattr(self.weboptions, 'usernamesfilename'):
-                self.input_files.append(f'{job_id}/{self.weboptions.usernamesfilename}')
+                self.add_input_file(f'{job_id}/{self.weboptions.usernamesfilename}')
+                # self.input_files.append(f'{job_id}/{self.weboptions.usernamesfilename}')
 
             # Make the pqr name prefix the job_id
             self.weboptions.pqrfilename = job_id+'.pqr'
@@ -117,7 +124,8 @@ class Runner:
             command_line_list = []
 
             # Add PDB filename to input file list
-            self.input_files.append(f"{job_id}/{self.cli_params['pdb_name']}")
+            self.add_input_file(f"{job_id}/{self.cli_params['pdb_name']}")
+            # self.input_files.append(f"{job_id}/{self.cli_params['pdb_name']}")
 
             # get list of args from self.cli_params['flags']
             for name in self.cli_params['flags']:
@@ -125,7 +133,8 @@ class Runner:
 
                 # Add to input file list if userff, names, or ligand flags are defined
                 if name in ['userff', 'usernames', 'ligand'] and self.cli_params[name]:
-                    self.input_files.append(f"{job_id}/{self.cli_params[name]}")
+                    self.add_input_file(f"{job_id}/{self.cli_params[name]}")
+                    # self.input_files.append(f"{job_id}/{self.cli_params[name]}")
 
             command_line_args = ''
 
