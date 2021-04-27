@@ -11,7 +11,6 @@ class JobDirectoryExistsError(Exception):
         self.expression = expression
 
 
-# TODO: 2021/04/19, Elvis - Make Runner class into interface
 class Runner(JobSetup):
     def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
@@ -52,41 +51,14 @@ class Runner(JobSetup):
         except WebOptionsError:
             raise
 
-    # def prepare_job(self, job_id):
-    #     pass
-    #     # statusfile = open('%s%s%s/pdb2pqr_status' % (INSTALLDIR, TMPDIR, job_id), 'w')
-    #     # statusfile.write('running')
-    #     # statusfile.close()
-
     def prepare_job(self):
         job_id = self.job_id
-        # pqr_name = None
-        # print(self.weboptions.pdbfilestring)
-        # pdblist, errlist = readPDB(self.weboptions.pdbfile)
-
-        # currentdir = os.getcwd()
-        # os.chdir("/")
-        # # os.setsid()
-        # # os.umask(0)
-        # os.chdir(currentdir)
-
-        # os.close(1) # not sure if these
-        # os.close(2) # two lines are necessary
-
-        # pqrpath = '%s%s%s/%s.pqr' % (INSTALLDIR, TMPDIR, job_id, job_id)
-
-        # orig_stdout = sys.stdout
-        # orig_stderr = sys.stderr
-        # sys.stdout = open('%s%s%s/pdb2pqr_stdout.txt' % (INSTALLDIR, TMPDIR, job_id), 'w')
-        # sys.stderr = open('%s%s%s/pdb2pqr_stderr.txt' % (INSTALLDIR, TMPDIR, job_id), 'w')
 
         if self.invoke_method == 'gui' or self.invoke_method == 'v1':
 
             # Retrieve information about the PDB file and command line arguments
             if self.weboptions.user_did_upload:
                 # Update input files
-                # TODO: 2021/03/04, Elvis - Update input files via a common function
-                # self.input_files.append(f'{job_id}/{self.weboptions.pdbfilename}')
                 self.add_input_file(f'{job_id}/{self.weboptions.pdbfilename}')
 
             else:
@@ -95,18 +67,14 @@ class Runner(JobSetup):
 
                     # Add url to RCSB PDB file to input file list
                     self.add_input_file(f'https://files.rcsb.org/download/{self.weboptions.pdbfilename}')
-                    # self.input_files.append(f'https://files.rcsb.org/download/{self.weboptions.pdbfilename}')
 
             # Check for userff, names, ligand files to add to input_file list
             if hasattr(self.weboptions, 'ligandfilename'):
                 self.add_input_file(f'{job_id}/{self.weboptions.ligandfilename}')
-                # self.input_files.append(f'{job_id}/{self.weboptions.ligandfilename}')
             if hasattr(self.weboptions, 'userfffilename'):
                 self.add_input_file(f'{job_id}/{self.weboptions.userfffilename}')
-                # self.input_files.append(f'{job_id}/{self.weboptions.userfffilename}')
             if hasattr(self.weboptions, 'usernamesfilename'):
                 self.add_input_file(f'{job_id}/{self.weboptions.usernamesfilename}')
-                # self.input_files.append(f'{job_id}/{self.weboptions.usernamesfilename}')
 
             # Make the pqr name prefix the job_id
             self.weboptions.pqrfilename = job_id+'.pqr'
@@ -125,7 +93,6 @@ class Runner(JobSetup):
 
             # Add PDB filename to input file list
             self.add_input_file(f"{job_id}/{self.cli_params['pdb_name']}")
-            # self.input_files.append(f"{job_id}/{self.cli_params['pdb_name']}")
 
             # get list of args from self.cli_params['flags']
             for name in self.cli_params['flags']:
@@ -134,7 +101,6 @@ class Runner(JobSetup):
                 # Add to input file list if userff, names, or ligand flags are defined
                 if name in ['userff', 'usernames', 'ligand'] and self.cli_params[name]:
                     self.add_input_file(f"{job_id}/{self.cli_params[name]}")
-                    # self.input_files.append(f"{job_id}/{self.cli_params[name]}")
 
             command_line_args = ''
 
@@ -149,10 +115,6 @@ class Runner(JobSetup):
             # append self.cli_params['pdb_name'] and self.cli_params['pqr_name'] to command_line_str
             # pprint(self.cli_params)
             command_line_args = '%s %s %s' % (command_line_args, self.cli_params['pdb_name'], self.cli_params['pqr_name'])
-            # upload_list = ['pdb2pqr_status', 'pdb2pqr_start_time']
-
-            # pqr_name = self.cli_params['pqr_name']
-            # logging.info('pqr filename: %s', pqr_name)
 
         self.command_line_args = command_line_args
         return command_line_args

@@ -16,8 +16,7 @@ class JobDirectoryExistsError(Exception):
 
 class MissingFilesError(FileNotFoundError):
     def __init__(self, message, file_list=[]):
-        # super(FileNotFoundError, self).__init__(message)
-        super().__init__(message)  # TODO: use this line on Python3 upgrade
+        super().__init__(message)
         self.missing_files = file_list
 
 
@@ -27,19 +26,11 @@ class Runner(JobSetup):
         self.job_id = None
         self.form = None
         self.infile_name = None
-        # self.read_file_list = []
-        # self.read_file_list = None
         self.command_line_args = None
         self.input_files = []
         self.output_files = []
         self.estimated_max_runtime = 7200
-        # Load kubeconfig
-        # config.load_incluster_config()
-        # config.load_kube_config()
 
-        # if infile_name is not None:
-        #     self.infile_name = infile_name
-        # form = form['form']
         if 'filename' in form:
             self.infile_name = form['filename']
         elif form is not None:
@@ -64,11 +55,6 @@ class Runner(JobSetup):
         else:
             self.job_id = form['pdb2pqrid']
 
-        # TODO: 2021/03/02, Elvis - remove below; no need to create directories
-        # self.job_dir = '%s%s%s' % (INSTALLDIR, TMPDIR, self.job_id)
-        # logging.debug(self.job_dir)
-        # if not os.path.isdir(self.job_dir):
-        #     os.mkdir(self.job_dir)
 
     def prepare_job(self, output_bucket_name: str, input_bucket_name: str) -> str:
         # taken from mainInput()
@@ -98,7 +84,6 @@ class Runner(JobSetup):
                 if utils.s3_object_exists(input_bucket_name, object_name):
                     # TODO: 2021/03/04, Elvis - Update input files via a common function
                     self.add_input_file(f"{job_id}/{str(name)}")
-                    # self.input_files.append(f"{job_id}/{str(name)}")
                 else:
                     missing_files.append(str(name))
 
@@ -108,7 +93,6 @@ class Runner(JobSetup):
             # Set input files and return command line args
             self.command_line_args = infile_name
             self.add_input_file(f"{job_id}/{infile_name}")
-            # self.input_files.append(f"{job_id}/{infile_name}")
 
             return self.command_line_args
 
@@ -140,8 +124,6 @@ class Runner(JobSetup):
 
                     # no_water_pqrname = f"{pqr_filename_root}-nowater{pqr_filename_ext}"
                     water_pqrname = f"{pqr_filename_root}-water{pqr_filename_ext}"
-
-                    # pqrfile_text = utils.s3_download_file_str(output_bucket_name, job_id, pqrFileName)
 
                     # Add lines to new PQR text, skipping lines with water
                     nowater_pqrfile_text = ''
@@ -176,8 +158,6 @@ class Runner(JobSetup):
             # Set input files for status reporting
             self.add_input_file(f"{job_id}/{pqr_file_name}")
             self.add_input_file(f"{job_id}/{apbs_options['tempFile']}")
-            # self.input_files.append(f"{job_id}/{pqr_file_name}")
-            # self.input_files.append(f"{job_id}/{apbs_options['tempFile']}")
 
             # Return command line args
             self.command_line_args = apbs_options['tempFile']  # 'apbsinput.in'
