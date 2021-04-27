@@ -65,6 +65,7 @@ class Runner(JobSetup):
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
+        job_date = self.job_date
 
         # downloading necessary files
         if infile_name is not None:
@@ -80,7 +81,7 @@ class Runner(JobSetup):
 
             # Get text for infile string
             infile_str = utils.s3_download_file_str(
-                input_bucket_name, job_id, infile_name
+                input_bucket_name, f"{job_date}/{job_id}/{infile_name}"
             )
 
             # Get list of expected supporting files
@@ -92,7 +93,7 @@ class Runner(JobSetup):
                 object_name = f"{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
                     # TODO: 2021/03/04, Elvis - Update input files via a common function
-                    self.add_input_file(f"{job_id}/{str(name)}")
+                    self.add_input_file(str(name))
                 else:
                     missing_files.append(str(name))
 
@@ -103,7 +104,7 @@ class Runner(JobSetup):
 
             # Set input files and return command line args
             self.command_line_args = infile_name
-            self.add_input_file(f"{job_id}/{infile_name}")
+            self.add_input_file(infile_name)
 
             return self.command_line_args
 
@@ -115,7 +116,7 @@ class Runner(JobSetup):
 
             # Get text for infile string
             infile_str = utils.s3_download_file_str(
-                output_bucket_name, job_id, infile_name
+                output_bucket_name, f"{job_date}/{job_id}/{infile_name}"
             )
 
             # Extracts PQR file name from the '*.in' file within storage bucket
@@ -128,7 +129,7 @@ class Runner(JobSetup):
 
             # Get contents of PQR file from PDB2PQR run
             pqrfile_text = utils.s3_download_file_str(
-                output_bucket_name, job_id, pqr_file_name
+                output_bucket_name, f"{job_date}/{job_id}/{pqr_file_name}"
             )
 
             # Remove waters from molecule (PQR file) if requested by the user
@@ -161,7 +162,7 @@ class Runner(JobSetup):
                     # Send original PQR file (with water) to S3 output bucket
                     utils.s3_put_object(
                         output_bucket_name,
-                        f"{job_id}/{water_pqrname}",
+                        f"{job_date}/{job_id}/{water_pqrname}",
                         pqrfile_text.encode("utf-8"),
                     )
                     self.add_output_file(f"{job_id}/{water_pqrname}")
@@ -176,18 +177,18 @@ class Runner(JobSetup):
             # Upload *.pqr and *.in file to input bucket
             utils.s3_put_object(
                 input_bucket_name,
-                f"{job_id}/{apbs_options['tempFile']}",
+                f"{job_date}/{job_id}/{apbs_options['tempFile']}",
                 new_infile_contents.encode("utf-8"),
             )
             utils.s3_put_object(
                 input_bucket_name,
-                f"{job_id}/{pqr_file_name}",
+                f"{job_date}/{job_id}/{pqr_file_name}",
                 pqrfile_text.encode("utf-8"),
             )
 
             # Set input files for status reporting
-            self.add_input_file(f"{job_id}/{pqr_file_name}")
-            self.add_input_file(f"{job_id}/{apbs_options['tempFile']}")
+            self.add_input_file(pqr_file_name)
+            self.add_input_file(apbs_options["tempFile"])
 
             # Return command line args
             self.command_line_args = apbs_options["tempFile"]  # 'apbsinput.in'

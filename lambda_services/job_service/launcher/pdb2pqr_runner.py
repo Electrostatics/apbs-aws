@@ -70,7 +70,7 @@ class Runner(JobSetup):
             #   PDB fileand command line arguments
             if self.weboptions.user_did_upload:
                 # Update input files
-                self.add_input_file(f"{job_id}/{self.weboptions.pdbfilename}")
+                self.add_input_file(self.weboptions.pdbfilename)
 
             else:
                 if os.path.splitext(self.weboptions.pdbfilename)[1] != ".pdb":
@@ -85,17 +85,11 @@ class Runner(JobSetup):
 
             # Check for userff, names, ligand files to add to input_file list
             if hasattr(self.weboptions, "ligandfilename"):
-                self.add_input_file(
-                    f"{job_id}/{self.weboptions.ligandfilename}"
-                )
+                self.add_input_file(self.weboptions.ligandfilename)
             if hasattr(self.weboptions, "userfffilename"):
-                self.add_input_file(
-                    f"{job_id}/{self.weboptions.userfffilename}"
-                )
+                self.add_input_file(self.weboptions.userfffilename)
             if hasattr(self.weboptions, "usernamesfilename"):
-                self.add_input_file(
-                    f"{job_id}/{self.weboptions.usernamesfilename}"
-                )
+                self.add_input_file(self.weboptions.usernamesfilename)
 
             # Make the pqr name prefix the job_id
             self.weboptions.pqrfilename = job_id + ".pqr"
@@ -113,7 +107,7 @@ class Runner(JobSetup):
             command_line_list = []
 
             # Add PDB filename to input file list
-            self.add_input_file(f"{job_id}/{self.cli_params['pdb_name']}")
+            self.add_input_file(self.cli_params["pdb_name"])
 
             # get list of args from self.cli_params['flags']
             for name in self.cli_params["flags"]:
@@ -127,7 +121,7 @@ class Runner(JobSetup):
                     name in ["userff", "usernames", "ligand"]
                     and self.cli_params[name]
                 ):
-                    self.add_input_file(f"{job_id}/{self.cli_params[name]}")
+                    self.add_input_file(self.cli_params[name])
 
             command_line_args = ""
 
@@ -136,9 +130,7 @@ class Runner(JobSetup):
                 # TODO: add conditionals later to
                 #       distinguish between data types
                 if isinstance(pair[1], bool):
-                    cli_arg = "--%s" % (
-                        pair[0]
-                    )
+                    cli_arg = "--%s" % (pair[0])
                 else:
                     cli_arg = "--%s=%s" % (
                         pair[0],
