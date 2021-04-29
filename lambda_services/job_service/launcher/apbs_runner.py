@@ -70,10 +70,11 @@ class Runner(JobSetup):
         # downloading necessary files
         if infile_name is not None:
             # If APBS directly run, verify necessary files exist in S3
+            infile_object_name = f"{job_date}/{job_id}/{infile_name}"
 
             # Check S3 for file existence; raise exception if not
             if not utils.s3_object_exists(
-                input_bucket_name, f"{job_date}/{job_id}/{infile_name}"
+                input_bucket_name, infile_object_name
             ):
                 raise MissingFilesError(
                     f"Missing APBS input file. Please upload: {infile_name}"
@@ -81,7 +82,7 @@ class Runner(JobSetup):
 
             # Get text for infile string
             infile_str = utils.s3_download_file_str(
-                input_bucket_name, f"{job_date}/{job_id}/{infile_name}"
+                input_bucket_name, infile_object_name
             )
 
             # Get list of expected supporting files
