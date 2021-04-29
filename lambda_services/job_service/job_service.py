@@ -187,6 +187,7 @@ def interpret_job_submission(event: dict, context=None):
         sqs_json = {
             "job_id": job_id,
             "job_type": job_type,
+            "job_date": job_date,
             "bucket_name": bucket_name,
             "input_files": job_runner.input_files,
             "command_line_args": job_command_line_args,
