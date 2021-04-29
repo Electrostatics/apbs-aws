@@ -4,10 +4,8 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-def s3_download_file_str(bucket_name: str, job_id: str, file_name: str) -> str:
+def s3_download_file_str(bucket_name: str, object_name: str) -> str:
     try:
-        object_name = '%s/%s' % (job_id, file_name)
-
         s3_client = boto3.client('s3')
         s3_response: dict = s3_client.get_object(
                                 Bucket=bucket_name,
