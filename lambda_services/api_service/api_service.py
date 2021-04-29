@@ -53,13 +53,15 @@ def generate_id_and_tokens(event: dict, context=None) -> dict:
 
     # Create URLs with S3 tokens
     url_dict = {}
-    date_jobid_prefix = f"{date.today().isoformat()}/{job_id}"  # UTC or local?
+    current_date = date.today().isoformat()
+    date_jobid_prefix = f"{current_date}/{job_id}"  # UTC or local?
     for file_name in file_list:
         token_url = create_s3_url(bucket_name, file_name, date_jobid_prefix)
         url_dict[file_name] = token_url
 
     # Generate JSON response
     response = {
+        "date": current_date,
         "job_id": job_id,
         "urls": url_dict,
     }
