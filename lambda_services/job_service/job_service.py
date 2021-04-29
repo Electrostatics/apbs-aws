@@ -153,7 +153,7 @@ def interpret_job_submission(event: dict, context=None):
     #   - Use form data to interpret job
     elif job_type == "apbs":
         job_info_form = get_job_info(bucket_name, jobinfo_object_name)["form"]
-        job_runner = apbs_runner.Runner(job_info_form, job_id)
+        job_runner = apbs_runner.Runner(job_info_form, job_id, job_date)
         job_command_line_args = job_runner.prepare_job(
             OUTPUT_BUCKET, bucket_name
         )

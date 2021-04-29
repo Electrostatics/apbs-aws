@@ -73,7 +73,7 @@ class Runner(JobSetup):
 
             # Check S3 for file existence; raise exception if not
             if not utils.s3_object_exists(
-                input_bucket_name, f"{job_id}/{infile_name}"
+                input_bucket_name, f"{job_date}/{job_id}/{infile_name}"
             ):
                 raise MissingFilesError(
                     f"Missing APBS input file. Please upload: {infile_name}"
@@ -90,7 +90,7 @@ class Runner(JobSetup):
             # Check if additional READ files exist in S3
             missing_files = []
             for name in expected_files_list:
-                object_name = f"{job_id}/{name}"
+                object_name = f"{job_date}/{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
                     # TODO: 2021/03/04, Elvis - Update input files via a common function
                     self.add_input_file(str(name))
