@@ -256,6 +256,7 @@ def update_status(
     s3client: client,
     jobid: str,
     jobtype: str,
+    jobdate: str,
     status: JOBSTATUS,
     output_files: List,
 ) -> Dict:
@@ -264,13 +265,14 @@ def update_status(
     :param s3:  S3 output bucket for the job being updated
     :param jobid:  Unique ID for this job
     :param jobtype:  The job type (apbs, pdb2pqr, etc.)
+    :param jobdate:  The date for the job in ISO-8601 format (YYYY-MM-DD)
     :param status:  The job status
     :param output_files:  List of output files
     :return:  Response from storing status file in S3 bucket
     :rtype:  Dict
     """
     ups3 = resource("s3")
-    objectfile = f"{jobid}/{jobtype}-status.json"
+    objectfile = f"{jobdate}/{jobid}/{jobtype}-status.json"
     s3obj = ups3.Object(S3_BUCKET, objectfile)
     statobj: dict = loads(s3obj.get()["Body"].read().decode("utf-8"))
 
@@ -359,14 +361,17 @@ def run_job(
         return ret_val
     job_type = job_info["job_type"]
     job_id = job_info["job_id"]
-    rundir = f"{MEM_PATH}{job_id}"
+    job_date = job_info["job_date"]
+    rundir = f"{MEM_PATH}{job_date}/{job_id}"
     inbucket = job_info["bucket_name"]
+
+    # Prepare job directory and download input files
     makedirs(rundir, exist_ok=True)
     chdir(rundir)
 
     for file in job_info["input_files"]:
         if "https" in file:
-            name = f"{job_id}/{file.split('/')[-1]}"
+            name = f"{job_date}/{job_id}/{file.split('/')[-1]}"
             try:
                 request.urlretrieve(file, f"{MEM_PATH}{name}")
             except Exception as error:
@@ -382,10 +387,13 @@ def run_job(
                     "ERROR: Download failed for file, %s \n\t%s", file, error
                 )
                 return cleanup_job(rundir)
+
+    # Run job and record associated metrics
     update_status(
         s3client,
         job_id,
         job_type,
+        job_date,
         JOBSTATUS.RUNNING,
         [],
     )
@@ -418,15 +426,16 @@ def run_job(
         metrics.write_metrics(job_type, ".")
 
         for file in listdir("."):
+            file_path = f"{job_date}/{job_id}/{file}"
             s3client.upload_file(
-                f"{MEM_PATH}{job_id}/{file}",
+                f"{MEM_PATH}{file_path}",
                 S3_BUCKET,
-                f"{job_id}/{file}",
+                f"{file_path}",
             )
     except Exception as error:
         _LOGGER.error(
             "ERROR: Failed to upload file, %s \n\t%s",
-            f"{job_id}/{file}",
+            f"{job_date}/{job_id}/{file}",
             error,
         )
         # TODO: Should this return 1 because noone else will succeed?
@@ -441,16 +450,18 @@ def run_job(
         "".join(name.split("/")[-1]) for name in job_info["input_files"]
     ]
     output_files = [
-        f"{job_id}/{filename}"
+        f"{job_date}/{job_id}/{filename}"
         for filename in listdir(".")
         if filename not in input_files_no_id
     ]
 
+    # Cleanup job directory and update status
     cleanup_job(rundir)
     update_status(
         s3client,
         job_id,
         job_type,
+        job_date,
         JOBSTATUS.COMPLETE,
         output_files,
     )

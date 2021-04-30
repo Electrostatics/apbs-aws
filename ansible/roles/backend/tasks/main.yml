@@ -387,7 +387,7 @@
       name: "{{ project }}-{{ deployment_group }}-ec2-service"
       cluster: "{{ project }}-{{ deployment_group }}-cluster"
       launch_type: EC2
-      task_definition: "{{ ec_task.taskdefinition.taskDefinitionArn }}"
+      task_definition: "{{ ec2_task.taskdefinition.taskDefinitionArn }}"
       desired_count: 0
 
   - name: Run a shell command to get current ECS ami
