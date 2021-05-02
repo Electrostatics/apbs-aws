@@ -277,7 +277,8 @@ def update_status(
     statobj: dict = loads(s3obj.get()["Body"].read().decode("utf-8"))
 
     statobj[jobtype]["status"] = status.name.lower()
-    statobj[jobtype]["endTime"] = time()
+    if status == JOBSTATUS.COMPLETE:
+        statobj[jobtype]["endTime"] = time()
     # TODO: There is a possible problem here where the output_files
     #       may contain one or more of the input_files filenames.
     #       We are not sure if this is a problem in this script or
