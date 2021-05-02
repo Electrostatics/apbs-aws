@@ -80,6 +80,8 @@ def apbs_extract_input_files(infile_text):
                         read_end = True
                     else:
                         for arg in line.split()[2:]:
+                            if arg.startswith('#'):
+                                break
                             file_list.append(arg)
 
     return file_list
