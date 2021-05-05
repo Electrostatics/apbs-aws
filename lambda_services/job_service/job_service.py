@@ -1,21 +1,21 @@
 """Interpret APBS/PDBP2QR job configurations and submit to SQS."""
-import os
-import time
-import json
-import logging
-import boto3
+from json import dumps, loads
+from os import getenv
+from time import time
+from logging import getLogger
+from boto3 import client, resource
 from .launcher import pdb2pqr_runner, apbs_runner
 
-OUTPUT_BUCKET = os.getenv("OUTPUT_BUCKET")
-FARGATE_CLUSTER = os.getenv("FARGATE_CLUSTER")
-FARGATE_SERVICE = os.getenv("FARGATE_SERVICE")
+OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
+FARGATE_CLUSTER = getenv("FARGATE_CLUSTER")
+FARGATE_SERVICE = getenv("FARGATE_SERVICE")
 # Could use SQS URL below instead of a queue name; whichever is easier
-SQS_QUEUE_NAME = os.getenv("JOB_QUEUE_NAME")
-JOB_MAX_RUNTIME = int(os.getenv("JOB_MAX_RUNTIME", 2000))
+SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
+JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
-LOGGER = logging.getLogger()
-LOGGER.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+LOGGER = getLogger()
+LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
 
 
 def get_job_info(bucket_name: str, info_object_name: str) -> dict:
@@ -28,7 +28,7 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
     """
 
     # Download job info object from S3
-    s3_client = boto3.client("s3")
+    s3_client = client("s3")
     object_response: dict = s3_client.get_object(
         Bucket=bucket_name,
         Key=info_object_name,
@@ -36,9 +36,7 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
 
     # Convert content of JSON file to dict
     try:
-        job_info: dict = json.loads(
-            object_response["Body"].read().decode("utf-8")
-        )
+        job_info: dict = loads(object_response["Body"].read().decode("utf-8"))
         return job_info
     except Exception:
         raise
@@ -71,13 +69,12 @@ def build_status_dict(
     # TODO: 2021/03/25, Elvis - Reconstruct format of status since
     #                           they're constructed on a per-job basis
 
-    job_start_time = time.time()
     initial_status_dict = {
         "jobid": job_id,
         "jobtype": job_type,
         job_type: {
             "status": status,
-            "startTime": job_start_time,
+            "startTime": time(),
             "endTime": None,
             "subtasks": [],
             "inputFiles": inputfile_list,
@@ -107,9 +104,9 @@ def upload_status_file(object_filename: str, initial_status_dict: dict):
     # TODO: 2021/03/25, Elvis - Reconstruct format of status since
     #                           they're constructed on a per-job basis
 
-    s3_client = boto3.client("s3")
+    s3_client = client("s3")
     s3_client.put_object(
-        Body=json.dumps(initial_status_dict),
+        Body=dumps(initial_status_dict),
         Bucket=OUTPUT_BUCKET,
         Key=object_filename,
     )
@@ -192,6 +189,6 @@ def interpret_job_submission(event: dict):
             "command_line_args": job_command_line_args,
             "max_run_time": timeout_seconds,
         }
-        sqs_client = boto3.resource("sqs")
+        sqs_client = resource("sqs")
         queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
-        queue.send_message(MessageBody=json.dumps(sqs_json))
+        queue.send_message(MessageBody=dumps(sqs_json))

@@ -4,7 +4,7 @@
 from logging import getLogger
 from json import dumps
 from pathlib import Path
-import re
+from re import findall
 from typing import List
 
 from jobinterface import JobInterface
@@ -26,11 +26,9 @@ class ApbsJob(JobInterface):
             TypeError: The file_path is not a directory
         """
         # NOTE: The file list should be something like:
-        # apbs_end_time
         # apbs_exec_exit_code.txt
         # apbs_input_files
         # apbs_output_files
-        # apbs_start_time
         # apbs_status
         # apbs_stderr.txt
         # apbs_stdout.txt
@@ -61,7 +59,7 @@ class ApbsJob(JobInterface):
         for line in lines:
             if line.startswith("Final memory usage"):
                 self._logger.debug("MEM LINE: %s", line)
-                values = re.findall(r"\d+\.?\d+", line)  # noqa W605
+                values = findall(r"\d+\.?\d+", line)  # noqa W605
                 self._logger.debug("VALUES: %s", values)
                 mem_used["total"] = values[0]
                 mem_used["high"] = values[1]
