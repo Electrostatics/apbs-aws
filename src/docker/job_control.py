@@ -5,16 +5,17 @@ from os import chdir, getenv, listdir, makedirs
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
-from json import dumps, loads
+from json import dumps, loads, JSONDecodeError
 from logging import getLogger, ERROR, INFO
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
-from subprocess import run, PIPE
+from subprocess import run, CalledProcessError, PIPE
 from time import sleep, time
 from typing import Any, Dict, List
 from urllib import request
 from boto3 import client, resource
+from botocore.exceptions import ClientError, ParamValidationError
 
 _LOGGER = getLogger(__name__)
 # TODO: This may need to be increased or calculated based
@@ -279,10 +280,6 @@ def update_status(
     statobj[jobtype]["status"] = status.name.lower()
     if status == JOBSTATUS.COMPLETE:
         statobj[jobtype]["endTime"] = time()
-    # TODO: There is a possible problem here where the output_files
-    #       may contain one or more of the input_files filenames.
-    #       We are not sure if this is a problem in this script or
-    #       if the problem is on the GUI side.
     statobj[jobtype]["outputFiles"] = output_files
 
     object_response = {}
@@ -290,8 +287,15 @@ def update_status(
         object_response: dict = s3client.put_object(
             Body=dumps(statobj), Bucket=S3_BUCKET, Key=objectfile
         )
-    except Exception as error:
-        _LOGGER.error("ERROR: Unknown exception from s3.put_object, %s", error)
+    except ClientError as cerr:
+        _LOGGER.error(
+            "ERROR: Unknown ClientError exception from s3.put_object, %s", cerr
+        )
+    except ParamValidationError as perr:
+        _LOGGER.error(
+            "ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            perr,
+        )
 
     return object_response
 
@@ -320,10 +324,20 @@ def execute_command(
     """
     command_split = command_line_str.split()
     # TODO: intendo 2021/04/15
-    #       We should wrap the run call with a try/except and add check=Trues
+    #       We should wrap the run call with a try/except and add check=True
     #       to the run command so that a CalledProcessError is caught if the
     #       command fails and we can log the error.
-    proc = run(command_split, stdout=PIPE, stderr=PIPE)
+    try:
+        proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
+    except CalledProcessError as cpe:
+        # TODO: intendo 2021/05/05
+        #       we need the jobid here
+        _LOGGER.exception(
+            "%s failed to run command, %s: %s",
+            "MISSING JOBID",
+            command_line_str,
+            cpe,
+        )
 
     # Write stdout to file
     with open(stdout_filename, "w") as fout:
@@ -353,7 +367,7 @@ def run_job(
         if "job_id" not in job_info:
             _LOGGER.error("ERROR: Missing job id for job, %s", job)
             return ret_val
-    except Exception as error:
+    except JSONDecodeError as error:
         _LOGGER.error(
             "ERROR: Unable to load json information for job, %s \n\t%s",
             job,
@@ -376,6 +390,7 @@ def run_job(
             try:
                 request.urlretrieve(file, f"{MEM_PATH}{name}")
             except Exception as error:
+                # TODO: intendo 2021/05/05 - Find more specific exception
                 _LOGGER.error(
                     "ERROR: Download failed for file, %s \n\t%s", name, error
                 )
@@ -384,6 +399,7 @@ def run_job(
             try:
                 s3client.download_file(inbucket, file, f"{MEM_PATH}{file}")
             except Exception as error:
+                # TODO: intendo 2021/05/05 - Find more specific exception
                 _LOGGER.error(
                     "ERROR: Download failed for file, %s \n\t%s", file, error
                 )
@@ -434,6 +450,7 @@ def run_job(
                 f"{file_path}",
             )
     except Exception as error:
+        # TODO: intendo 2021/05/05 - Find more specific exception
         _LOGGER.error(
             "ERROR: Failed to upload file, %s \n\t%s",
             f"{job_date}/{job_id}/{file}",

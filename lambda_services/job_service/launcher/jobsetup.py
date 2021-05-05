@@ -23,7 +23,4 @@ class JobSetup:
 
     def is_url(self, file_string: str):
         url_obj = parse_url(file_string)
-        if url_obj.scheme is None:
-            return False
-        else:
-            return True
+        return url_obj.scheme is not None

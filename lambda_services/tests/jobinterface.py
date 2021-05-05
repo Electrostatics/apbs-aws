@@ -5,6 +5,7 @@ The JobInterface is the set of properties and functions that must
 be implemented for an APBS, PDB2PQR, and a combined APBS/PDB2PQR job.
 """
 
+from logging import getLogger
 from os.path import isdir, isfile
 from pathlib import Path
 from typing import List
@@ -30,6 +31,7 @@ class JobInterface:
         self.file_path = None
         self.file_list = {}
         self.job_input_files = []
+        self._logger = getLogger(__class__.__name__)
 
         if not isdir(file_path):
             raise TypeError(

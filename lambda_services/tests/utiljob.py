@@ -1,4 +1,5 @@
 # coding: utf-8
+"""Utilities for APBS and PDB2PQR jobs."""
 
 from sys import exc_info, exit
 from enum import Enum
@@ -6,13 +7,10 @@ from json import dumps
 from logging import getLogger
 from os.path import isfile
 from os import chdir, getcwd
-from os import path as ospath
 from pathlib import Path
 from requests import post, put
 
 _LOGGER = getLogger(__name__)
-
-"""Utilities for APBS and PDB2PQR jobs."""
 
 
 class JOBTYPE(Enum):
@@ -131,9 +129,9 @@ def get_job_type(file_list):
     apbs_job_type = False
     pdb2pqr_job_type = False
     for filename in file_list:
-        if filename.endswith(".dx") or filename in "apbs_end_time":
+        if filename.endswith(".dx"):
             apbs_job_type = True
-        if filename.endswith(".propka") or filename in "pdb2pqr_end_time":
+        if filename.endswith(".propka"):
             pdb2pqr_job_type = True
     if apbs_job_type and pdb2pqr_job_type:
         return JOBTYPE.COMBINED.name.lower()
@@ -142,24 +140,3 @@ def get_job_type(file_list):
     if pdb2pqr_job_type:
         return JOBTYPE.PDB2PQR.name.lower()
     return JOBTYPE.UNKNOWN.name.lower()
-
-
-def get_job_ids_from_cache(cache_file):
-    """Read in all the job ids from a file.
-
-    Args:
-        cache_file (str): The full filename of the file holding jobs ids.
-
-    Returns:
-        List: The list of job ids in th cache_file.
-    """
-
-    # TODO: This should do more error handling.
-    jobs = []
-    if ospath.exists(cache_file) and ospath.isfile(cache_file):
-        with open(cache_file, "r") as fptr:
-            for curline in fptr:
-                job_id = curline.strip("\n").split(" ")[0].strip("/")
-                if job_id is not None:
-                    jobs.append(job_id)
-    return jobs
