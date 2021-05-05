@@ -100,17 +100,6 @@ class JobInterface:
     def build_job_file(self):
         """Abstract interface to be overridden by concrete class."""
 
-    def get_execution_time(self):
-        """
-        Subtract "{job_type}_start_time from "{job_type}_end_time to get the
-        number of seconds it took to run.
-        """
-        starttime = get_contents(
-            self.file_list[f"{self.job_type}_start_time"]
-        )[0]
-        endtime = get_contents(self.file_list[f"{self.job_type}_end_time"])[0]
-        return int(float(endtime) - float(starttime))
-
     def get_memory_usage(self):
         """Abstract interface to be overridden by concrete class."""
 
