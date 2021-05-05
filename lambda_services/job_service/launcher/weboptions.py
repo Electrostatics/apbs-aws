@@ -3,7 +3,8 @@ from io import StringIO
 
 
 def sanitize_fileName(file_name):
-    # TODO: 2020/06/30, Elvis - log that sanitization is happening if pattern is seen
+    # TODO: 2020/06/30, Elvis - log that sanitization is happening if
+    #                           pattern is seen
     file_name = re.split(r"[/\\]", file_name)[-1]
     file_name = file_name.replace(" ", "_")
     # fileName = fileName.replace('-', '_')
@@ -20,9 +21,13 @@ class WebOptions:
     """Helper class for gathering and querying options selected by the user"""
 
     def __init__(self, form):
-        """Gleans all information about the user selected options and uploaded files.
-        Also validates the user input. Raises WebOptionsError if there is any problems."""
-        """TODO: set second parameter of WebOptionError calls to specify bad key"""
+        """
+        Gleans all information about the user selected options and uploaded
+        files.
+        Also validates the user input. Raises WebOptionsError if there is any
+        problems.
+        """
+        # TODO: set second parameter of WebOptionError calls to specify bad key
 
         # options to pass to runPDB2PQR
         self.runoptions = {}
@@ -37,7 +42,8 @@ class WebOptions:
             raise WebOptionsError("Force field type missing from form.")
 
         if "PDBID" in form and form["PDBID"] and form["PDBSOURCE"] == "ID":
-            # TODO: 2021/02/23, Elvis - Use PDBID to get URL/set flag for PDB file download
+            # TODO: 2021/02/23, Elvis - Use PDBID to get URL/set flag for PDB
+            #                           file download
             # self.pdbfile = utilities.getPDBFile(form["PDBID"])
             # self.pdbfile = getPDBFile(form["PDBID"])
             self.user_did_upload = False
@@ -51,7 +57,8 @@ class WebOptions:
             # self.pdbfilestring = files["PDB"].stream.read()
             self.user_did_upload = True
             # self.pdbfile = StringIO(self.pdbfilestring)
-            # self.pdbfilename = sanitizeFileName(files["PDB"].filename) # pass filename through client
+            # self.pdbfilename = sanitizeFileName(files["PDB"].filename)
+            # pass filename through client
             self.pdbfilename = sanitize_fileName(
                 form["PDBFILE"]
             )  # pass filename through client
@@ -61,35 +68,34 @@ class WebOptions:
                 "You need to specify a pdb ID or upload a pdb file."
             )
 
-        if "PKACALCMETHOD" in form:
-            if form["PKACALCMETHOD"] != "none":
-                if "PH" not in form:
-                    raise WebOptionsError("Please provide a pH value.")
+        if "PKACALCMETHOD" in form and form["PKACALCMETHOD"] != "none":
+            if "PH" not in form:
+                raise WebOptionsError("Please provide a pH value.")
 
-                ph_help = "Please choose a pH between 0.0 and 14.0."
-                try:
-                    ph = float(form["PH"])
-                except ValueError:
-                    raise WebOptionsError(
-                        "The pH value provided must be a number!  " + ph_help
-                    )
-                if ph < 0.0 or ph > 14.0:
-                    text = "The entered pH of %.2f is invalid!  " % ph
-                    text += ph_help
-                    raise WebOptionsError(text)
-                self.runoptions["ph"] = ph
-                # build propka and pdb2pka options
-                if form["PKACALCMETHOD"] == "propka":
-                    self.runoptions["ph_calc_method"] = "propka"
-                if form["PKACALCMETHOD"] == "pdb2pka":
-                    self.runoptions["ph_calc_method"] = "pdb2pka"
-                    self.runoptions["ph_calc_options"] = {
-                        "output_dir": "pdb2pka_output",
-                        "clean_output": True,
-                        "pdie": 8,
-                        "sdie": 80,
-                        "pairene": 1.0,
-                    }
+            ph_help = "Please choose a pH between 0.0 and 14.0."
+            try:
+                ph = float(form["PH"])
+            except ValueError:
+                raise WebOptionsError(
+                    "The pH value provided must be a number!  " + ph_help
+                )
+            if ph < 0.0 or ph > 14.0:
+                text = "The entered pH of %.2f is invalid!  " % ph
+                text += ph_help
+                raise WebOptionsError(text)
+            self.runoptions["ph"] = ph
+            # build propka and pdb2pka options
+            if form["PKACALCMETHOD"] == "propka":
+                self.runoptions["ph_calc_method"] = "propka"
+            if form["PKACALCMETHOD"] == "pdb2pka":
+                self.runoptions["ph_calc_method"] = "pdb2pka"
+                self.runoptions["ph_calc_options"] = {
+                    "output_dir": "pdb2pka_output",
+                    "clean_output": True,
+                    "pdie": 8,
+                    "sdie": 80,
+                    "pairene": 1.0,
+                }
 
         self.otheroptions["apbs"] = "INPUT" in form
         self.otheroptions["whitespace"] = "WHITESPACE" in form
@@ -102,7 +108,10 @@ class WebOptions:
                 # self.userffstring = form["USERFF"]
                 self.runoptions["userff"] = StringIO(form["USERFFFILE"])
             else:
-                text = "A force field file must be provided if using a user created force field."
+                text = (
+                    "A force field file must be provided if using a user "
+                    "created force field."
+                )
                 raise WebOptionsError(text)
 
             # if form.has_key("USERNAMES") and form["USERNAMES"].filename:
@@ -111,7 +120,10 @@ class WebOptions:
                 # self.usernamesstring = form["USERNAMES"]
                 self.runoptions["usernames"] = StringIO(form["NAMESFILE"])
             else:
-                text = "A names file must be provided if using a user created force field."
+                text = (
+                    "A names file must be provided if using a user "
+                    "created force field."
+                )
                 raise WebOptionsError(text)
 
         if "FFOUT" in form and form["FFOUT"] != "internal":
@@ -123,11 +135,10 @@ class WebOptions:
         self.runoptions["neutralc"] = "NEUTRALC" in form
         self.runoptions["drop_water"] = "DROPWATER" in form
 
-        if (
-            self.runoptions["neutraln"] or self.runoptions["neutraln"]
-        ) and self.ff != "parse":
+        if self.runoptions["neutraln"] and self.ff != "parse":
             raise WebOptionsError(
-                "Neutral N-terminus and C-terminus require the PARSE forcefield."
+                "Neutral N-terminus and C-terminus require the "
+                "PARSE forcefield."
             )
 
         # if form.has_key("LIGAND") and form['LIGAND'].filename:
@@ -154,13 +165,7 @@ class WebOptions:
     def get_logging_list(self):
         """Returns a list of options the user has turned on.
         Used for logging jobs later in usage.txt"""
-        results = []
-
-        for key in self:
-            if self[key]:
-                results.append(key)
-
-        return results
+        return [key for key in self if self[key]]
 
     def get_run_arguments(self):
         """Returns argument suitable for runPDB2PQR"""
@@ -250,11 +255,8 @@ class WebOptions:
         return item in self.runoptions or item in self.otheroptions
 
     def __iter__(self):
-        for key in self.runoptions:
-            yield key
-
-        for key in self.otheroptions:
-            yield key
+        yield from self.runoptions
+        yield from self.otheroptions
 
     def __getitem__(self, key):
         return (
