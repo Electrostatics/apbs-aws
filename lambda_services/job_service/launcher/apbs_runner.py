@@ -52,10 +52,7 @@ class Runner(JobSetup):
             # TODO: catch error if something wrong happens
             #   in fieldStorageToDict handle in tesk_proxy_service
 
-        if job_id is not None:
-            self.job_id = job_id
-        else:
-            self.job_id = form["pdb2pqrid"]
+        self.job_id = job_id if job_id is not None else form["pdb2pqrid"]
 
     def prepare_job(
         self, output_bucket_name: str, input_bucket_name: str
@@ -93,14 +90,16 @@ class Runner(JobSetup):
             for name in expected_files_list:
                 object_name = f"{job_date}/{job_id}/{name}"
                 if utils.s3_object_exists(input_bucket_name, object_name):
-                    # TODO: 2021/03/04, Elvis - Update input files via a common function
+                    # TODO: 2021/03/04, Elvis - Update input files via
+                    #                           a common function
                     self.add_input_file(str(name))
                 else:
                     missing_files.append(str(name))
 
             if len(missing_files) > 0:
                 raise MissingFilesError(
-                    f"Please upload missing file(s) from READ section storage: {missing_files}"
+                    f"Please upload missing file(s) from READ section "
+                    f"storage: {missing_files}"
                 )
 
             # Set input files and return command line args
@@ -199,95 +198,80 @@ class Runner(JobSetup):
         """Converts the CGI input from the web interface to a dictionary"""
         apbs_options = {"writeCheck": 0}
 
+        apbs_options["writeCharge"] = False
         if "writecharge" in form and form["writecharge"] != "":
             apbs_options["writeCheck"] += 1
             apbs_options["writeCharge"] = True
-        else:
-            apbs_options["writeCharge"] = False
 
+        apbs_options["writePot"] = False
         if "writepot" in form and form["writepot"] != "":
             apbs_options["writeCheck"] += 1
             apbs_options["writePot"] = True
-        else:
-            apbs_options["writePot"] = False
 
+        apbs_options["writeSmol"] = False
         if "writesmol" in form and form["writesmol"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeSmol"] = True
-        else:
-            apbs_options["writeSmol"] = False
 
+        apbs_options["asyncflag"] = False
         if "asyncflag" in form and form["asyncflag"] == "on":
             apbs_options["async"] = locale.atoi(form["async"])
             apbs_options["asyncflag"] = True
-        else:
-            apbs_options["asyncflag"] = False
 
+        apbs_options["writeSspl"] = False
         if "writesspl" in form and form["writesspl"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeSspl"] = True
-        else:
-            apbs_options["writeSspl"] = False
 
+        apbs_options["writeVdw"] = False
         if "writevdw" in form and form["writevdw"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeVdw"] = True
-        else:
-            apbs_options["writeVdw"] = False
 
+        apbs_options["writeIvdw"] = False
         if "writeivdw" in form and form["writeivdw"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeIvdw"] = True
-        else:
-            apbs_options["writeIvdw"] = False
 
+        apbs_options["writeLap"] = False
         if "writelap" in form and form["writelap"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeLap"] = True
-        else:
-            apbs_options["writeLap"] = False
 
+        apbs_options["writeEdens"] = False
         if "writeedens" in form and form["writeedens"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeEdens"] = True
-        else:
-            apbs_options["writeEdens"] = False
 
+        apbs_options["writeNdens"] = False
         if "writendens" in form and form["writendens"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeNdens"] = True
-        else:
-            apbs_options["writeNdens"] = False
 
+        apbs_options["writeQdens"] = False
         if "writeqdens" in form and form["writeqdens"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeQdens"] = True
-        else:
-            apbs_options["writeQdens"] = False
 
+        apbs_options["writeDielx"] = False
         if "writedielx" in form and form["writedielx"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeDielx"] = True
-        else:
-            apbs_options["writeDielx"] = False
 
+        apbs_options["writeDiely"] = False
         if "writediely" in form and form["writediely"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeDiely"] = True
-        else:
-            apbs_options["writeDiely"] = False
 
+        apbs_options["writeDielz"] = False
         if "writedielz" in form and form["writedielz"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeDielz"] = True
-        else:
-            apbs_options["writeDielz"] = False
 
+        apbs_options["writeKappa"] = False
         if "writekappa" in form and form["writekappa"] == "on":
             apbs_options["writeCheck"] += 1
             apbs_options["writeKappa"] = True
-        else:
-            apbs_options["writeKappa"] = False
 
         if apbs_options["writeCheck"] > 4:
             # TODO: 2021/03/02, Elvis - validation error;
@@ -334,7 +318,6 @@ class Runner(JobSetup):
             apbs_options["coarseGridCenterMoleculeID"] = locale.atoi(
                 form["cgcentid"]
             )
-
         elif form["cgcent"] == "coord":
             apbs_options["coarseGridCenterMethod"] = "coordinate"
             apbs_options["cgxCent"] = locale.atoi(form["cgxcent"])
@@ -383,10 +366,10 @@ class Runner(JobSetup):
         apbs_options["calcEnergy"] = form["calcenergy"]
         apbs_options["calcForce"] = form["calcforce"]
 
-        for i in range(0, 3):
-            ch_str = "charge%i" % i
-            conc_str = "conc%i" % i
-            rad_str = "radius%i" % i
+        for idx in range(0, 3):
+            ch_str = f"charge{idx}"
+            conc_str = f"conc{idx}"
+            rad_str = f"radius{idx}"
             if form[ch_str] != "":
                 apbs_options[ch_str] = locale.atoi(form[ch_str])
             if form[conc_str] != "":
