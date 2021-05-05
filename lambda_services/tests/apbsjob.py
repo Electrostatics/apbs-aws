@@ -61,7 +61,7 @@ class ApbsJob(JobInterface):
         for line in lines:
             if line.startswith("Final memory usage"):
                 self._logger.debug("MEM LINE: %s", line)
-                values = re.findall("\d+\.?\d+", line)  # noqa W605
+                values = re.findall(r"\d+\.?\d+", line)  # noqa W605
                 self._logger.debug("VALUES: %s", values)
                 mem_used["total"] = values[0]
                 mem_used["high"] = values[1]
