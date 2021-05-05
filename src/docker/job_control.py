@@ -9,7 +9,7 @@ from json import dumps, loads, JSONDecodeError
 from logging import getLogger, ERROR, INFO
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
-from shutil import disk_usage, rmtree
+from shutil import rmtree
 from subprocess import run, CalledProcessError, PIPE
 from time import sleep, time
 from typing import Any, Dict, List
