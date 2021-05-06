@@ -26,7 +26,7 @@ class Runner(JobSetup):
         try:
             if "invoke_method" in form:
                 logging.info(
-                    "invoke_method found, value: %s",
+                    "%s Invoke_method found, value: %s", self.job_id,
                     str(form["invoke_method"]),
                 )
                 if form["invoke_method"].lower() in ["v2", "cli"]:
@@ -42,13 +42,13 @@ class Runner(JobSetup):
                     self.weboptions = WebOptions(form)
             else:
                 logging.warning(
-                    "invoke_method not found: %s", str("invoke_method" in form)
+                    "%s Invoke_method not found: %s", job_id, str("invoke_method" in form)
                 )
                 if "invoke_method" in form:
                     logging.debug(
-                        "form['invoke_method']: %s", str(form["invoke_method"])
+                        "%s Form['invoke_method']: %s", job_id, str(form["invoke_method"])
                     )
-                    logging.debug(type(form["invoke_method"]))
+                    logging.debug("%s Form type: %s", job_id, type(form["invoke_method"]))
                 self.invoke_method = "gui"
                 self.weboptions = WebOptions(form)
 
@@ -91,20 +91,13 @@ class Runner(JobSetup):
             # TODO: add conditionals later to
             #       distinguish between data types
             if isinstance(pair[1], bool):
-                cli_arg = "--%s" % (pair[0])
+                cli_arg = f"--{pair[0]}"
             else:
-                cli_arg = "--%s=%s" % (
-                    pair[0],
-                    str(pair[1]),
-                )
-            result = "%s %s" % (result, cli_arg)
+                cli_arg = f"--{pair[0]}={str(pair[1])}"
+            result = f"{result} {cli_arg}"
 
             # Add PDB and PQR file names to command line string
-        result = "%s %s %s" % (
-            result,
-            self.cli_params["pdb_name"],
-            self.cli_params["pqr_name"],
-        )
+        result = f"{result} {self.cli_params['pdb_name']} {self.cli_params["pqr_name']}"
 
         return result
 

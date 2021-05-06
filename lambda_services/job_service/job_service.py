@@ -166,7 +166,7 @@ def interpret_job_submission(event: dict, context):
         status = "invalid"
         message = "Invalid job type. No job executed"
         LOGGER.error(
-            "Invalid job type - Job ID: %s, Job Type: %s", job_id, job_type
+            "%s Invalid job type - Job Type: %s", job_id, job_type
         )
 
     # Create and upload status file to S3
