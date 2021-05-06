@@ -115,10 +115,12 @@ def upload_status_file(object_filename: str, initial_status_dict: dict):
     )
 
 
-def interpret_job_submission(event: dict):
+def interpret_job_submission(event: dict, context):
     """Interpret contents of job configuration, triggered from S3 event.
 
     :param event dict: Amazon S3 event, containing info to retrieve contents
+    :param context: context object for AWS Lambda handler, containing info
+                    about the invocation, function, and execution environment
     """
 
     # Get basic job information from S3 event
