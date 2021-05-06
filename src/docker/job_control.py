@@ -180,7 +180,7 @@ class JobMetrics:
         """
         self.start_time = time()
 
-    def set_end_time(self, job_type):
+    def set_end_time(self):
         """
         Set the current time to denote that the job ended.
         """
@@ -428,11 +428,11 @@ def run_job(
 
     file = "MISSING"
     try:
-        metrics.set_start_time(job_type)
+        metrics.set_start_time()
         execute_command(
             command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
-        metrics.set_end_time(job_type)
+        metrics.set_end_time()
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_BUCKET.
