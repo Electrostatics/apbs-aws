@@ -33,7 +33,7 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
     return url
 
 
-def generate_id_and_tokens(event: dict) -> dict:
+def generate_id_and_tokens(event: dict, context) -> dict:
     """Generate an unique job id and S3 auth tokens"""
 
     # Assign object variables from Lambda event
