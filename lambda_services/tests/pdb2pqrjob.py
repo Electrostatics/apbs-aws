@@ -26,11 +26,9 @@ class Pdb2PqrJob(JobInterface):
             TypeError: The file_path is not a directory
         """
         # NOTE: The file list should be something like:
-        # pdb2pqr_end_time
         # pdb2pqr_exec_exit_code.txt
         # pdb2pqr_input_files
         # pdb2pqr_output_files
-        # pdb2pqr_start_time
         # pdb2pqr_status
         # pdb2pqr_stderr.txt
         # pdb2pqr_stdout.txt

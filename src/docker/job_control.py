@@ -123,18 +123,21 @@ class JobMetrics:
         self.values["ru_nvcsw"] = metrics.ru_nvcsw
         self.values["ru_nivcsw"] = metrics.ru_nivcsw
 
-    def get_rusage_delta(self):
+    def get_rusage_delta(self, memory_disk_usage):
         """
         Caluculate the difference between the last time getrusage
         was called and now.
 
-        Returns:
-            Dict: The rusage values as a dictionary
+        :param memory_disk_usage: Need to subtract out the files in memory.
+        :return:  The rusage values as a dictionary
+        :rtype:  Dict
         """
         metrics = getrusage(RUSAGE_CHILDREN)
         self.values["ru_utime"] = metrics.ru_utime - self.values["ru_utime"]
         self.values["ru_stime"] = metrics.ru_stime - self.values["ru_stime"]
-        self.values["ru_maxrss"] = metrics.ru_maxrss - self.values["ru_maxrss"]
+        self.values["ru_maxrss"] = (
+            metrics.ru_maxrss - self.values["ru_maxrss"] - memory_disk_usage
+        )
         self.values["ru_ixrss"] = metrics.ru_ixrss - self.values["ru_ixrss"]
         self.values["ru_idrss"] = metrics.ru_idrss - self.values["ru_idrss"]
         self.values["ru_isrss"] = metrics.ru_isrss - self.values["ru_isrss"]
@@ -171,29 +174,21 @@ class JobMetrics:
     # TODO: intendo: 2021/04/15
     #       The creation of the start time and end time files
     #       is not necesssary and should be removed in the future.
-    def set_start_time(self, job_type):
-        """Create a file with the current time to denote that the job started.
-
-        Args:
-            job_type (str): The value of "apbs" or "pdb2pqr"
+    def set_start_time(self):
+        """
+        Set the current time to denote that the job started.
         """
         self.start_time = time()
-        with open(f"{job_type}_start_time", "w") as fout:
-            fout.write(str(self.start_time))
 
     def set_end_time(self, job_type):
-        """Create a file with the current time to denote that the job ended.
-
-        Args:
-            job_type (str): The value of "apbs" or "pdb2pqr"
+        """
+        Set the current time to denote that the job ended.
         """
         self.end_time = time()
-        with open(f"{job_type}_end_time", "w") as fout:
-            fout.write(str(self.end_time))
 
     def get_metrics(self):
         """
-        Create a dictionare of memory usage, execution time, and amount of
+        Create a dictionary of memory usage, execution time, and amount of
         disk storage used.
 
         Returns:
@@ -202,11 +197,12 @@ class JobMetrics:
         metrics = {
             "metrics": {"rusage": {}},
         }
-        metrics["metrics"]["rusage"] = self.get_rusage_delta()
+        memory_disk_usage = self.get_storage_usage()
+        metrics["metrics"]["rusage"] = self.get_rusage_delta(memory_disk_usage)
         metrics["metrics"]["runtime_in_seconds"] = int(
             self.end_time - self.start_time
         )
-        metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
+        metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
 
