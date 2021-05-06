@@ -14,7 +14,7 @@ def s3_download_file_str(bucket_name: str, object_name: str) -> str:
         return s3_response["Body"].read().decode("utf-8")
 
     except Exception as err:
-        logging.error("ERROR: %s", err)
+        logging.error("%s ERROR: %s", bucket_name, err)
         raise
 
 
@@ -49,7 +49,7 @@ def apbs_extract_input_files(infile_text):
     read_start = False
     read_end = False
     file_list = []
-    for whole_line in StringIO("%s" % infile_text):
+    for whole_line in StringIO(f"{infile_text}"):
         line = whole_line.strip()
 
         if read_start and read_end:

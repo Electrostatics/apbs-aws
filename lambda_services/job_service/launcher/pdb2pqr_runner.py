@@ -97,7 +97,7 @@ class Runner(JobSetup):
             result = f"{result} {cli_arg}"
 
             # Add PDB and PQR file names to command line string
-        result = f"{result} {self.cli_params['pdb_name']} {self.cli_params["pqr_name']}"
+        result = f"{result} {self.cli_params['pdb_name']} {self.cli_params['pqr_name']}"
 
         return result
 

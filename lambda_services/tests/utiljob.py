@@ -64,9 +64,10 @@ def submit_aws_job(api_token_url, job):
     try:
         chdir(job_work_dir)
     except OSError as oerr:
-        _LOGGER.error("ERROR: JOB: %s", job)
+        _LOGGER.error("%s ERROR: JOB: %s", job_id, job)
         _LOGGER.error(
-            "ERROR: Can't change from directory, %s, to %s because %s: %s}",
+            "%s ERROR: Can't change from directory, %s, to %s because %s: %s}",
+            job_id,
             cwd,
             job_work_dir,
             exc_info(),
