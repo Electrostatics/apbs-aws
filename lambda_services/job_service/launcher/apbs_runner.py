@@ -58,7 +58,7 @@ class Runner(JobSetup):
         self, output_bucket_name: str, input_bucket_name: str
     ) -> str:
         # taken from mainInput()
-        logging.info("preparing job execution: %s (apbs)", self.job_id)
+        logging.info("%s Preparing APBS job execution", self.job_id)
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
