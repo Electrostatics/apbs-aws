@@ -40,11 +40,12 @@ class JobInterface:
 
         self.file_path = Path(file_path)
         for filename in file_list:
-            self._logger.debug("FILENAME: %s", filename)
+            self._logger.debug("%s FILENAME: %s", self.job_id, filename)
             full_filename = self.file_path / filename
             if isfile(full_filename):
                 self.file_list[filename] = full_filename
                 if filename.endswith("input_files"):
+                    # Get all the files listed inside the file, input_files
                     for check_file in get_contents(full_filename):
                         base_filename = check_file.split("/")[-1]
                         self.job_input_files.append(base_filename)

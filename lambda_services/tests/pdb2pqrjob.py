@@ -115,7 +115,7 @@ class Pdb2PqrJob(JobInterface):
         pdb_file = None
         pqr_file = None
         for filename in self.file_list:
-            self._logger.debug("PQR FILENAME: %s", filename)
+            self._logger.debug("%s PQR FILENAME: %s", self.job_id, filename)
             if filename.endswith(".pqr"):
                 pqr_file = filename
             if filename.endswith(".pdb"):
