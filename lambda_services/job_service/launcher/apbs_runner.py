@@ -4,6 +4,7 @@ from io import StringIO
 from locale import atof, atoi
 from logging import getLogger
 from os.path import splitext
+from os import getenv
 
 from .jobsetup import JobSetup, MissingFilesError
 from .utils import (
@@ -13,6 +14,10 @@ from .utils import (
     s3_object_exists,
     s3_put_object,
 )
+
+# Initialize logger
+_LOGGER = getLogger()
+_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
 
 
 class Runner(JobSetup):
@@ -163,8 +168,10 @@ class Runner(JobSetup):
                     # Replace PQR file text with version with water removed
                     pqrfile_text = nowater_pqrfile_text
 
-            except Exception:
-                # TODO: May wanna do more here (logging?)
+            except Exception as err:
+                _LOGGER.exception(
+                    "%s Failed to remove water molecules: %s", self.job_id, err
+                )
                 raise
 
             # Upload *.pqr and *.in file to input bucket

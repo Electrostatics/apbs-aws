@@ -20,7 +20,7 @@ def s3_download_file_str(bucket_name: str, object_name: str) -> str:
         return s3_response["Body"].read().decode("utf-8")
 
     except Exception as err:
-        _LOGGER.error("%s ERROR: %s", bucket_name, err)
+        _LOGGER.exception("%s ERROR: %s", bucket_name, err)
         raise
 
 

@@ -286,13 +286,13 @@ def update_status(
             Body=dumps(statobj), Bucket=S3_BUCKET, Key=objectfile
         )
     except ClientError as cerr:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
             jobid,
             cerr,
         )
     except ParamValidationError as perr:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
             jobid,
             perr,
@@ -392,7 +392,7 @@ def run_job(
                 request.urlretrieve(file, f"{MEM_PATH}{name}")
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s ERROR: Download failed for file, %s \n\t%s",
                     job_id,
                     name,
@@ -404,7 +404,7 @@ def run_job(
                 s3client.download_file(inbucket, file, f"{MEM_PATH}{file}")
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s ERROR: Download failed for file, %s \n\t%s",
                     job_id,
                     file,
@@ -458,7 +458,7 @@ def run_job(
             )
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s ERROR: Failed to upload file, %s \n\t%s",
             job_id,
             f"{job_date}/{job_id}/{file}",

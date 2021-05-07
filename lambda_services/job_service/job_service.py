@@ -39,13 +39,19 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
         job_info: dict = loads(object_response["Body"].read().decode("utf-8"))
         return job_info
     except JSONDecodeError as jerr:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s Can't decode JSON: %s, (%s)",
             bucket_name,
             object_response,
             jerr,
         )
-    except Exception:
+    except Exception as jerr:
+        _LOGGER.exception(
+            "%s Can't loads JSON: %s, (%s)",
+            bucket_name,
+            object_response,
+            jerr,
+        )
         raise
 
 
