@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Software to run apbs and pdb2pqr jobs."""
 
-from os import chdir, getenv, listdir, makedirs
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, ERROR, INFO
+from logging import getLogger, DEBUG, ERROR, INFO
+from os import chdir, getenv, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
@@ -18,14 +18,16 @@ from boto3 import client, resource
 from botocore.exceptions import ClientError, ParamValidationError
 
 _LOGGER = getLogger(__name__)
+_LOGGER.setLevel(ERROR)
+_LOGGER.setLevel(INFO)
 # TODO: This may need to be increased or calculated based
 #       on complexity of the job (dimension of molecule?)
 #       The job could get launched multiple times if the
 #       job takes longer than Q_TIMEOUT
-Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", 300))
+Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
 AWS_REGION = getenv("SQS_AWS_REGION", "us-west-2")
-MAX_TRIES = int(getenv("SQS_MAX_TRIES", 60))
-RETRY_TIME = int(getenv("SQS_RETRY_TIME", 15))
+MAX_TRIES = int(getenv("SQS_MAX_TRIES", "60"))
+RETRY_TIME = int(getenv("SQS_RETRY_TIME", "15"))
 
 MEM_PATH = "/dev/shm/test/"
 S3_BUCKET = getenv("OUTPUT_BUCKET")
@@ -511,9 +513,9 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    _LOGGER.setLevel(ERROR)
+    _LOGGER.setLevel(INFO)
     if args.verbose:
-        _LOGGER.setLevel(INFO)
+        _LOGGER.setLevel(DEBUG)
 
     s3client = client("s3")
     sqs = client("sqs", region_name=AWS_REGION)

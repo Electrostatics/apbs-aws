@@ -1,13 +1,13 @@
 # coding: utf-8
 """Utilities for APBS and PDB2PQR jobs."""
 
-from sys import exc_info, exit
 from enum import Enum
 from json import dumps
 from logging import getLogger
 from os.path import isfile
 from os import chdir, getcwd
 from pathlib import Path
+from sys import exc_info, exit
 from requests import post, put
 
 _LOGGER = getLogger(__name__)
@@ -56,8 +56,8 @@ def submit_aws_job(api_token_url, job):
     job_work_dir = job.file_path
     # job_type is "apbs" or "pdb2pqr"
     # data_files are the list of files inside the job_file that came from
-    _LOGGER.debug("JOB: %s", job)
-    _LOGGER.debug("DATAFILES: %s: ", upload_files)
+    _LOGGER.debug("%s JOB: %s", job_id, job)
+    _LOGGER.debug("%s DATAFILES: %s: ", job_id, upload_files)
 
     cwd = getcwd()
 
@@ -75,7 +75,7 @@ def submit_aws_job(api_token_url, job):
         )
         exit(1)
     finally:
-        _LOGGER.debug("Restoring the path to %s", cwd)
+        _LOGGER.debug("%s Restoring the path to %s", job_id, cwd)
         chdir(cwd)
 
     # Build the JSON to send to the API_TOKEN_URL to get a list
@@ -87,7 +87,7 @@ def submit_aws_job(api_token_url, job):
     }
     for file in upload_files:
         job_request["file_list"].append(file)
-    _LOGGER.debug("REQUEST: %s", dumps(job_request))
+    _LOGGER.debug("%s REQUEST: %s", job_id, dumps(job_request))
 
     response = post(api_token_url, json=job_request)
 
@@ -96,10 +96,10 @@ def submit_aws_job(api_token_url, job):
     save_url = None
     save_file = None
     json_response = response.json()
-    _LOGGER.debug("POST RESPONSE: %s", json_response)
+    _LOGGER.debug("%s POST RESPONSE: %s", job_id, json_response)
     for file in json_response["urls"]:
         url = json_response["urls"][file]
-        _LOGGER.debug("FILE: %s, URL: %s", file, url)
+        _LOGGER.debug("%s FILE: %s, URL: %s", job_id, file, url)
         if f"{job_type}-job.json" in file:
             save_url = url
             save_file = file
@@ -113,7 +113,8 @@ def submit_aws_job(api_token_url, job):
         _ = put(save_url, data=open(full_filepath, "rb"))
     else:
         _LOGGER.error(
-            "ERROR: Can't find JOB file, %s",
+            "%s ERROR: Can't find JOB file, %s",
+            job_id,
             job_id + job_type + "-job.json",
         )
 

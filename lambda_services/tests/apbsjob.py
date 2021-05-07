@@ -1,8 +1,8 @@
 # coding: utf-8
 """ApbsJob is used to hold information about an APBS job."""
 
-from logging import getLogger
 from json import dumps
+from logging import getLogger
 from pathlib import Path
 from re import findall
 from typing import List
@@ -58,9 +58,9 @@ class ApbsJob(JobInterface):
         lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
         for line in lines:
             if line.startswith("Final memory usage"):
-                self._logger.debug("MEM LINE: %s", line)
+                self._logger.debug("%s MEM LINE: %s", self.job_id, line)
                 values = findall(r"\d+\.?\d+", line)  # noqa W605
-                self._logger.debug("VALUES: %s", values)
+                self._logger.debug("%s VALUES: %s", self.job_id, values)
                 mem_used["total"] = values[0]
                 mem_used["high"] = values[1]
         return mem_used
