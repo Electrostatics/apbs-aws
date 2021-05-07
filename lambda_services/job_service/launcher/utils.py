@@ -138,7 +138,7 @@ def apbs_infile_creator(apbsOptions: dict) -> str:
 
         if apbsOptions["coarseGridCenterMethod"] == "molecule":
             apbsinput_io.write(
-                f"\tcgcent mol {apbsOptions['courseGridCenterMoleculeID']}\n"
+                f"\tcgcent mol {apbsOptions['coarseGridCenterMoleculeID']}\n"
             )
         elif apbsOptions["coarseGridCenterMethod"] == "coordinate":
             apbsinput_io.write(
