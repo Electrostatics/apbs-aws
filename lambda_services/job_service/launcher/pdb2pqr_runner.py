@@ -1,19 +1,15 @@
-import os
-import logging
+"""A wrapper class to run the pdb2pqr executable."""
+
+from logging import getLogger
+from os.path import splitext
+
 from .jobsetup import JobSetup
 from .weboptions import WebOptions, WebOptionsError
-
-
-class JobDirectoryExistsError(Exception):
-    def __init__(self, expression):
-        self.expression = expression
 
 
 class Runner(JobSetup):
     def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
-        # self.starttime = None
-        # self.job_id = None
         self.weboptions = None
         self.invoke_method = None
         self.cli_params = None
@@ -22,11 +18,13 @@ class Runner(JobSetup):
         self.input_files = []
         self.output_files = []
         self.estimated_max_runtime = 2700
+        self._logger = getLogger(__class__.__name__)
 
         try:
             if "invoke_method" in form:
-                logging.info(
-                    "%s Invoke_method found, value: %s", self.job_id,
+                self._logger.info(
+                    "%s Invoke_method found, value: %s",
+                    self.job_id,
                     str(form["invoke_method"]),
                 )
                 if form["invoke_method"].lower() in ["v2", "cli"]:
@@ -41,14 +39,20 @@ class Runner(JobSetup):
                     self.invoke_method = "gui"
                     self.weboptions = WebOptions(form)
             else:
-                logging.warning(
-                    "%s Invoke_method not found: %s", job_id, str("invoke_method" in form)
+                self._logger.warning(
+                    "%s Invoke_method not found: %s",
+                    job_id,
+                    str("invoke_method" in form),
                 )
                 if "invoke_method" in form:
-                    logging.debug(
-                        "%s Form['invoke_method']: %s", job_id, str(form["invoke_method"])
+                    self._logger.debug(
+                        "%s Form['invoke_method']: %s",
+                        job_id,
+                        str(form["invoke_method"]),
                     )
-                    logging.debug("%s Form type: %s", job_id, type(form["invoke_method"]))
+                    self._logger.debug(
+                        "%s Form type: %s", job_id, type(form["invoke_method"])
+                    )
                 self.invoke_method = "gui"
                 self.weboptions = WebOptions(form)
 
@@ -97,7 +101,10 @@ class Runner(JobSetup):
             result = f"{result} {cli_arg}"
 
             # Add PDB and PQR file names to command line string
-        result = f"{result} {self.cli_params['pdb_name']} {self.cli_params['pqr_name']}"
+        result = (
+            f"{result} {self.cli_params['pdb_name']} "
+            f"{self.cli_params['pqr_name']}"
+        )
 
         return result
 
@@ -108,7 +115,7 @@ class Runner(JobSetup):
             # Update input files
             self.add_input_file(self.weboptions.pdbfilename)
         else:
-            if os.path.splitext(self.weboptions.pdbfilename)[1] != ".pdb":
+            if splitext(self.weboptions.pdbfilename)[1] != ".pdb":
                 self.weboptions.pdbfilename = (
                     self.weboptions.pdbfilename + ".pdb"
                 )  # add pdb extension to pdbfilename
@@ -135,7 +142,9 @@ class Runner(JobSetup):
         if "--summary" in result:
             result = result.replace("--summary", "")
 
-        logging.debug(result)
-        logging.debug(self.weboptions.pdbfilename)
+        self._logger.debug("%s Result: %s", job_id, result)
+        self._logger.debug(
+            "%s PDB Filename: %s", job_id, self.weboptions.pdbfilename
+        )
 
         return result

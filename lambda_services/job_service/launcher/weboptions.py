@@ -1,11 +1,13 @@
-import re
+"""This file contains utilities to handle options from the GUI."""
+
+from re import split
 from io import StringIO
 
 
 def sanitize_fileName(file_name):
     # TODO: 2020/06/30, Elvis - log that sanitization is happening if
     #                           pattern is seen
-    file_name = re.split(r"[/\\]", file_name)[-1]
+    file_name = split(r"[/\\]", file_name)[-1]
     file_name = file_name.replace(" ", "_")
     # fileName = fileName.replace('-', '_')
     return file_name

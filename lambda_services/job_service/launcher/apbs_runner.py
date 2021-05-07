@@ -1,24 +1,23 @@
+"""A wrapper class to run the apbs executable."""
+
 from io import StringIO
-from os import path
-from sys import stderr
-import locale
-import logging
+from locale import atof, atoi
+from logging import getLogger
+from os.path import splitext
+from os import getenv
 
-# import requests
+from .jobsetup import JobSetup, MissingFilesError
+from .utils import (
+    apbs_extract_input_files,
+    apbs_infile_creator,
+    s3_download_file_str,
+    s3_object_exists,
+    s3_put_object,
+)
 
-from .jobsetup import JobSetup
-from . import utils
-
-
-class JobDirectoryExistsError(Exception):
-    def __init__(self, expression):
-        self.expression = expression
-
-
-class MissingFilesError(FileNotFoundError):
-    def __init__(self, message, file_list=[]):
-        super().__init__(message)
-        self.missing_files = file_list
+# Initialize logger
+_LOGGER = getLogger()
+_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
 
 
 class Runner(JobSetup):
@@ -31,6 +30,7 @@ class Runner(JobSetup):
         self.input_files = []
         self.output_files = []
         self.estimated_max_runtime = 7200
+        self._logger = getLogger(__class__.__name__)
 
         if "filename" in form:
             self.infile_name = form["filename"]
@@ -58,7 +58,7 @@ class Runner(JobSetup):
         self, output_bucket_name: str, input_bucket_name: str
     ) -> str:
         # taken from mainInput()
-        logging.info("%s Preparing APBS job execution", self.job_id)
+        self._logger.info("%s Preparing APBS job execution", self.job_id)
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
@@ -70,26 +70,24 @@ class Runner(JobSetup):
             infile_object_name = f"{job_date}/{job_id}/{infile_name}"
 
             # Check S3 for file existence; raise exception if not
-            if not utils.s3_object_exists(
-                input_bucket_name, infile_object_name
-            ):
+            if not s3_object_exists(input_bucket_name, infile_object_name):
                 raise MissingFilesError(
                     f"Missing APBS input file. Please upload: {infile_name}"
                 )
 
             # Get text for infile string
-            infile_str = utils.s3_download_file_str(
+            infile_str = s3_download_file_str(
                 input_bucket_name, infile_object_name
             )
 
             # Get list of expected supporting files
-            expected_files_list = utils.apbs_extract_input_files(infile_str)
+            expected_files_list = apbs_extract_input_files(infile_str)
 
             # Check if additional READ files exist in S3
             missing_files = []
             for name in expected_files_list:
                 object_name = f"{job_date}/{job_id}/{name}"
-                if utils.s3_object_exists(input_bucket_name, object_name):
+                if s3_object_exists(input_bucket_name, object_name):
                     # TODO: 2021/03/04, Elvis - Update input files via
                     #                           a common function
                     self.add_input_file(str(name))
@@ -115,27 +113,27 @@ class Runner(JobSetup):
             apbs_options = self.apbs_options
 
             # Get text for infile string
-            infile_str = utils.s3_download_file_str(
+            infile_str = s3_download_file_str(
                 output_bucket_name, f"{job_date}/{job_id}/{infile_name}"
             )
 
             # Extracts PQR file name from the '*.in' file within storage bucket
-            pqr_file_name = utils.apbs_extract_input_files(infile_str)[0]
+            pqr_file_name = apbs_extract_input_files(infile_str)[0]
             apbs_options["pqrFileName"] = pqr_file_name
 
             # Get contents of updated APBS input file, based on form
             apbs_options["tempFile"] = "apbsinput.in"
-            new_infile_contents = utils.apbs_infile_creator(apbs_options)
+            new_infile_contents = apbs_infile_creator(apbs_options)
 
             # Get contents of PQR file from PDB2PQR run
-            pqrfile_text = utils.s3_download_file_str(
+            pqrfile_text = s3_download_file_str(
                 output_bucket_name, f"{job_date}/{job_id}/{pqr_file_name}"
             )
 
             # Remove waters from molecule (PQR file) if requested by the user
             try:
                 if "removewater" in form and form["removewater"] == "on":
-                    pqr_filename_root, pqr_filename_ext = path.splitext(
+                    pqr_filename_root, pqr_filename_ext = splitext(
                         pqr_file_name
                     )
 
@@ -160,7 +158,7 @@ class Runner(JobSetup):
                     # nowater_pqrfile_text.seek(0)
 
                     # Send original PQR file (with water) to S3 output bucket
-                    utils.s3_put_object(
+                    s3_put_object(
                         output_bucket_name,
                         f"{job_date}/{job_id}/{water_pqrname}",
                         pqrfile_text.encode("utf-8"),
@@ -170,17 +168,19 @@ class Runner(JobSetup):
                     # Replace PQR file text with version with water removed
                     pqrfile_text = nowater_pqrfile_text
 
-            except Exception:
-                # TODO: May wanna do more here (logging?)
+            except Exception as err:
+                _LOGGER.exception(
+                    "%s Failed to remove water molecules: %s", self.job_id, err
+                )
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            utils.s3_put_object(
+            s3_put_object(
                 input_bucket_name,
                 f"{job_date}/{job_id}/{apbs_options['tempFile']}",
                 new_infile_contents.encode("utf-8"),
             )
-            utils.s3_put_object(
+            s3_put_object(
                 input_bucket_name,
                 f"{job_date}/{job_id}/{pqr_file_name}",
                 pqrfile_text.encode("utf-8"),
@@ -196,9 +196,8 @@ class Runner(JobSetup):
 
     def field_storage_to_dict(self, form: dict) -> dict:
         """Converts the CGI input from the web interface to a dictionary"""
-        apbs_options = {"writeCheck": 0}
+        apbs_options = {"writeCheck": 0, "writeCharge": False}
 
-        apbs_options["writeCharge"] = False
         if "writecharge" in form and form["writecharge"] != "":
             apbs_options["writeCheck"] += 1
             apbs_options["writeCharge"] = True
@@ -215,7 +214,7 @@ class Runner(JobSetup):
 
         apbs_options["asyncflag"] = False
         if "asyncflag" in form and form["asyncflag"] == "on":
-            apbs_options["async"] = locale.atoi(form["async"])
+            apbs_options["async"] = atoi(form["async"])
             apbs_options["asyncflag"] = True
 
         apbs_options["writeSspl"] = False
@@ -276,11 +275,9 @@ class Runner(JobSetup):
         if apbs_options["writeCheck"] > 4:
             # TODO: 2021/03/02, Elvis - validation error;
             #       please raise exception here
-            print(
-                "Please select a maximum of four write statements.",
-                file=stderr,
+            self._logger.error(
+                "Please select a maximum of four write statements."
             )
-            # os._exit(99)
 
         # READ section variables
         apbs_options["readType"] = "mol"
@@ -291,91 +288,81 @@ class Runner(JobSetup):
         # ELEC section variables
         apbs_options["calcType"] = form["type"]
 
-        apbs_options["ofrac"] = locale.atof(form["ofrac"])
+        apbs_options["ofrac"] = atof(form["ofrac"])
 
-        apbs_options["dimeNX"] = locale.atoi(form["dimenx"])
-        apbs_options["dimeNY"] = locale.atoi(form["dimeny"])
-        apbs_options["dimeNZ"] = locale.atoi(form["dimenz"])
+        apbs_options["dimeNX"] = atoi(form["dimenx"])
+        apbs_options["dimeNY"] = atoi(form["dimeny"])
+        apbs_options["dimeNZ"] = atoi(form["dimenz"])
 
-        apbs_options["cglenX"] = locale.atof(form["cglenx"])
-        apbs_options["cglenY"] = locale.atof(form["cgleny"])
-        apbs_options["cglenZ"] = locale.atof(form["cglenz"])
+        apbs_options["cglenX"] = atof(form["cglenx"])
+        apbs_options["cglenY"] = atof(form["cgleny"])
+        apbs_options["cglenZ"] = atof(form["cglenz"])
 
-        apbs_options["fglenX"] = locale.atof(form["fglenx"])
-        apbs_options["fglenY"] = locale.atof(form["fgleny"])
-        apbs_options["fglenZ"] = locale.atof(form["fglenz"])
+        apbs_options["fglenX"] = atof(form["fglenx"])
+        apbs_options["fglenY"] = atof(form["fgleny"])
+        apbs_options["fglenZ"] = atof(form["fglenz"])
 
-        apbs_options["glenX"] = locale.atof(form["glenx"])
-        apbs_options["glenY"] = locale.atof(form["gleny"])
-        apbs_options["glenZ"] = locale.atof(form["glenz"])
+        apbs_options["glenX"] = atof(form["glenx"])
+        apbs_options["glenY"] = atof(form["gleny"])
+        apbs_options["glenZ"] = atof(form["glenz"])
 
-        apbs_options["pdimeNX"] = locale.atof(form["pdimex"])
-        apbs_options["pdimeNY"] = locale.atof(form["pdimey"])
-        apbs_options["pdimeNZ"] = locale.atof(form["pdimez"])
+        apbs_options["pdimeNX"] = atof(form["pdimex"])
+        apbs_options["pdimeNY"] = atof(form["pdimey"])
+        apbs_options["pdimeNZ"] = atof(form["pdimez"])
 
         if form["cgcent"] == "mol":
             apbs_options["coarseGridCenterMethod"] = "molecule"
-            apbs_options["coarseGridCenterMoleculeID"] = locale.atoi(
-                form["cgcentid"]
-            )
+            apbs_options["coarseGridCenterMoleculeID"] = atoi(form["cgcentid"])
         elif form["cgcent"] == "coord":
             apbs_options["coarseGridCenterMethod"] = "coordinate"
-            apbs_options["cgxCent"] = locale.atoi(form["cgxcent"])
-            apbs_options["cgyCent"] = locale.atoi(form["cgycent"])
-            apbs_options["cgzCent"] = locale.atoi(form["cgzcent"])
+            apbs_options["cgxCent"] = atoi(form["cgxcent"])
+            apbs_options["cgyCent"] = atoi(form["cgycent"])
+            apbs_options["cgzCent"] = atoi(form["cgzcent"])
 
         if form["fgcent"] == "mol":
             apbs_options["fineGridCenterMethod"] = "molecule"
-            apbs_options["fineGridCenterMoleculeID"] = locale.atoi(
-                form["fgcentid"]
-            )
+            apbs_options["fineGridCenterMoleculeID"] = atoi(form["fgcentid"])
         elif form["fgcent"] == "coord":
             apbs_options["fineGridCenterMethod"] = "coordinate"
-            apbs_options["fgxCent"] = locale.atoi(form["fgxcent"])
-            apbs_options["fgyCent"] = locale.atoi(form["fgycent"])
-            apbs_options["fgzCent"] = locale.atoi(form["fgzcent"])
+            apbs_options["fgxCent"] = atoi(form["fgxcent"])
+            apbs_options["fgyCent"] = atoi(form["fgycent"])
+            apbs_options["fgzCent"] = atoi(form["fgzcent"])
 
         # added conditional to avoid checking 'gcent' for incompatible methods
         if apbs_options["calcType"] in ["mg-manual", "mg-dummy"]:
             if form["gcent"] == "mol":
                 apbs_options["gridCenterMethod"] = "molecule"
-                apbs_options["gridCenterMoleculeID"] = locale.atoi(
-                    form["gcentid"]
-                )
+                apbs_options["gridCenterMoleculeID"] = atoi(form["gcentid"])
             elif form["gcent"] == "coord":
                 apbs_options["gridCenterMethod"] = "coordinate"
-                apbs_options["gxCent"] = locale.atoi(form["gxcent"])
-                apbs_options["gyCent"] = locale.atoi(form["gycent"])
-                apbs_options["gzCent"] = locale.atoi(form["gzcent"])
+                apbs_options["gxCent"] = atoi(form["gxcent"])
+                apbs_options["gyCent"] = atoi(form["gycent"])
+                apbs_options["gzCent"] = atoi(form["gzcent"])
 
-        apbs_options["mol"] = locale.atoi(form["mol"])
+        apbs_options["mol"] = atoi(form["mol"])
         apbs_options["solveType"] = form["solvetype"]
         apbs_options["boundaryConditions"] = form["bcfl"]
-        apbs_options["biomolecularDielectricConstant"] = locale.atof(
-            form["pdie"]
-        )
-        apbs_options["dielectricSolventConstant"] = locale.atof(form["sdie"])
+        apbs_options["biomolecularDielectricConstant"] = atof(form["pdie"])
+        apbs_options["dielectricSolventConstant"] = atof(form["sdie"])
         apbs_options["dielectricIonAccessibilityModel"] = form["srfm"]
         apbs_options["biomolecularPointChargeMapMethod"] = form["chgm"]
-        apbs_options["surfaceConstructionResolution"] = locale.atof(
-            form["sdens"]
-        )
-        apbs_options["solventRadius"] = locale.atof(form["srad"])
-        apbs_options["surfaceDefSupportSize"] = locale.atof(form["swin"])
-        apbs_options["temperature"] = locale.atof(form["temp"])
+        apbs_options["surfaceConstructionResolution"] = atof(form["sdens"])
+        apbs_options["solventRadius"] = atof(form["srad"])
+        apbs_options["surfaceDefSupportSize"] = atof(form["swin"])
+        apbs_options["temperature"] = atof(form["temp"])
         apbs_options["calcEnergy"] = form["calcenergy"]
         apbs_options["calcForce"] = form["calcforce"]
 
-        for idx in range(0, 3):
+        for idx in range(3):
             ch_str = f"charge{idx}"
             conc_str = f"conc{idx}"
             rad_str = f"radius{idx}"
             if form[ch_str] != "":
-                apbs_options[ch_str] = locale.atoi(form[ch_str])
+                apbs_options[ch_str] = atoi(form[ch_str])
             if form[conc_str] != "":
-                apbs_options[conc_str] = locale.atof(form[conc_str])
+                apbs_options[conc_str] = atof(form[conc_str])
             if form[rad_str] != "":
-                apbs_options[rad_str] = locale.atof(form[rad_str])
+                apbs_options[rad_str] = atof(form[rad_str])
         apbs_options["writeFormat"] = form["writeformat"]
         # apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
         apbs_options["writeStem"] = form["pdb2pqrid"]

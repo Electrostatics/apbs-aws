@@ -1,8 +1,9 @@
 # coding: utf-8
 """ApbsJob is used to hold information about an APBS job."""
 
-from logging import getLogger
+
 from json import dumps
+from logging import getLogger
 from pathlib import Path
 from re import findall
 from typing import List
@@ -55,14 +56,15 @@ class ApbsJob(JobInterface):
         #       the apbs_stdout.txt file. The line looks like:
         # Final memory usage:  0.001 MB total, 2666.345 MB high water
         mem_used = {"total": None, "high": None}
-        lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
-        for line in lines:
-            if line.startswith("Final memory usage"):
-                self._logger.debug("MEM LINE: %s", line)
-                values = findall(r"\d+\.?\d+", line)  # noqa W605
-                self._logger.debug("VALUES: %s", values)
-                mem_used["total"] = values[0]
-                mem_used["high"] = values[1]
+        if f"{self.job_type}_stdout.txt" in self.file_list:
+            lines = get_contents(self.file_list[f"{self.job_type}_stdout.txt"])
+            for line in lines:
+                if line.startswith("Final memory usage"):
+                    self._logger.debug("MEM LINE: %s", line)
+                    values = findall(r"\d+\.?\d+", line)  # noqa W605
+                    self._logger.debug("VALUES: %s", values)
+                    mem_used["total"] = values[0]
+                    mem_used["high"] = values[1]
         return mem_used
 
     def build_job_file(self):
@@ -90,18 +92,34 @@ class ApbsJob(JobInterface):
         #   }
         # }
 
+        self._logger.debug("FILE_LIST: %s", self.job_input_files)
+
+        if len(self.job_input_files) < 2:
+            self._logger.warning(
+                "%s WARNING: Missing input files, only found: %s",
+                self.job_id,
+                self.job_input_files,
+            )
+            return None
+
         use_hardcoded_apbsinput = False
-        if "apbsinput.in" in self.file_list:
+        if "apbsinput.in" in self.job_input_files:
             use_hardcoded_apbsinput = True
             job["form"]["filename"] = "apbsinput.in"
 
-        for filename in self.file_list:
+        for filename in self.job_input_files:
+            self._logger.debug("%s JOB INPUT_FILE: %s", self.job_id, filename)
             if filename.endswith(".pqr"):
                 job["form"]["file_list"].append(filename)
             if filename.endswith(".in") and not use_hardcoded_apbsinput:
                 job["form"]["filename"] = filename
 
-        with open(
-            Path(self.file_path) / Path(f"{self.job_type}-job.json"), "w"
-        ) as outfile:
+        json_job_file = Path(self.file_path) / Path(
+            f"{self.job_type}-job.json"
+        )
+        json_job_file.unlink(missing_ok=True)
+
+        with open(json_job_file, "w") as outfile:
             outfile.write(dumps(job, indent=4))
+
+        return json_job_file

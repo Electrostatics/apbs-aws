@@ -1,6 +1,17 @@
 from urllib3.util import parse_url
 
 
+class JobDirectoryExistsError(Exception):
+    def __init__(self, expression):
+        self.expression = expression
+
+
+class MissingFilesError(FileNotFoundError):
+    def __init__(self, message, file_list=[]):
+        super().__init__(message)
+        self.missing_files = file_list
+
+
 class JobSetup:
     def __init__(self, job_id: str, job_date: str) -> None:
         self.job_id = job_id

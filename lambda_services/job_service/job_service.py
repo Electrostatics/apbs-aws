@@ -1,5 +1,5 @@
 """Interpret APBS/PDBP2QR job configurations and submit to SQS."""
-from json import dumps, loads
+from json import dumps, loads, JSONDecodeError
 from os import getenv
 from time import time
 from logging import getLogger
@@ -14,8 +14,8 @@ SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
-LOGGER = getLogger()
-LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
+_LOGGER = getLogger()
+_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
 
 
 def get_job_info(bucket_name: str, info_object_name: str) -> dict:
@@ -38,7 +38,20 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
     try:
         job_info: dict = loads(object_response["Body"].read().decode("utf-8"))
         return job_info
-    except Exception:
+    except JSONDecodeError as jerr:
+        _LOGGER.exception(
+            "%s Can't decode JSON: %s, (%s)",
+            bucket_name,
+            object_response,
+            jerr,
+        )
+    except Exception as jerr:
+        _LOGGER.exception(
+            "%s Can't loads JSON: %s, (%s)",
+            bucket_name,
+            object_response,
+            jerr,
+        )
         raise
 
 
@@ -113,6 +126,7 @@ def upload_status_file(object_filename: str, initial_status_dict: dict):
 
 
 def interpret_job_submission(event: dict, context):
+    # pylint: disable=unused-argument
     """Interpret contents of job configuration, triggered from S3 event.
 
     :param event dict: Amazon S3 event, containing info to retrieve contents
@@ -165,9 +179,7 @@ def interpret_job_submission(event: dict, context):
     else:
         status = "invalid"
         message = "Invalid job type. No job executed"
-        LOGGER.error(
-            "%s Invalid job type - Job Type: %s", job_id, job_type
-        )
+        _LOGGER.error("%s Invalid job type - Job Type: %s", job_id, job_type)
 
     # Create and upload status file to S3
     status_filename = f"{job_type}-status.json"

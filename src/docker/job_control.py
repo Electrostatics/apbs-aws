@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Software to run apbs and pdb2pqr jobs."""
 
-from os import chdir, getenv, listdir, makedirs
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, ERROR, INFO
+from logging import getLogger, DEBUG, ERROR, INFO
+from os import chdir, getenv, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
@@ -18,14 +18,16 @@ from boto3 import client, resource
 from botocore.exceptions import ClientError, ParamValidationError
 
 _LOGGER = getLogger(__name__)
+_LOGGER.setLevel(ERROR)
+_LOGGER.setLevel(INFO)
 # TODO: This may need to be increased or calculated based
 #       on complexity of the job (dimension of molecule?)
 #       The job could get launched multiple times if the
 #       job takes longer than Q_TIMEOUT
-Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", 300))
+Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
 AWS_REGION = getenv("SQS_AWS_REGION", "us-west-2")
-MAX_TRIES = int(getenv("SQS_MAX_TRIES", 60))
-RETRY_TIME = int(getenv("SQS_RETRY_TIME", 15))
+MAX_TRIES = int(getenv("SQS_MAX_TRIES", "60"))
+RETRY_TIME = int(getenv("SQS_RETRY_TIME", "15"))
 
 MEM_PATH = "/dev/shm/test/"
 S3_BUCKET = getenv("OUTPUT_BUCKET")
@@ -284,12 +286,15 @@ def update_status(
             Body=dumps(statobj), Bucket=S3_BUCKET, Key=objectfile
         )
     except ClientError as cerr:
-        _LOGGER.error(
-            "ERROR: Unknown ClientError exception from s3.put_object, %s", cerr
+        _LOGGER.exception(
+            "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
+            jobid,
+            cerr,
         )
     except ParamValidationError as perr:
-        _LOGGER.error(
-            "ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+        _LOGGER.exception(
+            "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            jobid,
             perr,
         )
 
@@ -309,20 +314,20 @@ def cleanup_job(rundir: str) -> int:
 
 
 def execute_command(
-    command_line_str: str, stdout_filename: str, stderr_filename: str
+    job_id: str,
+    command_line_str: str,
+    stdout_filename: str,
+    stderr_filename: str,
 ):
     """Spawn a subprocess and collect all the information about it.
 
     Args:
+        job_id (str): The unique job id.
         command_line_str (str): The command and arguments.
         stdout_filename (str): The name of the output file for stdout.
         stderr_filename (str): The name of the output file for stderr.
     """
     command_split = command_line_str.split()
-    # TODO: intendo 2021/04/15
-    #       We should wrap the run call with a try/except and add check=True
-    #       to the run command so that a CalledProcessError is caught if the
-    #       command fails and we can log the error.
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
     except CalledProcessError as cpe:
@@ -330,7 +335,7 @@ def execute_command(
         #       we need the jobid here
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
-            "MISSING JOBID",
+            job_id,
             command_line_str,
             cpe,
         )
@@ -387,8 +392,11 @@ def run_job(
                 request.urlretrieve(file, f"{MEM_PATH}{name}")
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
-                _LOGGER.error(
-                    "ERROR: Download failed for file, %s \n\t%s", name, error
+                _LOGGER.exception(
+                    "%s ERROR: Download failed for file, %s \n\t%s",
+                    job_id,
+                    name,
+                    error,
                 )
                 return cleanup_job(rundir)
         else:
@@ -396,8 +404,11 @@ def run_job(
                 s3client.download_file(inbucket, file, f"{MEM_PATH}{file}")
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
-                _LOGGER.error(
-                    "ERROR: Download failed for file, %s \n\t%s", file, error
+                _LOGGER.exception(
+                    "%s ERROR: Download failed for file, %s \n\t%s",
+                    job_id,
+                    file,
+                    error,
                 )
                 return cleanup_job(rundir)
 
@@ -430,7 +441,7 @@ def run_job(
     try:
         metrics.set_start_time()
         execute_command(
-            command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
+            job_id, command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
         metrics.set_end_time()
 
@@ -447,8 +458,9 @@ def run_job(
             )
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
-        _LOGGER.error(
-            "ERROR: Failed to upload file, %s \n\t%s",
+        _LOGGER.exception(
+            "%s ERROR: Failed to upload file, %s \n\t%s",
+            job_id,
             f"{job_date}/{job_id}/{file}",
             error,
         )
@@ -511,9 +523,9 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    _LOGGER.setLevel(ERROR)
+    _LOGGER.setLevel(INFO)
     if args.verbose:
-        _LOGGER.setLevel(INFO)
+        _LOGGER.setLevel(DEBUG)
 
     s3client = client("s3")
     sqs = client("sqs", region_name=AWS_REGION)
