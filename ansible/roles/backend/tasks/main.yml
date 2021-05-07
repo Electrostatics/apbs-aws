@@ -401,7 +401,7 @@
       image_id: "{{ ecs_ami.stdout }}"
       assign_public_ip: yes
       instance_type: t3.medium
-      user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config"
+      user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config\n yum install -y ec2-instance-connect"
       key_name: "{{ key_name }}"
       security_groups: ["{{ default_sg }}"]
       instance_profile_name: "{{ project }}-{{ deployment_group }}-ec2-role"
