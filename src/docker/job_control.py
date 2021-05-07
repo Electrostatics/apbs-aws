@@ -1,30 +1,33 @@
 #!/usr/bin/env python3
 """Software to run apbs and pdb2pqr jobs."""
 
-from os import chdir, getenv, listdir, makedirs
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
-from json import dumps, loads
-from logging import getLogger, ERROR, INFO
+from json import dumps, loads, JSONDecodeError
+from logging import getLogger, DEBUG, ERROR, INFO
+from os import chdir, getenv, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
-from subprocess import run, PIPE
+from subprocess import run, CalledProcessError, PIPE
 from time import sleep, time
 from typing import Any, Dict, List
 from urllib import request
 from boto3 import client, resource
+from botocore.exceptions import ClientError, ParamValidationError
 
 _LOGGER = getLogger(__name__)
+_LOGGER.setLevel(ERROR)
+_LOGGER.setLevel(INFO)
 # TODO: This may need to be increased or calculated based
 #       on complexity of the job (dimension of molecule?)
 #       The job could get launched multiple times if the
 #       job takes longer than Q_TIMEOUT
-Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", 300))
+Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
 AWS_REGION = getenv("SQS_AWS_REGION", "us-west-2")
-MAX_TRIES = int(getenv("SQS_MAX_TRIES", 60))
-RETRY_TIME = int(getenv("SQS_RETRY_TIME", 15))
+MAX_TRIES = int(getenv("SQS_MAX_TRIES", "60"))
+RETRY_TIME = int(getenv("SQS_RETRY_TIME", "15"))
 
 MEM_PATH = "/dev/shm/test/"
 S3_BUCKET = getenv("OUTPUT_BUCKET")
@@ -122,18 +125,21 @@ class JobMetrics:
         self.values["ru_nvcsw"] = metrics.ru_nvcsw
         self.values["ru_nivcsw"] = metrics.ru_nivcsw
 
-    def get_rusage_delta(self):
+    def get_rusage_delta(self, memory_disk_usage):
         """
         Caluculate the difference between the last time getrusage
         was called and now.
 
-        Returns:
-            Dict: The rusage values as a dictionary
+        :param memory_disk_usage: Need to subtract out the files in memory.
+        :return:  The rusage values as a dictionary
+        :rtype:  Dict
         """
         metrics = getrusage(RUSAGE_CHILDREN)
         self.values["ru_utime"] = metrics.ru_utime - self.values["ru_utime"]
         self.values["ru_stime"] = metrics.ru_stime - self.values["ru_stime"]
-        self.values["ru_maxrss"] = metrics.ru_maxrss - self.values["ru_maxrss"]
+        self.values["ru_maxrss"] = (
+            metrics.ru_maxrss - self.values["ru_maxrss"] - memory_disk_usage
+        )
         self.values["ru_ixrss"] = metrics.ru_ixrss - self.values["ru_ixrss"]
         self.values["ru_idrss"] = metrics.ru_idrss - self.values["ru_idrss"]
         self.values["ru_isrss"] = metrics.ru_isrss - self.values["ru_isrss"]
@@ -170,29 +176,21 @@ class JobMetrics:
     # TODO: intendo: 2021/04/15
     #       The creation of the start time and end time files
     #       is not necesssary and should be removed in the future.
-    def set_start_time(self, job_type):
-        """Create a file with the current time to denote that the job started.
-
-        Args:
-            job_type (str): The value of "apbs" or "pdb2pqr"
+    def set_start_time(self):
+        """
+        Set the current time to denote that the job started.
         """
         self.start_time = time()
-        with open(f"{job_type}_start_time", "w") as fout:
-            fout.write(str(self.start_time))
 
-    def set_end_time(self, job_type):
-        """Create a file with the current time to denote that the job ended.
-
-        Args:
-            job_type (str): The value of "apbs" or "pdb2pqr"
+    def set_end_time(self):
+        """
+        Set the current time to denote that the job ended.
         """
         self.end_time = time()
-        with open(f"{job_type}_end_time", "w") as fout:
-            fout.write(str(self.end_time))
 
     def get_metrics(self):
         """
-        Create a dictionare of memory usage, execution time, and amount of
+        Create a dictionary of memory usage, execution time, and amount of
         disk storage used.
 
         Returns:
@@ -201,11 +199,12 @@ class JobMetrics:
         metrics = {
             "metrics": {"rusage": {}},
         }
-        metrics["metrics"]["rusage"] = self.get_rusage_delta()
+        memory_disk_usage = self.get_storage_usage()
+        metrics["metrics"]["rusage"] = self.get_rusage_delta(memory_disk_usage)
         metrics["metrics"]["runtime_in_seconds"] = int(
             self.end_time - self.start_time
         )
-        metrics["metrics"]["disk_storage_in_bytes"] = self.get_storage_usage()
+        metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
 
@@ -279,10 +278,6 @@ def update_status(
     statobj[jobtype]["status"] = status.name.lower()
     if status == JOBSTATUS.COMPLETE:
         statobj[jobtype]["endTime"] = time()
-    # TODO: There is a possible problem here where the output_files
-    #       may contain one or more of the input_files filenames.
-    #       We are not sure if this is a problem in this script or
-    #       if the problem is on the GUI side.
     statobj[jobtype]["outputFiles"] = output_files
 
     object_response = {}
@@ -290,8 +285,18 @@ def update_status(
         object_response: dict = s3client.put_object(
             Body=dumps(statobj), Bucket=S3_BUCKET, Key=objectfile
         )
-    except Exception as error:
-        _LOGGER.error("ERROR: Unknown exception from s3.put_object, %s", error)
+    except ClientError as cerr:
+        _LOGGER.exception(
+            "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
+            jobid,
+            cerr,
+        )
+    except ParamValidationError as perr:
+        _LOGGER.exception(
+            "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            jobid,
+            perr,
+        )
 
     return object_response
 
@@ -309,21 +314,31 @@ def cleanup_job(rundir: str) -> int:
 
 
 def execute_command(
-    command_line_str: str, stdout_filename: str, stderr_filename: str
+    job_id: str,
+    command_line_str: str,
+    stdout_filename: str,
+    stderr_filename: str,
 ):
     """Spawn a subprocess and collect all the information about it.
 
     Args:
+        job_id (str): The unique job id.
         command_line_str (str): The command and arguments.
         stdout_filename (str): The name of the output file for stdout.
         stderr_filename (str): The name of the output file for stderr.
     """
     command_split = command_line_str.split()
-    # TODO: intendo 2021/04/15
-    #       We should wrap the run call with a try/except and add check=Trues
-    #       to the run command so that a CalledProcessError is caught if the
-    #       command fails and we can log the error.
-    proc = run(command_split, stdout=PIPE, stderr=PIPE)
+    try:
+        proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
+    except CalledProcessError as cpe:
+        # TODO: intendo 2021/05/05
+        #       we need the jobid here
+        _LOGGER.exception(
+            "%s failed to run command, %s: %s",
+            job_id,
+            command_line_str,
+            cpe,
+        )
 
     # Write stdout to file
     with open(stdout_filename, "w") as fout:
@@ -353,7 +368,7 @@ def run_job(
         if "job_id" not in job_info:
             _LOGGER.error("ERROR: Missing job id for job, %s", job)
             return ret_val
-    except Exception as error:
+    except JSONDecodeError as error:
         _LOGGER.error(
             "ERROR: Unable to load json information for job, %s \n\t%s",
             job,
@@ -376,16 +391,24 @@ def run_job(
             try:
                 request.urlretrieve(file, f"{MEM_PATH}{name}")
             except Exception as error:
-                _LOGGER.error(
-                    "ERROR: Download failed for file, %s \n\t%s", name, error
+                # TODO: intendo 2021/05/05 - Find more specific exception
+                _LOGGER.exception(
+                    "%s ERROR: Download failed for file, %s \n\t%s",
+                    job_id,
+                    name,
+                    error,
                 )
                 return cleanup_job(rundir)
         else:
             try:
                 s3client.download_file(inbucket, file, f"{MEM_PATH}{file}")
             except Exception as error:
-                _LOGGER.error(
-                    "ERROR: Download failed for file, %s \n\t%s", file, error
+                # TODO: intendo 2021/05/05 - Find more specific exception
+                _LOGGER.exception(
+                    "%s ERROR: Download failed for file, %s \n\t%s",
+                    job_id,
+                    file,
+                    error,
                 )
                 return cleanup_job(rundir)
 
@@ -416,11 +439,11 @@ def run_job(
 
     file = "MISSING"
     try:
-        metrics.set_start_time(job_type)
+        metrics.set_start_time()
         execute_command(
-            command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
+            job_id, command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
-        metrics.set_end_time(job_type)
+        metrics.set_end_time()
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_BUCKET.
@@ -434,8 +457,10 @@ def run_job(
                 f"{file_path}",
             )
     except Exception as error:
-        _LOGGER.error(
-            "ERROR: Failed to upload file, %s \n\t%s",
+        # TODO: intendo 2021/05/05 - Find more specific exception
+        _LOGGER.exception(
+            "%s ERROR: Failed to upload file, %s \n\t%s",
+            job_id,
             f"{job_date}/{job_id}/{file}",
             error,
         )
@@ -498,9 +523,9 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    _LOGGER.setLevel(ERROR)
+    _LOGGER.setLevel(INFO)
     if args.verbose:
-        _LOGGER.setLevel(INFO)
+        _LOGGER.setLevel(DEBUG)
 
     s3client = client("s3")
     sqs = client("sqs", region_name=AWS_REGION)

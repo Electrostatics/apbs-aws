@@ -1,10 +1,11 @@
 """Generate unique job id and S3 tokens for each job."""
+
+from datetime import date
+from os import getenv
 from random import choices
 from string import ascii_lowercase, digits
 from typing import List
-from datetime import date
-import os
-import boto3
+from boto3 import client
 
 # TODO 2020/02/17, Elvis - Establish specific logging format to be used in
 #                  Lambda functions
@@ -21,26 +22,26 @@ def create_s3_url(bucket_name: str, file_name: str, prefix_name: str) -> str:
     """
 
     object_name = f"{prefix_name}/{file_name}"
-    s3_client = boto3.client("s3")
+    s3_client = client("s3")
 
     # Generate presigned URL for file
-    url = s3_client.generate_presigned_url('put_object',
-                                           Params={
-                                               'Bucket': bucket_name,
-                                               'Key': object_name
-                                           },
-                                           ExpiresIn=3600,
-                                           HttpMethod='PUT'
-                                           )
+    url = s3_client.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket_name, "Key": object_name},
+        ExpiresIn=3600,
+        HttpMethod="PUT",
+    )
     return url
 
 
-def generate_id_and_tokens(event: dict, context=None) -> dict:
+def generate_id_and_tokens(event: dict, context) -> dict:
+    # pylint: disable=unused-argument
+    """Generate an unique job id and S3 auth tokens"""
 
     # Assign object variables from Lambda event
-    bucket_name: str = os.getenv('INPUT_BUCKET')
+    bucket_name: str = getenv("INPUT_BUCKET", "TEST_BUCKET")
 
-    file_list: List[str] = event['file_list']
+    file_list: List[str] = event["file_list"]
     job_id: str
 
     # Generate new job ID if not provided

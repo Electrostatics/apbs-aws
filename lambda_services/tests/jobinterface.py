@@ -5,6 +5,7 @@ The JobInterface is the set of properties and functions that must
 be implemented for an APBS, PDB2PQR, and a combined APBS/PDB2PQR job.
 """
 
+from logging import getLogger
 from os.path import isdir, isfile
 from pathlib import Path
 from typing import List
@@ -30,6 +31,7 @@ class JobInterface:
         self.file_path = None
         self.file_list = {}
         self.job_input_files = []
+        self._logger = getLogger(__class__.__name__)
 
         if not isdir(file_path):
             raise TypeError(
@@ -38,11 +40,12 @@ class JobInterface:
 
         self.file_path = Path(file_path)
         for filename in file_list:
-            self._logger.debug("FILENAME: %s", filename)
+            self._logger.debug("%s FILENAME: %s", self.job_id, filename)
             full_filename = self.file_path / filename
             if isfile(full_filename):
                 self.file_list[filename] = full_filename
                 if filename.endswith("input_files"):
+                    # Get all the files listed inside the file, input_files
                     for check_file in get_contents(full_filename):
                         base_filename = check_file.split("/")[-1]
                         self.job_input_files.append(base_filename)
@@ -97,17 +100,6 @@ class JobInterface:
 
     def build_job_file(self):
         """Abstract interface to be overridden by concrete class."""
-
-    def get_execution_time(self):
-        """
-        Subtract "{job_type}_start_time from "{job_type}_end_time to get the
-        number of seconds it took to run.
-        """
-        starttime = get_contents(
-            self.file_list[f"{self.job_type}_start_time"]
-        )[0]
-        endtime = get_contents(self.file_list[f"{self.job_type}_end_time"])[0]
-        return int(float(endtime) - float(starttime))
 
     def get_memory_usage(self):
         """Abstract interface to be overridden by concrete class."""
