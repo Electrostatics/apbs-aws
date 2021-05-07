@@ -4,7 +4,7 @@
 from enum import Enum
 from json import dumps
 from logging import getLogger
-from os.path import isfile
+from os.path import exists, isfile
 from os import chdir, getcwd
 from pathlib import Path
 from sys import exc_info, exit
@@ -100,12 +100,21 @@ def submit_aws_job(api_token_url, job):
     for file in json_response["urls"]:
         url = json_response["urls"][file]
         _LOGGER.debug("%s FILE: %s, URL: %s", job_id, file, url)
-        if f"{job_type}-job.json" in file:
+        job_file = f"{job_type}-job.json"
+        if job_file in file:
             save_url = url
             save_file = file
             continue
         full_filepath = Path(job_work_dir) / file
-        _ = put(url, data=open(full_filepath, "rb"))
+        if exists(full_filepath):
+            _ = put(url, data=open(full_filepath, "rb"))
+        else:
+            _LOGGER.error(
+                "%s ERROR: Missing File: %s, URL: %s",
+                job_id,
+                full_filepath,
+                url,
+            )
 
     # NOTE: Send the "*-job.json" file to start the job
     if save_url is not None and save_file is not None:

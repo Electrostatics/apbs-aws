@@ -121,13 +121,24 @@ class Pdb2PqrJob(JobInterface):
             if filename.endswith(".pdb"):
                 pdb_file = filename
 
-        # TODO: Make sure pdb_file and pqr_file are not None
+        # Make sure pdb_file and pqr_file are not None
+        if not pdb_file or not pqr_file:
+            if not pdb_file:
+                self._logger.warning("%s Missing pdb input file", self.job_id)
+            if not pqr_file:
+                self._logger.warning("%s Missing PQR input file", self.job_id)
+            return None
 
         job["form"]["flags"] = self.get_pdb2pqr_flags(pqr_file)
         job["form"]["pdb_name"] = pdb_file
         job["form"]["pqr_name"] = pqr_file
 
-        with open(
-            Path(self.file_path) / Path(f"{self.job_type}-job.json"), "w"
-        ) as outfile:
+        json_job_file = Path(self.file_path) / Path(
+            f"{self.job_type}-job.json"
+        )
+        json_job_file.unlink(missing_ok=True)
+
+        with open(json_job_file, "w") as outfile:
             outfile.write(dumps(job, indent=4))
+
+        return json_job_file

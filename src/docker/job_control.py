@@ -287,11 +287,14 @@ def update_status(
         )
     except ClientError as cerr:
         _LOGGER.error(
-            "ERROR: Unknown ClientError exception from s3.put_object, %s", cerr
+            "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
+            jobid,
+            cerr,
         )
     except ParamValidationError as perr:
         _LOGGER.error(
-            "ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            jobid,
             perr,
         )
 
@@ -311,20 +314,20 @@ def cleanup_job(rundir: str) -> int:
 
 
 def execute_command(
-    command_line_str: str, stdout_filename: str, stderr_filename: str
+    job_id: str,
+    command_line_str: str,
+    stdout_filename: str,
+    stderr_filename: str,
 ):
     """Spawn a subprocess and collect all the information about it.
 
     Args:
+        job_id (str): The unique job id.
         command_line_str (str): The command and arguments.
         stdout_filename (str): The name of the output file for stdout.
         stderr_filename (str): The name of the output file for stderr.
     """
     command_split = command_line_str.split()
-    # TODO: intendo 2021/04/15
-    #       We should wrap the run call with a try/except and add check=True
-    #       to the run command so that a CalledProcessError is caught if the
-    #       command fails and we can log the error.
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
     except CalledProcessError as cpe:
@@ -332,7 +335,7 @@ def execute_command(
         #       we need the jobid here
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
-            "MISSING JOBID",
+            job_id,
             command_line_str,
             cpe,
         )
@@ -390,7 +393,10 @@ def run_job(
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
                 _LOGGER.error(
-                    "ERROR: Download failed for file, %s \n\t%s", name, error
+                    "%s ERROR: Download failed for file, %s \n\t%s",
+                    job_id,
+                    name,
+                    error,
                 )
                 return cleanup_job(rundir)
         else:
@@ -399,7 +405,10 @@ def run_job(
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
                 _LOGGER.error(
-                    "ERROR: Download failed for file, %s \n\t%s", file, error
+                    "%s ERROR: Download failed for file, %s \n\t%s",
+                    job_id,
+                    file,
+                    error,
                 )
                 return cleanup_job(rundir)
 
@@ -432,7 +441,7 @@ def run_job(
     try:
         metrics.set_start_time()
         execute_command(
-            command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
+            job_id, command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
         )
         metrics.set_end_time()
 
@@ -450,7 +459,8 @@ def run_job(
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
         _LOGGER.error(
-            "ERROR: Failed to upload file, %s \n\t%s",
+            "%s ERROR: Failed to upload file, %s \n\t%s",
+            job_id,
             f"{job_date}/{job_id}/{file}",
             error,
         )

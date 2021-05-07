@@ -142,7 +142,9 @@ class Runner(JobSetup):
         if "--summary" in result:
             result = result.replace("--summary", "")
 
-        self._logger.debug(result)
-        self._logger.debug(self.weboptions.pdbfilename)
+        self._logger.debug("%s Result: %s", job_id, result)
+        self._logger.debug(
+            "%s PDB Filename: %s", job_id, self.weboptions.pdbfilename
+        )
 
         return result
