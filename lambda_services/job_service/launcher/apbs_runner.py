@@ -28,12 +28,14 @@ class Runner(JobSetup):
         self.infile_name = None
         self.command_line_args = None
         self.input_files = []
+        self.infile_support_filenames = []
         self.output_files = []
         self.estimated_max_runtime = 7200
         self._logger = getLogger(__class__.__name__)
 
         if "filename" in form:
             self.infile_name = form["filename"]
+            self.infile_support_filenames = form["support_files"]
         elif form is not None:
 
             for key in form:
@@ -81,7 +83,7 @@ class Runner(JobSetup):
             )
 
             # Get list of expected supporting files
-            expected_files_list = apbs_extract_input_files(infile_str)
+            expected_files_list = self.infile_support_filenames
 
             # Check if additional READ files exist in S3
             missing_files = []
