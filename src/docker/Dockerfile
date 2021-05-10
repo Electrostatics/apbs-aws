@@ -42,4 +42,5 @@ COPY  job_control.py /app/
 RUN chmod +x /app/job_control.py
 WORKDIR /app/run
 
-ENTRYPOINT [ "/app/job_control.py" ]
+ENTRYPOINT [ "/tini", "--" ]
+CMD [ "/app/job_control.py" ]
