@@ -7,7 +7,7 @@ COPY --from=pdb2pqr-build /app/builds /app/builds
 
 WORKDIR /app
 RUN apt update -y \
-    && apt install -y wget zip libreadline7 libgomp1
+    && apt install -y wget zip libreadline7 libgomp1 tini
 
 RUN wget https://github.com/Electrostatics/apbs-pdb2pqr/releases/download/vAPBS-3.0.0/APBS-3.0.0_Linux.zip \
     && unzip APBS-3.0.0_Linux.zip \
@@ -42,5 +42,5 @@ COPY  job_control.py /app/
 RUN chmod +x /app/job_control.py
 WORKDIR /app/run
 
-ENTRYPOINT [ "/tini", "--" ]
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD [ "/app/job_control.py" ]
