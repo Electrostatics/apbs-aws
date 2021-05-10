@@ -598,12 +598,14 @@ def main() -> None:
     # https://docs.aws.amazon.com/AWSSimpleQueueService/
     # latest/APIReference/API_ReceiveMessage.html
     messages = get_messages(sqs, qurl)
-    while messages and PROCESSING:
+    while messages:
         for idx in messages["Messages"]:
             run_job(idx["Body"], s3client, metrics, qurl, idx["ReceiptHandle"])
             sqs.delete_message(
                 QueueUrl=qurl, ReceiptHandle=idx["ReceiptHandle"]
             )
+        while not PROCESSING:
+            sleep(10)
         messages = get_messages(sqs, qurl)
     _LOGGER.info("DONE: %s", str(datetime.now() - lasttime))
 
