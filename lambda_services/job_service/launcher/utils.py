@@ -1,5 +1,6 @@
 """A collection of utility functions."""
 
+from re import split
 from boto3 import client
 from botocore.exceptions import ClientError
 from io import StringIO
@@ -45,18 +46,21 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
         return True
 
     except ClientError as err:
-        if err.response["Error"]["Code"] == "NoSuchKey":
+        if err.response["Error"]["Message"] == "NoSuchKey":
             _LOGGER.warn("Found ClientError exception: NoSuchKey")
             _LOGGER.warn(json.dumps(err.response, indent=2))
             return False
-        elif err.response["Error"]["Code"] == "Forbidden":
+        elif err.response["Error"]["Message"] == "Forbidden":
             _LOGGER.warn("Found ClientError exception: Forbidden")
             _LOGGER.warn(json.dumps(err.response, indent=2))
-            job_id: str = object_name.split("/")[-2]
+            objectname_split: list = object_name.split("/")
+            job_id: str = objectname_split[-2]
+            job_date: str = objectname_split[-3]
             _LOGGER.warn(
-                "%s Received '%s' (%d) code on object HEAD: %s",
+                "%s %s Received '%s' (%d) message on object HEAD: %s",
                 job_id,
-                err.response["Error"]["Code"],
+                job_date,
+                err.response["Error"]["Message"],
                 err.response["ResponseMetadata"]["HTTPStatusCode"],
                 object_name,
             )
