@@ -26,7 +26,7 @@ GLOBAL_VARS = {
     "Q_TIMEOUT": None,
     "AWS_REGION": None,
     "MAX_TRIES": None,
-    "RETRY_LEVEL": None,
+    "RETRY_TIME": None,
     "LOG_LEVEL": INFO,
     "JOB_PATH": None,
     "S3_TOPLEVEL_BUCKET": None,
@@ -270,7 +270,7 @@ def updateEnvironment(signalNumber, frame):
     GLOBAL_VARS["Q_TIMEOUT"] = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
     GLOBAL_VARS["AWS_REGION"] = getenv("SQS_AWS_REGION", "us-west-2")
     GLOBAL_VARS["MAX_TRIES"] = int(getenv("SQS_MAX_TRIES", "60"))
-    GLOBAL_VARS["RETRY_LEVEL"] = int(getenv("SQS_RETRY_TIME", "15"))
+    GLOBAL_VARS["RETRY_TIME"] = int(getenv("SQS_RETRY_TIME", "15"))
     GLOBAL_VARS["LOG_LEVEL"] = int(getenv("LOG_LEVEL", str(INFO)))
     GLOBAL_VARS["JOB_PATH"] = getenv("JOB_PATH", "/dev/shm/test/")
     GLOBAL_VARS["S3_TOPLEVEL_BUCKET"] = getenv("OUTPUT_BUCKET")
