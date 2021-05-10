@@ -5,6 +5,8 @@ from botocore.exceptions import ClientError
 from io import StringIO
 from logging import getLogger, ERROR, INFO
 
+import json
+
 _LOGGER = getLogger(__name__)
 _LOGGER.setLevel(ERROR)
 _LOGGER.setLevel(INFO)
@@ -44,8 +46,12 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
 
     except ClientError as err:
         if err.response["Error"]["Code"] == "NoSuchKey":
+            _LOGGER.warn("Found ClientError exception: NoSuchKey")
+            _LOGGER.warn(json.dumps(err.response, indent=2))
             return False
         elif err.response["Error"]["Code"] == "Forbidden":
+            _LOGGER.warn("Found ClientError exception: Forbidden")
+            _LOGGER.warn(json.dumps(err.response, indent=2))
             job_id: str = object_name.split("/")[-2]
             _LOGGER.warn(
                 "%s Received '%s' (%d) code on object HEAD: %s",
@@ -56,6 +62,8 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
             )
             return False
         else:
+            _LOGGER.warn("Found general ClientError exception")
+            _LOGGER.warn(json.dumps(err.response, indent=2))
             raise
 
 
