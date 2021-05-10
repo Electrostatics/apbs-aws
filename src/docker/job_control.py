@@ -255,6 +255,7 @@ def terminateProcess(signalNumber, frame):
 
 
 def toggleProcessing(signalNumber, frame):
+    global PROCESSING
     PROCESSING = not PROCESSING
     _LOGGER.info("PROCESSING set to: %s", PROCESSING)
     print(f"PROCESSING set to:{PROCESSING}", file=stderr)
@@ -265,6 +266,7 @@ def updateEnvironment(signalNumber, frame):
     #       on complexity of the job (dimension of molecule?)
     #       The job could get launched multiple times if the
     #       job takes longer than Q_TIMEOUT
+    global GLOBAL_VARS
     GLOBAL_VARS["Q_TIMEOUT"] = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
     GLOBAL_VARS["AWS_REGION"] = getenv("SQS_AWS_REGION", "us-west-2")
     GLOBAL_VARS["MAX_TRIES"] = int(getenv("SQS_MAX_TRIES", "60"))
