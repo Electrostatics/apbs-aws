@@ -28,6 +28,7 @@
           allowed_methods:
             - PUT
             - POST
+            - HEAD
           allowed_headers:
             - '*'
           expose_headers: 
@@ -321,6 +322,16 @@
             name: "{{ project }}-{{ deployment_group }}-cluster"
             state: present
 
+  - name: Create log groups fargate
+    community.aws.cloudwatchlogs_log_group:
+      state: present
+      log_group_name: /ecs/{{ project }}-{{ deployment_group }}-apbs-fargate
+      
+  - name: Create log groups ec2
+    community.aws.cloudwatchlogs_log_group:
+      state: present
+      log_group_name: /ecs/{{ project }}-{{ deployment_group }}-apbs-ec2
+            
   - name: Create task definition for fargate
     community.aws.ecs_taskdefinition:
       family: "{{ project }}-{{ deployment_group }}-apbs-fargate"
@@ -333,6 +344,12 @@
             value: "{{ project }}-{{ deployment_group }}-job-q"
           - name: "OUTPUT_BUCKET"
             value: "{{ project }}-{{ deployment_group }}-output"
+        logConfiguration:
+          logDriver: awslogs
+          options:
+            awslogs-group: /ecs/{{ project }}-{{ deployment_group }}-apbs-fargate
+            awslogs-region: us-west-2
+            awslogs-stream-prefix: ecs
       launch_type: FARGATE
       task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
       execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
@@ -354,6 +371,12 @@
               value: "{{ project }}-{{ deployment_group }}-job-q"
             - name: "OUTPUT_BUCKET"
               value: "{{ project }}-{{ deployment_group }}-output"
+          logConfiguration:
+            logDriver: awslogs
+            options:
+              awslogs-group: /ecs/{{ project }}-{{ deployment_group }}-apbs-ec2
+              awslogs-region: us-west-2
+              awslogs-stream-prefix: ecs
       launch_type: EC2
       task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
       execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
