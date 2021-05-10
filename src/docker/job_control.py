@@ -314,25 +314,23 @@ def get_messages(sqs: client, qurl: str) -> Any:
 
 def update_status(
     s3client: client,
-    jobid: str,
+    job_tag: str,
     jobtype: str,
-    jobdate: str,
     status: JOBSTATUS,
     output_files: List,
 ) -> Dict:
     """Update the status file in the S3 bucket for the current job.
 
     :param s3:  S3 output bucket for the job being updated
-    :param jobid:  Unique ID for this job
+    :param job_tag:  Unique ID for this job
     :param jobtype:  The job type (apbs, pdb2pqr, etc.)
-    :param jobdate:  The date for the job in ISO-8601 format (YYYY-MM-DD)
     :param status:  The job status
     :param output_files:  List of output files
     :return:  Response from storing status file in S3 bucket
     :rtype:  Dict
     """
     ups3 = resource("s3")
-    objectfile = f"{jobdate}/{jobid}/{jobtype}-status.json"
+    objectfile = f"{job_tag}/{jobtype}-status.json"
     s3obj = ups3.Object(GLOBAL_VARS["S3_TOPLEVEL_BUCKET"], objectfile)
     statobj: dict = loads(s3obj.get()["Body"].read().decode("utf-8"))
 
@@ -351,13 +349,13 @@ def update_status(
     except ClientError as cerr:
         _LOGGER.exception(
             "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
-            jobid,
+            job_tag,
             cerr,
         )
     except ParamValidationError as perr:
         _LOGGER.exception(
             "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
-            jobid,
+            job_tag,
             perr,
         )
 
@@ -394,8 +392,6 @@ def execute_command(
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
     except CalledProcessError as cpe:
-        # TODO: intendo 2021/05/05
-        #       we need the jobid here
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
             job_tag,
