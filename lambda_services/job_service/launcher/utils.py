@@ -1,6 +1,5 @@
 """A collection of utility functions."""
 
-from re import split
 from boto3 import client
 from botocore.exceptions import ClientError
 from io import StringIO

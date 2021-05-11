@@ -1,4 +1,4 @@
-"""A wrapper class to run the apbs executable."""
+"""A class to interpret/prepare an APBS job submission for job queue."""
 
 from io import StringIO
 from locale import atof, atoi
@@ -78,7 +78,7 @@ class Runner(JobSetup):
                     "%s %s Missing APBS input file '%s'",
                     job_id,
                     job_date,
-                    infile_name
+                    infile_name,
                 )
                 self.add_missing_file(infile_name)
 
@@ -99,7 +99,7 @@ class Runner(JobSetup):
                 raise MissingFilesError(
                     f"File(s) specified  missing from "
                     f"storage: {self._missing_files}",
-                    self._missing_files
+                    self._missing_files,
                 )
 
             return self.command_line_args
