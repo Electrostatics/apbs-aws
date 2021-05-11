@@ -391,8 +391,12 @@ def execute_command(
         stderr_filename (str): The name of the output file for stderr.
     """
     command_split = command_line_str.split()
+    stdout_text: str
+    stderr_text: str
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
+        stdout_text = proc.stdout.decode("utf-8")
+        stderr_text = proc.stderr.decode("utf-8")
     except CalledProcessError as cpe:
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
@@ -400,14 +404,16 @@ def execute_command(
             command_line_str,
             cpe,
         )
+        stdout_text = cpe.stdout.decode("utf-8")
+        stderr_text = cpe.stderr.decode("utf-8")
 
     # Write stdout to file
     with open(stdout_filename, "w") as fout:
-        fout.write(proc.stdout.decode("utf-8"))
+        fout.write(stdout_text)
 
     # Write stderr to file
     with open(stderr_filename, "w") as fout:
-        fout.write(proc.stderr.decode("utf-8"))
+        fout.write(stderr_text)
 
 
 # TODO: intendo - 2021/05/10 - Break run_job into multiple functions
