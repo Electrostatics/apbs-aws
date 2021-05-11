@@ -5,6 +5,7 @@ from time import time
 from logging import getLogger
 from boto3 import client, resource
 from .launcher import pdb2pqr_runner, apbs_runner
+from .launcher.jobsetup import MissingFilesError
 
 OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
 FARGATE_CLUSTER = getenv("FARGATE_CLUSTER")
@@ -166,9 +167,16 @@ def interpret_job_submission(event: dict, context):
     elif job_type == "apbs":
         job_info_form = get_job_info(bucket_name, jobinfo_object_name)["form"]
         job_runner = apbs_runner.Runner(job_info_form, job_id, job_date)
-        job_command_line_args = job_runner.prepare_job(
-            OUTPUT_BUCKET, bucket_name
-        )
+        try:
+            job_command_line_args = job_runner.prepare_job(
+                OUTPUT_BUCKET, bucket_name
+            )
+        except MissingFilesError as err:
+            status = "failed"
+            message = (
+                f"Files specified but not found: {err.missing_files}. "
+                f"Please check that all files upload before resubmitting."
+            )
         input_files = job_runner.input_files
         output_files = job_runner.output_files
         timeout_seconds = job_runner.estimated_max_runtime
@@ -190,7 +198,7 @@ def interpret_job_submission(event: dict, context):
     upload_status_file(status_object_name, initial_status)
 
     # Submit run info to SQS
-    if status != "invalid":
+    if status in ("invalid", "failed"):
         if timeout_seconds is None:
             timeout_seconds = JOB_MAX_RUNTIME
 

@@ -71,40 +71,36 @@ class Runner(JobSetup):
             # If APBS directly run, verify necessary files exist in S3
             infile_object_name = f"{job_date}/{job_id}/{infile_name}"
 
-            # Check S3 for file existence; raise exception if not
+            # Check S3 for .in file existence; add to missing list if not
+            self.add_input_file(infile_name)
             if not s3_object_exists(input_bucket_name, infile_object_name):
-                raise MissingFilesError(
-                    f"Missing APBS input file. Please upload: {infile_name}"
+                self._logger.error(
+                    "%s %s Missing APBS input file '%s'",
+                    job_id,
+                    job_date,
+                    infile_name
                 )
-
-            # Get text for infile string
-            infile_str = s3_download_file_str(
-                input_bucket_name, infile_object_name
-            )
+                self.add_missing_file(infile_name)
 
             # Get list of expected supporting files
             expected_files_list = self.infile_support_filenames
 
-            # Check if additional READ files exist in S3
-            missing_files = []
+            # Check if additional expected files exist in S3
             for name in expected_files_list:
                 object_name = f"{job_date}/{job_id}/{name}"
-                if s3_object_exists(input_bucket_name, object_name):
-                    # TODO: 2021/03/04, Elvis - Update input files via
-                    #                           a common function
-                    self.add_input_file(str(name))
-                else:
-                    missing_files.append(str(name))
+                self.add_input_file(str(name))
+                if not s3_object_exists(input_bucket_name, object_name):
+                    self.add_missing_file(str(name))
 
-            if len(missing_files) > 0:
-                raise MissingFilesError(
-                    f"Please upload missing file(s) from READ section "
-                    f"storage: {missing_files}"
-                )
-
-            # Set input files and return command line args
+            # Set and return command line args
             self.command_line_args = infile_name
-            self.add_input_file(infile_name)
+
+            if len(self._missing_files) > 0:
+                raise MissingFilesError(
+                    f"File(s) specified  missing from "
+                    f"storage: {self._missing_files}",
+                    self._missing_files
+                )
 
             return self.command_line_args
 

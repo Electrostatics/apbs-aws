@@ -18,6 +18,7 @@ class JobSetup:
         self.job_date = job_date
         self.input_files = []
         self.output_files = []
+        self._missing_files = []
 
     def add_input_file(self, file_name: str):
         if self.is_url(file_name):
@@ -29,8 +30,19 @@ class JobSetup:
 
     def add_output_file(self, file_name: str):
         if self.is_url(file_name):
-            raise ValueError("'file_name' value is a URL")
+            raise ValueError(
+                f"{self.job_id} {self.job_date} 'file_name' "
+                f"value is a URL: {file_name}"
+            )
         self.output_files.append(f"{self.job_date}/{self.job_id}/{file_name}")
+
+    def add_missing_file(self, file_name: str):
+        if self.is_url(file_name):
+            raise ValueError(
+                f"{self.job_id} {self.job_date} 'file_name' "
+                f"value is a URL: {file_name}"
+            )
+        self._missing_files.append(f"{self.job_date}/{self.job_id}/{file_name}")
 
     def is_url(self, file_string: str):
         url_obj = parse_url(file_string)
