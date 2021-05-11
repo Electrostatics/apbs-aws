@@ -198,7 +198,7 @@ def interpret_job_submission(event: dict, context):
     upload_status_file(status_object_name, initial_status)
 
     # Submit run info to SQS
-    if status in ("invalid", "failed"):
+    if status not in ("invalid", "failed"):
         if timeout_seconds is None:
             timeout_seconds = JOB_MAX_RUNTIME
 
