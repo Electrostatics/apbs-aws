@@ -43,7 +43,20 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
         return True
 
     except ClientError as err:
-        if err.response["Error"]["Code"] == "NoSuchKey":
+        if err.response["Error"]["Message"] == "NoSuchKey":
+            return False
+        elif err.response["Error"]["Message"] == "Forbidden":
+            objectname_split: list = object_name.split("/")
+            job_id: str = objectname_split[-2]
+            job_date: str = objectname_split[-3]
+            _LOGGER.warn(
+                "%s %s Received '%s' (%d) message on object HEAD: %s",
+                job_id,
+                job_date,
+                err.response["Error"]["Message"],
+                err.response["ResponseMetadata"]["HTTPStatusCode"],
+                object_name,
+            )
             return False
         else:
             raise

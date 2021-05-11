@@ -1,4 +1,4 @@
-"""A wrapper class to run the pdb2pqr executable."""
+"""A class to interpret/prepare a PDB2PQR job submission for job queue."""
 
 from logging import getLogger
 from os.path import splitext
