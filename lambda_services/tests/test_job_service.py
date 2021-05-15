@@ -92,10 +92,44 @@ def test_build_status_dict_invalid_job():
 
 @mock_s3
 def test_upload_status_file():
+    # Create sample status dict
+    # Upload dict to S3 as JSON
+    # Download JSON from S3, parse into dict
+    # Compare downloaded dict with expected (sample dict)
     pass
 
 
 @mock_s3
 @mock_sqs
-def test_interpret_job_submission():
+def test_interpret_job_submission_pdb2pqr():
+    # Upload PDB2PQR job JSON
+    # Setup dict with expected S3 trigger content
+    # Interpret PDB2PQR job trigger
+
+    # Declare expected output of SQS message
+    # Obtain SQS message and compare contents
+    pass
+
+
+@mock_s3
+@mock_sqs
+def test_interpret_job_submission_apbs():
+    # Upload APBS job JSON
+    # Setup dict with expected S3 trigger content
+    # Interpret APBS job trigger
+
+    # Declare expected output of SQS message
+    # Obtain SQS message and compare contents
+    pass
+
+
+@mock_s3
+@mock_sqs
+def test_interpret_job_submission_invalid():
+    # Upload JSON for invalid jobtype
+    # Setup dict with expected S3 trigger content
+    # Interpret invalid job trigger
+
+    # Declare expected output of SQS message
+    # Obtain SQS message and compare contents
     pass
