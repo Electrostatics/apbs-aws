@@ -1,5 +1,43 @@
 """Tests for interpreting and handling job configuration submissions."""
-from lambda_services.job_service.job_service import build_status_dict
+from lambda_services.job_service.job_service import (
+    build_status_dict,
+    get_job_info
+)
+from json import dumps, load
+import boto3
+from moto import mock_s3, mock_sqs
+
+
+@mock_s3
+def test_get_job_info():
+    # Read sample input JSON file into dict
+    input_name = "lambda_services/tests/input_data/sample_web-pdb2pqr-job.json"
+    expected_pdb2pqr_job_info: dict
+    with open(input_name) as fin:
+        expected_pdb2pqr_job_info = load(fin)
+
+    # Upload json for job config file
+    bucket_name = "pytest_bucket"
+    object_name = "pytest/sample_web-pdb2pqr-job.json"
+    s3_client = boto3.client("s3")
+    s3_client.create_bucket(
+        Bucket=bucket_name,
+        CreateBucketConfiguration={
+            'LocationConstraint': 'us-west-2',
+        },
+    )
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=object_name,
+        Body=dumps(expected_pdb2pqr_job_info)
+    )
+
+    # Download using get_job_info()
+    job_info: dict = get_job_info(bucket_name, object_name)
+
+    # Verify output is dictionary and contents match input
+    # TODO: Eo300 - check if '==' comparison is sufficient
+    assert job_info == expected_pdb2pqr_job_info
 
 
 def test_build_status_dict_valid_job():
@@ -50,3 +88,14 @@ def test_build_status_dict_invalid_job():
     assert status_dict[job_type]["inputFiles"] is None
     assert status_dict[job_type]["outputFiles"] is None
     # assert status_dict[job_type]["subtasks"] == None
+
+
+@mock_s3
+def test_upload_status_file():
+    pass
+
+
+@mock_s3
+@mock_sqs
+def test_interpret_job_submission():
+    pass

@@ -1,0 +1,29 @@
+{
+    "form": {
+        "PDBFILE": "",
+        "USERFFFILE": "",
+        "NAMESFILE": "",
+        "LIGANDFILE": "",
+        "PDBID": "1fas",
+        "PDBSOURCE": "ID",
+        "PH": 7,
+        "PKACALCMETHOD": "propka",
+        "FF": "parse",
+        "FFOUT": "internal",
+        "OPTIONS": [
+            "atomsnotclose",
+            "optimizeHnetwork",
+            "makeapbsin",
+            "removewater"
+        ],
+        "DEBUMP": "atomsnotclose",
+        "OPT": "optimizeHnetwork",
+        "INPUT": "makeapbsin",
+        "DROPWATER": "removewater"
+    },
+    "metadata": {
+        "cli": {
+            "command": "python pdb2pqr.py --ph-calc-method=propka --with-ph=7 --ff=parse  --apbs-input --drop-water 1fas.pdb 1fas.pqr"
+        }
+    }
+}
