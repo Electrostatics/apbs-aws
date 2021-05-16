@@ -4,12 +4,56 @@ from lambda_services.job_service.job_service import (
     get_job_info
 )
 from json import dumps, load
-import boto3
 from moto import mock_s3, mock_sqs
+from boto3 import client
+import pytest
+
+@pytest.fixture
+def initialize_input_bucket():
+    """Create an input bucket to perform test. Returns name of bucket"""
+    bucket_name = "pytest_input_bucket"
+    with mock_s3():
+        s3_client = client("s3")
+        s3_client.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration={
+                'LocationConstraint': 'us-west-2',
+            },
+        )
+        yield s3_client, bucket_name
 
 
-@mock_s3
-def test_get_job_info():
+@pytest.fixture
+def initialize_output_bucket():
+    """Create an output bucket to perform test. Returns name of bucket"""
+    bucket_name = "pytest_output_bucket"
+    with mock_s3():
+        s3_client = client("s3")
+        s3_client.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration={
+                'LocationConstraint': 'us-west-2',
+            },
+        )
+        yield s3_client, bucket_name
+
+@pytest.fixture
+def initialize_job_queue():
+    """
+        Create an job queue queue to perform test.
+        Returns client and name of bucket
+    """
+    queue_name = "pytest_sqs_job_queue"
+    with mock_sqs():
+        sqs_client = client("sqs")
+        sqs_client.create_queue(QueueName=queue_name)
+        yield sqs_client, queue_name
+
+
+def test_get_job_info(initialize_input_bucket):
+    # Retrieve initialized AWS client and bucket name
+    s3_client, bucket_name = initialize_input_bucket
+
     # Read sample input JSON file into dict
     input_name = "lambda_services/tests/input_data/sample_web-pdb2pqr-job.json"
     expected_pdb2pqr_job_info: dict
@@ -17,15 +61,7 @@ def test_get_job_info():
         expected_pdb2pqr_job_info = load(fin)
 
     # Upload json for job config file
-    bucket_name = "pytest_bucket"
     object_name = "pytest/sample_web-pdb2pqr-job.json"
-    s3_client = boto3.client("s3")
-    s3_client.create_bucket(
-        Bucket=bucket_name,
-        CreateBucketConfiguration={
-            'LocationConstraint': 'us-west-2',
-        },
-    )
     s3_client.put_object(
         Bucket=bucket_name,
         Key=object_name,
