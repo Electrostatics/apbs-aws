@@ -1,12 +1,13 @@
 """Tests for interpreting and handling job configuration submissions."""
-from lambda_services.job_service.job_service import (
-    build_status_dict,
-    get_job_info
-)
-from json import dumps, load
+# NOTE: importing entire job_service us to modify module's global variables
+from lambda_services.job_service import job_service
+from time import time
+from datetime import date
+from json import dumps, load, loads
 from moto import mock_s3, mock_sqs
 from boto3 import client
 import pytest
+
 
 @pytest.fixture
 def initialize_input_bucket():
@@ -36,6 +37,7 @@ def initialize_output_bucket():
             },
         )
         yield s3_client, bucket_name
+
 
 @pytest.fixture
 def initialize_job_queue():
@@ -69,7 +71,7 @@ def test_get_job_info(initialize_input_bucket):
     )
 
     # Download using get_job_info()
-    job_info: dict = get_job_info(bucket_name, object_name)
+    job_info: dict = job_service.get_job_info(bucket_name, object_name)
 
     # Verify output is dictionary and contents match input
     # TODO: Eo300 - check if '==' comparison is sufficient
@@ -85,7 +87,7 @@ def test_build_status_dict_valid_job():
     input_files = ["sampleId.in", "1fas.pqr"]
     output_files = []
     job_status = "pending"
-    status_dict: dict = build_status_dict(
+    status_dict: dict = job_service.build_status_dict(
         job_id, job_type, job_status, input_files, output_files, message=None
     )
     assert "jobid" in status_dict
@@ -109,7 +111,7 @@ def test_build_status_dict_invalid_job():
     output_files = None
     job_status = "invalid"
     invalid_message = "Invalid job type"
-    status_dict: dict = build_status_dict(
+    status_dict: dict = job_service.build_status_dict(
         job_id,
         job_type,
         job_status,
@@ -126,46 +128,97 @@ def test_build_status_dict_invalid_job():
     # assert status_dict[job_type]["subtasks"] == None
 
 
-@mock_s3
-def test_upload_status_file():
+def test_upload_status_file(initialize_output_bucket):
+    # Retrieve initialized AWS client and bucket name
+    s3_client, bucket_name = initialize_output_bucket
+
+    # Retrieve original global variable names from module
+    original_OUTPUT_BUCKET = job_service.OUTPUT_BUCKET
+
     # Create sample status dict
+    job_id = "sampleId"
+    job_type = "pdb2pqr"
+    current_date = date.today().isoformat()
+    sample_status: dict = {
+        "jobid": job_id,
+        "jobtype": job_type,
+        job_type: {
+            "status": "pending",
+            "startTime": time(),
+            "endTime": None,
+            "subtasks": [],
+            "inputFiles": [
+                f"{current_date}/{job_id}/1fas.pdb"
+            ],
+            "outputFiles": []
+        }
+    }
+
     # Upload dict to S3 as JSON
+    status_objectname: str = f"{current_date}/{job_id}/{job_type}-status.json"
+    job_service.OUTPUT_BUCKET = bucket_name
+    job_service.upload_status_file(status_objectname, sample_status)
+
     # Download JSON from S3, parse into dict
+    s3_resp: dict = s3_client.get_object(
+        Bucket=bucket_name,
+        Key=status_objectname
+    )
+    downloaded_object_data: dict = loads(s3_resp["Body"].read())
+
     # Compare downloaded dict with expected (sample dict)
-    pass
+    assert downloaded_object_data == sample_status
+
+    # Reset module global variables to original state
+    job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
 
 
 @mock_s3
 @mock_sqs
 def test_interpret_job_submission_pdb2pqr():
+    # Retrieve initialized AWS client and bucket name
+    # Retrieve original global variable names from module
+
     # Upload PDB2PQR job JSON
     # Setup dict with expected S3 trigger content
     # Interpret PDB2PQR job trigger
 
     # Declare expected output of SQS message
     # Obtain SQS message and compare contents
+
+    # Reset module global variables to original state
     pass
 
 
 @mock_s3
 @mock_sqs
 def test_interpret_job_submission_apbs():
+    # Retrieve initialized AWS client and bucket name
+    # Retrieve original global variable names from module
+
     # Upload APBS job JSON
     # Setup dict with expected S3 trigger content
     # Interpret APBS job trigger
 
     # Declare expected output of SQS message
     # Obtain SQS message and compare contents
+
+    # Reset module global variables to original state
     pass
 
 
 @mock_s3
 @mock_sqs
 def test_interpret_job_submission_invalid():
+    # Retrieve initialized AWS client and bucket name
+    # Retrieve original global variable names from module
+
     # Upload JSON for invalid jobtype
     # Setup dict with expected S3 trigger content
     # Interpret invalid job trigger
 
     # Declare expected output of SQS message
     # Obtain SQS message and compare contents
+
+    # Reset module global variables to original state
     pass

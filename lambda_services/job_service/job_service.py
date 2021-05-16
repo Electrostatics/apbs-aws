@@ -110,7 +110,7 @@ def build_status_dict(
 def upload_status_file(object_filename: str, initial_status_dict: dict):
     """Upload the initial status object to S3
 
-    :param object_filename str: the name of the file to download
+    :param object_filename str: the S3 object key of the file to download
     :param initial_status_dict dict: a JSON-compatible dictionary containing
                                      initial status info of the job
     """
