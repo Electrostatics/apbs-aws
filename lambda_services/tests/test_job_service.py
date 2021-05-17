@@ -18,7 +18,7 @@ def initialize_input_bucket():
         s3_client.create_bucket(
             Bucket=bucket_name,
             CreateBucketConfiguration={
-                'LocationConstraint': 'us-west-2',
+                "LocationConstraint": "us-west-2",
             },
         )
         yield s3_client, bucket_name
@@ -33,7 +33,7 @@ def initialize_output_bucket():
         s3_client.create_bucket(
             Bucket=bucket_name,
             CreateBucketConfiguration={
-                'LocationConstraint': 'us-west-2',
+                "LocationConstraint": "us-west-2",
             },
         )
         yield s3_client, bucket_name
@@ -42,8 +42,8 @@ def initialize_output_bucket():
 @pytest.fixture
 def initialize_input_and_output_bucket():
     """
-        Create S3 input/output buckets to perform test.
-        Returns client and bucket names
+    Create S3 input/output buckets to perform test.
+    Returns client and bucket names
     """
     input_bucket_name = "pytest_input_bucket"
     output_bucket_name = "pytest_output_bucket"
@@ -52,13 +52,13 @@ def initialize_input_and_output_bucket():
         s3_client.create_bucket(
             Bucket=input_bucket_name,
             CreateBucketConfiguration={
-                'LocationConstraint': 'us-west-2',
+                "LocationConstraint": "us-west-2",
             },
         )
         s3_client.create_bucket(
             Bucket=output_bucket_name,
             CreateBucketConfiguration={
-                'LocationConstraint': 'us-west-2',
+                "LocationConstraint": "us-west-2",
             },
         )
         yield s3_client, input_bucket_name, output_bucket_name
@@ -67,8 +67,8 @@ def initialize_input_and_output_bucket():
 @pytest.fixture
 def initialize_job_queue():
     """
-        Create an job queue queue to perform test.
-        Returns client and name of bucket
+    Create an job queue queue to perform test.
+    Returns client and name of bucket
     """
     queue_name = "pytest_sqs_job_queue"
     region_name = "us-west-2"
@@ -93,7 +93,7 @@ def test_get_job_info(initialize_input_bucket):
     s3_client.put_object(
         Bucket=bucket_name,
         Key=object_name,
-        Body=dumps(expected_pdb2pqr_job_info)
+        Body=dumps(expected_pdb2pqr_job_info),
     )
 
     # Download using get_job_info()
@@ -173,11 +173,9 @@ def test_upload_status_file(initialize_output_bucket):
             "startTime": time(),
             "endTime": None,
             "subtasks": [],
-            "inputFiles": [
-                f"{current_date}/{job_id}/1fas.pdb"
-            ],
-            "outputFiles": []
-        }
+            "inputFiles": [f"{current_date}/{job_id}/1fas.pdb"],
+            "outputFiles": [],
+        },
     }
 
     # Upload dict to S3 as JSON
@@ -187,8 +185,7 @@ def test_upload_status_file(initialize_output_bucket):
 
     # Download JSON from S3, parse into dict
     s3_resp: dict = s3_client.get_object(
-        Bucket=bucket_name,
-        Key=status_objectname
+        Bucket=bucket_name, Key=status_objectname
     )
     downloaded_object_data: dict = loads(s3_resp["Body"].read())
 
@@ -203,9 +200,11 @@ def test_interpret_job_submission_pdb2pqr(
     initialize_input_and_output_bucket, initialize_job_queue
 ):
     # Retrieve initialized AWS client and bucket name
-    (s3_client,
-     input_bucket_name,
-     output_bucket_name) = initialize_input_and_output_bucket
+    (
+        s3_client,
+        input_bucket_name,
+        output_bucket_name,
+    ) = initialize_input_and_output_bucket
     sqs_client, queue_name, region_name = initialize_job_queue
 
     # Retrieve original global variable names from module
@@ -227,7 +226,7 @@ def test_interpret_job_submission_pdb2pqr(
     s3_client.put_object(
         Bucket=input_bucket_name,
         Key=object_name,
-        Body=dumps(expected_pdb2pqr_job_info)
+        Body=dumps(expected_pdb2pqr_job_info),
     )
 
     # Setup dict with expected S3 trigger content
@@ -247,13 +246,12 @@ def test_interpret_job_submission_pdb2pqr(
     # Obtain SQS message
     queue_url: str = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
     queue_message_response = sqs_client.receive_message(
-        QueueUrl=queue_url,
-        MaxNumberOfMessages=1
+        QueueUrl=queue_url, MaxNumberOfMessages=1
     )
     queue_message = queue_message_response["Messages"][0]
     message_contents: dict = loads(queue_message["Body"])
     message_receipt_handle = queue_message["ReceiptHandle"]
-    print(f'message_contents: {dumps(message_contents, indent=2)}')
+    # print(f"message_contents: {dumps(message_contents, indent=2)}")
 
     # Declare expected output of SQS message
     expected_output: dict = {
@@ -261,11 +259,9 @@ def test_interpret_job_submission_pdb2pqr(
         "job_type": "pdb2pqr",
         "job_date": "2021-05-16",
         "bucket_name": "pytest_input_bucket",
-        "input_files": [
-            "https://files.rcsb.org/download/1fas.pdb"
-        ],
+        "input_files": ["https://files.rcsb.org/download/1fas.pdb"],
         "command_line_args": "--with-ph=7.0 --ph-calc-method=propka --drop-water --apbs-input --ff=parse --verbose  1fas.pdb sampleId.pqr",  # noqa: E501
-        "max_run_time": 2700
+        "max_run_time": 2700,
     }
 
     # Compare queue contents with expected
@@ -273,8 +269,7 @@ def test_interpret_job_submission_pdb2pqr(
 
     # Delete message from SQS queue
     sqs_client.delete_message(
-        QueueUrl=queue_url,
-        ReceiptHandle=message_receipt_handle
+        QueueUrl=queue_url, ReceiptHandle=message_receipt_handle
     )
 
     # Reset module global variables to original state
