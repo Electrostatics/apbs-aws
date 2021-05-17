@@ -37,7 +37,8 @@ RUN apt update -y \
     && apt autoremove -y \
     && apt autoremove python-pip -y \
     && apt clean -y
-    
+
+COPY  daemon.json /etc/docker/
 COPY  job_control.py /app/
 RUN chmod +x /app/job_control.py
 WORKDIR /app/run
