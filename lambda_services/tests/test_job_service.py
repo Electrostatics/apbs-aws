@@ -40,16 +40,42 @@ def initialize_output_bucket():
 
 
 @pytest.fixture
+def initialize_input_and_output_bucket():
+    """
+        Create S3 input/output buckets to perform test.
+        Returns client and bucket names
+    """
+    input_bucket_name = "pytest_input_bucket"
+    output_bucket_name = "pytest_output_bucket"
+    with mock_s3():
+        s3_client = client("s3")
+        s3_client.create_bucket(
+            Bucket=input_bucket_name,
+            CreateBucketConfiguration={
+                'LocationConstraint': 'us-west-2',
+            },
+        )
+        s3_client.create_bucket(
+            Bucket=output_bucket_name,
+            CreateBucketConfiguration={
+                'LocationConstraint': 'us-west-2',
+            },
+        )
+        yield s3_client, input_bucket_name, output_bucket_name
+
+
+@pytest.fixture
 def initialize_job_queue():
     """
         Create an job queue queue to perform test.
         Returns client and name of bucket
     """
     queue_name = "pytest_sqs_job_queue"
+    region_name = "us-west-2"
     with mock_sqs():
-        sqs_client = client("sqs")
+        sqs_client = client("sqs", region_name=region_name)
         sqs_client.create_queue(QueueName=queue_name)
-        yield sqs_client, queue_name
+        yield sqs_client, queue_name, region_name
 
 
 def test_get_job_info(initialize_input_bucket):
@@ -173,52 +199,124 @@ def test_upload_status_file(initialize_output_bucket):
     job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
 
 
-@mock_s3
-@mock_sqs
-def test_interpret_job_submission_pdb2pqr():
+def test_interpret_job_submission_pdb2pqr(
+    initialize_input_and_output_bucket, initialize_job_queue
+):
+    # Retrieve initialized AWS client and bucket name
+    (s3_client,
+     input_bucket_name,
+     output_bucket_name) = initialize_input_and_output_bucket
+    sqs_client, queue_name, region_name = initialize_job_queue
+
+    # Retrieve original global variable names from module
+    original_OUTPUT_BUCKET = job_service.OUTPUT_BUCKET
+    original_SQS_QUEUE_NAME = job_service.SQS_QUEUE_NAME
+    original_JOB_QUEUE_REGION = job_service.JOB_QUEUE_REGION
+
+    # Initialize job variables
+    job_id = "sampleId"
+    job_date = "2021-05-16"
+
+    # Upload PDB2PQR job JSON to input bucket
+    input_name = "lambda_services/tests/input_data/sample_web-pdb2pqr-job.json"
+    expected_pdb2pqr_job_info: dict
+    with open(input_name) as fin:
+        expected_pdb2pqr_job_info = load(fin)
+
+    object_name = f"{job_date}/{job_id}/pdb2pqr-sample-job.json"
+    s3_client.put_object(
+        Bucket=input_bucket_name,
+        Key=object_name,
+        Body=dumps(expected_pdb2pqr_job_info)
+    )
+
+    # Setup dict with expected S3 trigger content
+    s3_event: dict
+    s3_event_filepath = (
+        "lambda_services/tests/input_data/sample_web-pdb2pqr-s3_trigger.json"
+    )
+    with open(s3_event_filepath) as fin:
+        s3_event = load(fin)
+
+    # Set module globals and interpret PDB2PQR job trigger
+    job_service.SQS_QUEUE_NAME = queue_name
+    job_service.OUTPUT_BUCKET = output_bucket_name
+    job_service.JOB_QUEUE_REGION = region_name
+    job_service.interpret_job_submission(s3_event, None)
+
+    # Obtain SQS message
+    queue_url: str = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
+    queue_message_response = sqs_client.receive_message(
+        QueueUrl=queue_url,
+        MaxNumberOfMessages=1
+    )
+    queue_message = queue_message_response["Messages"][0]
+    message_contents: dict = loads(queue_message["Body"])
+    message_receipt_handle = queue_message["ReceiptHandle"]
+    print(f'message_contents: {dumps(message_contents, indent=2)}')
+
+    # Declare expected output of SQS message
+    expected_output: dict = {
+        "job_id": "sampleId",
+        "job_type": "pdb2pqr",
+        "job_date": "2021-05-16",
+        "bucket_name": "pytest_input_bucket",
+        "input_files": [
+            "https://files.rcsb.org/download/1fas.pdb"
+        ],
+        "command_line_args": "--with-ph=7.0 --ph-calc-method=propka --drop-water --apbs-input --ff=parse --verbose  1fas.pdb sampleId.pqr",  # noqa: E501
+        "max_run_time": 2700
+    }
+
+    # Compare queue contents with expected
+    assert expected_output == message_contents
+
+    # Delete message from SQS queue
+    sqs_client.delete_message(
+        QueueUrl=queue_url,
+        ReceiptHandle=message_receipt_handle
+    )
+
+    # Reset module global variables to original state
+    job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME
+    job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
+    job_service.JOB_QUEUE_REGION = original_JOB_QUEUE_REGION
+
+
+def test_interpret_job_submission_apbs(
+    initialize_input_and_output_bucket, initialize_job_queue
+):
     # Retrieve initialized AWS client and bucket name
     # Retrieve original global variable names from module
 
-    # Upload PDB2PQR job JSON
+    # Upload APBS job JSON to input bucket
     # Setup dict with expected S3 trigger content
-    # Interpret PDB2PQR job trigger
+    # Set module globals and interpret APBS job trigger
+
+    # Obtain SQS message
 
     # Declare expected output of SQS message
-    # Obtain SQS message and compare contents
+    # Compare queue contents with expected
 
+    # Delete message from SQS queue
     # Reset module global variables to original state
     pass
 
 
-@mock_s3
-@mock_sqs
-def test_interpret_job_submission_apbs():
-    # Retrieve initialized AWS client and bucket name
-    # Retrieve original global variable names from module
-
-    # Upload APBS job JSON
-    # Setup dict with expected S3 trigger content
-    # Interpret APBS job trigger
-
-    # Declare expected output of SQS message
-    # Obtain SQS message and compare contents
-
-    # Reset module global variables to original state
-    pass
-
-
-@mock_s3
-@mock_sqs
-def test_interpret_job_submission_invalid():
+def test_interpret_job_submission_invalid(
+    initialize_input_and_output_bucket, initialize_job_queue
+):
     # Retrieve initialized AWS client and bucket name
     # Retrieve original global variable names from module
 
     # Upload JSON for invalid jobtype
     # Setup dict with expected S3 trigger content
-    # Interpret invalid job trigger
+    # Set module globals and inTerpret invalid job trigger
+
+    # Obtain SQS message
 
     # Declare expected output of SQS message
-    # Obtain SQS message and compare contents
+    # Compare queue contents with expected
 
     # Reset module global variables to original state
     pass
