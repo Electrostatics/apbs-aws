@@ -5,38 +5,38 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, DEBUG, ERROR, INFO
-from os import chdir, getenv, listdir, makedirs
+from logging import getLogger, DEBUG, INFO
+from os import chdir, getenv, getpid, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
 from shutil import rmtree
+import signal
 from subprocess import run, CalledProcessError, PIPE
 from time import sleep, time
 from typing import Any, Dict, List
 from urllib import request
+from sys import stderr
+import sys
 from boto3 import client, resource
 from botocore.exceptions import ClientError, ParamValidationError
 
+
+# Global Environment Variables
+GLOBAL_VARS = {
+    "Q_TIMEOUT": None,
+    "AWS_REGION": None,
+    "MAX_TRIES": None,
+    "RETRY_TIME": None,
+    "LOG_LEVEL": INFO,
+    "JOB_PATH": None,
+    "S3_TOPLEVEL_BUCKET": None,
+    "QUEUE": None,
+}
 _LOGGER = getLogger(__name__)
-_LOGGER.setLevel(ERROR)
-_LOGGER.setLevel(INFO)
-# TODO: This may need to be increased or calculated based
-#       on complexity of the job (dimension of molecule?)
-#       The job could get launched multiple times if the
-#       job takes longer than Q_TIMEOUT
-Q_TIMEOUT = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
-AWS_REGION = getenv("SQS_AWS_REGION", "us-west-2")
-MAX_TRIES = int(getenv("SQS_MAX_TRIES", "60"))
-RETRY_TIME = int(getenv("SQS_RETRY_TIME", "15"))
+_LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
 
-MEM_PATH = "/dev/shm/test/"
-S3_BUCKET = getenv("OUTPUT_BUCKET")
-QUEUE = getenv("JOB_QUEUE_NAME")
-
-if S3_BUCKET is None:
-    raise ValueError("Environment variable 'OUTPUT_BUCKET' is not set")
-if QUEUE is None:
-    raise ValueError("Environment variable 'JOB_QUEUE_NAME' is not set")
+# Default to start processing immediately
+PROCESSING = True
 
 
 class JOBTYPE(Enum):
@@ -173,9 +173,7 @@ class JobMetrics:
             if f.is_file()
         )
 
-    # TODO: intendo: 2021/04/15
-    #       The creation of the start time and end time files
-    #       is not necesssary and should be removed in the future.
+    # TODO: intendo - 2021/05/10 - These should be properties
     def set_start_time(self):
         """
         Set the current time to denote that the job started.
@@ -223,6 +221,68 @@ class JobMetrics:
             fout.write(dumps(self.get_metrics(), indent=4))
 
 
+def printCurrentState():
+    for idx in sorted(GLOBAL_VARS):
+        _LOGGER.info("VAR: %s, VALUE: %s", idx, GLOBAL_VARS[idx])
+        print(f"VAR: {idx}, VALUE: set to: {GLOBAL_VARS[idx]}", file=stderr)
+    _LOGGER.info("PROCESSING state: %s", PROCESSING)
+    print(f"PROCESSING state: {PROCESSING}", file=stderr)
+
+
+def receiveSignal(signalNumber, frame):
+    _LOGGER.info("Received signal: %s, %s", signalNumber, frame)
+    print(f"Received signal: {signalNumber}, {frame}", file=stderr)
+    signalHelp(signalNumber, frame)
+
+
+def signalHelp(signalNumber, frame):
+    print("\n", file=stderr)
+    print(f"RECEIVED SIGNAL: {signalNumber}\n\n", file=stderr)
+    print("\tYou have asked for help:\n\n", file=stderr)
+    print(
+        f"\tTo update environment variables, type: kill -USR1 {getpid()}\n\n",
+        file=stderr,
+    )
+    print(
+        f"\tTo toggle processing, type: kill -USR2 {getpid()}\n\n", file=stderr
+    )
+    printCurrentState()
+
+
+def terminateProcess(signalNumber, frame):
+    print("Caught (SIGTERM) terminating the process", file=stderr)
+    sys.exit()
+
+
+def toggleProcessing(signalNumber, frame):
+    global PROCESSING
+    PROCESSING = not PROCESSING
+    _LOGGER.info("PROCESSING set to: %s", PROCESSING)
+    print(f"PROCESSING set to:{PROCESSING}", file=stderr)
+
+
+def updateEnvironment(signalNumber, frame):
+    # TODO: This may need to be increased or calculated based
+    #       on complexity of the job (dimension of molecule?)
+    #       The job could get launched multiple times if the
+    #       job takes longer than Q_TIMEOUT
+    global GLOBAL_VARS
+    GLOBAL_VARS["Q_TIMEOUT"] = int(getenv("SQS_QUEUE_TIMEOUT", "300"))
+    GLOBAL_VARS["AWS_REGION"] = getenv("SQS_AWS_REGION", "us-west-2")
+    GLOBAL_VARS["MAX_TRIES"] = int(getenv("SQS_MAX_TRIES", "60"))
+    GLOBAL_VARS["RETRY_TIME"] = int(getenv("SQS_RETRY_TIME", "15"))
+    GLOBAL_VARS["LOG_LEVEL"] = int(getenv("LOG_LEVEL", str(INFO)))
+    GLOBAL_VARS["JOB_PATH"] = getenv("JOB_PATH", "/dev/shm/test/")
+    GLOBAL_VARS["S3_TOPLEVEL_BUCKET"] = getenv("OUTPUT_BUCKET")
+    GLOBAL_VARS["QUEUE"] = getenv("JOB_QUEUE_NAME")
+    _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
+
+    if GLOBAL_VARS["S3_TOPLEVEL_BUCKET"] is None:
+        raise ValueError("Environment variable 'OUTPUT_BUCKET' is not set")
+    if GLOBAL_VARS["QUEUE"] is None:
+        raise ValueError("Environment variable 'JOB_QUEUE_NAME' is not set")
+
+
 def get_messages(sqs: client, qurl: str) -> Any:
     """Get SQS Messages from the queue.
 
@@ -234,45 +294,46 @@ def get_messages(sqs: client, qurl: str) -> Any:
     """
     loop = 0
 
-    items = sqs.receive_message(
-        QueueUrl=qurl, MaxNumberOfMessages=1, VisibilityTimeout=Q_TIMEOUT
+    messages = sqs.receive_message(
+        QueueUrl=qurl,
+        MaxNumberOfMessages=1,
+        VisibilityTimeout=GLOBAL_VARS["Q_TIMEOUT"],
     )
 
-    while "Messages" not in items:
+    while "Messages" not in messages:
         loop += 1
-        if loop == MAX_TRIES:
+        if loop == GLOBAL_VARS["MAX_TRIES"]:
             return None
         _LOGGER.info("Waiting ....")
-        sleep(RETRY_TIME)
-        items = sqs.receive_message(
-            QueueUrl=qurl, MaxNumberOfMessages=1, VisibilityTimeout=Q_TIMEOUT
+        sleep(GLOBAL_VARS["RETRY_TIME"])
+        messages = sqs.receive_message(
+            QueueUrl=qurl,
+            MaxNumberOfMessages=1,
+            VisibilityTimeout=GLOBAL_VARS["Q_TIMEOUT"],
         )
-
-    return items
+    return messages
 
 
 def update_status(
     s3client: client,
-    jobid: str,
+    job_tag: str,
     jobtype: str,
-    jobdate: str,
     status: JOBSTATUS,
     output_files: List,
 ) -> Dict:
     """Update the status file in the S3 bucket for the current job.
 
     :param s3:  S3 output bucket for the job being updated
-    :param jobid:  Unique ID for this job
+    :param job_tag:  Unique ID for this job
     :param jobtype:  The job type (apbs, pdb2pqr, etc.)
-    :param jobdate:  The date for the job in ISO-8601 format (YYYY-MM-DD)
     :param status:  The job status
     :param output_files:  List of output files
     :return:  Response from storing status file in S3 bucket
     :rtype:  Dict
     """
     ups3 = resource("s3")
-    objectfile = f"{jobdate}/{jobid}/{jobtype}-status.json"
-    s3obj = ups3.Object(S3_BUCKET, objectfile)
+    objectfile = f"{job_tag}/{jobtype}-status.json"
+    s3obj = ups3.Object(GLOBAL_VARS["S3_TOPLEVEL_BUCKET"], objectfile)
     statobj: dict = loads(s3obj.get()["Body"].read().decode("utf-8"))
 
     statobj[jobtype]["status"] = status.name.lower()
@@ -283,18 +344,20 @@ def update_status(
     object_response = {}
     try:
         object_response: dict = s3client.put_object(
-            Body=dumps(statobj), Bucket=S3_BUCKET, Key=objectfile
+            Body=dumps(statobj),
+            Bucket=GLOBAL_VARS["S3_TOPLEVEL_BUCKET"],
+            Key=objectfile,
         )
     except ClientError as cerr:
         _LOGGER.exception(
             "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
-            jobid,
+            job_tag,
             cerr,
         )
     except ParamValidationError as perr:
         _LOGGER.exception(
             "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
-            jobid,
+            job_tag,
             perr,
         )
 
@@ -308,13 +371,13 @@ def cleanup_job(rundir: str) -> int:
     :return:  int
     """
     _LOGGER.info("Deleting run directory, %s", rundir)
-    chdir(MEM_PATH)
+    chdir(GLOBAL_VARS["JOB_PATH"])
     rmtree(rundir)
     return 1
 
 
 def execute_command(
-    job_id: str,
+    job_tag: str,
     command_line_str: str,
     stdout_filename: str,
     stderr_filename: str,
@@ -322,33 +385,39 @@ def execute_command(
     """Spawn a subprocess and collect all the information about it.
 
     Args:
-        job_id (str): The unique job id.
+        job_tag (str): The unique job id.
         command_line_str (str): The command and arguments.
         stdout_filename (str): The name of the output file for stdout.
         stderr_filename (str): The name of the output file for stderr.
     """
     command_split = command_line_str.split()
+    stdout_text: str
+    stderr_text: str
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
+        stdout_text = proc.stdout.decode("utf-8")
+        stderr_text = proc.stderr.decode("utf-8")
     except CalledProcessError as cpe:
-        # TODO: intendo 2021/05/05
-        #       we need the jobid here
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
-            job_id,
+            job_tag,
             command_line_str,
             cpe,
         )
+        stdout_text = cpe.stdout.decode("utf-8")
+        stderr_text = cpe.stderr.decode("utf-8")
 
     # Write stdout to file
     with open(stdout_filename, "w") as fout:
-        fout.write(proc.stdout.decode("utf-8"))
+        fout.write(stdout_text)
 
     # Write stderr to file
     with open(stderr_filename, "w") as fout:
-        fout.write(proc.stderr.decode("utf-8"))
+        fout.write(stderr_text)
 
 
+# TODO: intendo - 2021/05/10 - Break run_job into multiple functions
+#                              to reduce complexity.
 def run_job(
     job: str,
     s3client: client,
@@ -365,6 +434,9 @@ def run_job(
     ret_val = 1
     try:
         job_info: dict = loads(job)
+        if "job_date" not in job_info:
+            _LOGGER.error("ERROR: Missing job date for job, %s", job)
+            return ret_val
         if "job_id" not in job_info:
             _LOGGER.error("ERROR: Missing job id for job, %s", job)
             return ret_val
@@ -376,9 +448,8 @@ def run_job(
         )
         return ret_val
     job_type = job_info["job_type"]
-    job_id = job_info["job_id"]
-    job_date = job_info["job_date"]
-    rundir = f"{MEM_PATH}{job_date}/{job_id}"
+    job_tag = f"{job_info['job_date']}/{job_info['job_id']}"
+    rundir = f"{GLOBAL_VARS['JOB_PATH']}{job_tag}"
     inbucket = job_info["bucket_name"]
 
     # Prepare job directory and download input files
@@ -387,26 +458,28 @@ def run_job(
 
     for file in job_info["input_files"]:
         if "https" in file:
-            name = f"{job_date}/{job_id}/{file.split('/')[-1]}"
+            name = f"{job_tag}/{file.split('/')[-1]}"
             try:
-                request.urlretrieve(file, f"{MEM_PATH}{name}")
+                request.urlretrieve(file, f"{GLOBAL_VARS['JOB_PATH']}{name}")
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
                 _LOGGER.exception(
                     "%s ERROR: Download failed for file, %s \n\t%s",
-                    job_id,
+                    job_tag,
                     name,
                     error,
                 )
                 return cleanup_job(rundir)
         else:
             try:
-                s3client.download_file(inbucket, file, f"{MEM_PATH}{file}")
+                s3client.download_file(
+                    inbucket, file, f"{GLOBAL_VARS['JOB_PATH']}{file}"
+                )
             except Exception as error:
                 # TODO: intendo 2021/05/05 - Find more specific exception
                 _LOGGER.exception(
                     "%s ERROR: Download failed for file, %s \n\t%s",
-                    job_id,
+                    job_tag,
                     file,
                     error,
                 )
@@ -415,9 +488,8 @@ def run_job(
     # Run job and record associated metrics
     update_status(
         s3client,
-        job_id,
+        job_tag,
         job_type,
-        job_date,
         JOBSTATUS.RUNNING,
         [],
     )
@@ -430,7 +502,7 @@ def run_job(
         raise KeyError(f"Invalid job type, {job_type}")
 
     if "max_run_time" in job_info:
-        sqs = client("sqs", region_name=AWS_REGION)
+        sqs = client("sqs", region_name=GLOBAL_VARS["AWS_REGION"])
         sqs.change_message_visibility(
             QueueUrl=queue_url,
             ReceiptHandle=receipt_handle,
@@ -441,27 +513,30 @@ def run_job(
     try:
         metrics.set_start_time()
         execute_command(
-            job_id, command, f"{job_type}.stdout.txt", f"{job_type}.stderr.txt"
+            job_tag,
+            command,
+            f"{job_type}.stdout.txt",
+            f"{job_type}.stderr.txt",
         )
         metrics.set_end_time()
 
         # We need to create the {job_type}-metrics.json before we upload
-        # the files to the S3_BUCKET.
+        # the files to the S3_TOPLEVEL_BUCKET.
         metrics.write_metrics(job_type, ".")
 
         for file in listdir("."):
-            file_path = f"{job_date}/{job_id}/{file}"
+            file_path = f"{job_tag}/{file}"
             s3client.upload_file(
-                f"{MEM_PATH}{file_path}",
-                S3_BUCKET,
+                f"{GLOBAL_VARS['JOB_PATH']}{file_path}",
+                GLOBAL_VARS["S3_TOPLEVEL_BUCKET"],
                 f"{file_path}",
             )
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
         _LOGGER.exception(
             "%s ERROR: Failed to upload file, %s \n\t%s",
-            job_id,
-            f"{job_date}/{job_id}/{file}",
+            job_tag,
+            f"{job_tag}/{file}",
             error,
         )
         # TODO: Should this return 1 because noone else will succeed?
@@ -476,7 +551,7 @@ def run_job(
         "".join(name.split("/")[-1]) for name in job_info["input_files"]
     ]
     output_files = [
-        f"{job_date}/{job_id}/{filename}"
+        f"{job_tag}/{filename}"
         for filename in listdir(".")
         if filename not in input_files_no_id
     ]
@@ -485,9 +560,8 @@ def run_job(
     cleanup_job(rundir)
     update_status(
         s3client,
-        job_id,
+        job_tag,
         job_type,
-        job_date,
         JOBSTATUS.COMPLETE,
         output_files,
     )
@@ -520,16 +594,9 @@ def main() -> None:
     :return:  None
     """
 
-    parser = build_parser()
-    args = parser.parse_args()
-
-    _LOGGER.setLevel(INFO)
-    if args.verbose:
-        _LOGGER.setLevel(DEBUG)
-
     s3client = client("s3")
-    sqs = client("sqs", region_name=AWS_REGION)
-    queue_url = sqs.get_queue_url(QueueName=QUEUE)
+    sqs = client("sqs", region_name=GLOBAL_VARS["AWS_REGION"])
+    queue_url = sqs.get_queue_url(QueueName=GLOBAL_VARS["QUEUE"])
     qurl = queue_url["QueueUrl"]
     lasttime = datetime.now()
 
@@ -538,16 +605,44 @@ def main() -> None:
     # The structure of the SQS messages is documented at:
     # https://docs.aws.amazon.com/AWSSimpleQueueService/
     # latest/APIReference/API_ReceiveMessage.html
-    mess = get_messages(sqs, qurl)
-    while mess:
-        for idx in mess["Messages"]:
+    messages = get_messages(sqs, qurl)
+    while messages:
+        for idx in messages["Messages"]:
             run_job(idx["Body"], s3client, metrics, qurl, idx["ReceiptHandle"])
             sqs.delete_message(
                 QueueUrl=qurl, ReceiptHandle=idx["ReceiptHandle"]
             )
-        mess = get_messages(sqs, qurl)
+        while not PROCESSING:
+            sleep(10)
+        messages = get_messages(sqs, qurl)
     _LOGGER.info("DONE: %s", str(datetime.now() - lasttime))
 
 
 if __name__ == "__main__":
+    _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
+    updateEnvironment(None, None)
+
+    signal.signal(signal.SIGHUP, signalHelp)
+    signal.signal(signal.SIGINT, receiveSignal)
+    signal.signal(signal.SIGQUIT, receiveSignal)
+    signal.signal(signal.SIGILL, receiveSignal)
+    signal.signal(signal.SIGTRAP, receiveSignal)
+    signal.signal(signal.SIGABRT, receiveSignal)
+    signal.signal(signal.SIGBUS, receiveSignal)
+    signal.signal(signal.SIGFPE, receiveSignal)
+    # signal.signal(signal.SIGKILL, receiveSignal)
+    signal.signal(signal.SIGUSR1, updateEnvironment)
+    signal.signal(signal.SIGSEGV, receiveSignal)
+    signal.signal(signal.SIGUSR2, toggleProcessing)
+    signal.signal(signal.SIGPIPE, receiveSignal)
+    signal.signal(signal.SIGALRM, receiveSignal)
+    signal.signal(signal.SIGTERM, terminateProcess)
+
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.verbose:
+        GLOBAL_VARS["LOG_LEVEL"] = DEBUG
+        _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
+
     main()
