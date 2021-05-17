@@ -12,6 +12,7 @@ FARGATE_CLUSTER = getenv("FARGATE_CLUSTER")
 FARGATE_SERVICE = getenv("FARGATE_SERVICE")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
+JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
@@ -211,6 +212,6 @@ def interpret_job_submission(event: dict, context):
             "command_line_args": job_command_line_args,
             "max_run_time": timeout_seconds,
         }
-        sqs_client = resource("sqs")
+        sqs_client = resource("sqs", JOB_QUEUE_REGION)
         queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
         queue.send_message(MessageBody=dumps(sqs_json))
