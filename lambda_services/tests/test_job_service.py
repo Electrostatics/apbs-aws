@@ -89,15 +89,17 @@ def upload_data(s3_client, bucket_name: str, object_name: str, data):
         Body=data,
     )
 
-def download_data(s3_client, bucket_name: str, object_name: str) -> Union[str,bytes]:
+
+def download_data(
+    s3_client, bucket_name: str, object_name: str
+) -> Union[str, bytes]:
     """
     Use S3 GET to download object data.
     Returns the data in string or bytes.
     """
-    s3_resp: dict = s3_client.get_object(
-        Bucket=bucket_name, Key=object_name
-    )
+    s3_resp: dict = s3_client.get_object(Bucket=bucket_name, Key=object_name)
     return s3_resp["Body"].read()
+
 
 def test_get_job_info(initialize_input_bucket):
     # Retrieve initialized AWS client and bucket name
@@ -111,7 +113,9 @@ def test_get_job_info(initialize_input_bucket):
 
     # Upload json for job config file
     object_name = "pytest/sample_web-pdb2pqr-job.json"
-    upload_data(s3_client, bucket_name, object_name, dumps(expected_pdb2pqr_job_info))
+    upload_data(
+        s3_client, bucket_name, object_name, dumps(expected_pdb2pqr_job_info)
+    )
 
     # Download using get_job_info()
     job_info: dict = job_service.get_job_info(bucket_name, object_name)
@@ -243,7 +247,7 @@ def test_interpret_job_submission_pdb2pqr_noupload(
         s3_client,
         input_bucket_name,
         object_name,
-        dumps(expected_pdb2pqr_job_info)
+        dumps(expected_pdb2pqr_job_info),
     )
 
     # Setup dict with expected S3 trigger content
@@ -301,7 +305,9 @@ def test_interpret_job_submission_pdb2pqr_noupload(
     assert status_object_data["jobtype"] == "pdb2pqr"
     assert "pdb2pqr" in status_object_data
     assert status_object_data["pdb2pqr"]["status"] == "pending"
-    assert status_object_data["pdb2pqr"]["inputFiles"] == ["https://files.rcsb.org/download/1fas.pdb"]
+    assert status_object_data["pdb2pqr"]["inputFiles"] == [
+        "https://files.rcsb.org/download/1fas.pdb"
+    ]
     assert status_object_data["pdb2pqr"]["outputFiles"] == []
     # Checking type here since startTime is determined at runtime
     assert isinstance(status_object_data["pdb2pqr"]["startTime"], float)
@@ -361,10 +367,7 @@ def test_interpret_job_submission_invalid(
         invalid_job_info = load(fin)
     job_object_name = f"{job_date}/{job_id}/{job_type}-sample-job.json"
     upload_data(
-        s3_client,
-        input_bucket_name,
-        job_object_name,
-        dumps(invalid_job_info)
+        s3_client, input_bucket_name, job_object_name, dumps(invalid_job_info)
     )
 
     # Setup dict with expected S3 trigger content
@@ -392,7 +395,9 @@ def test_interpret_job_submission_invalid(
 
     # Get status from output bucket
     status_object_name = f"{job_date}/{job_id}/{job_type}-status.json"
-    status_object_data: dict = loads(download_data(s3_client, output_bucket_name, status_object_name))
+    status_object_data: dict = loads(
+        download_data(s3_client, output_bucket_name, status_object_name)
+    )
 
     """Check for expected values if invalid jobtype"""
     assert status_object_data["jobid"] == "sampleId"
