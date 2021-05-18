@@ -219,6 +219,8 @@ class JobMetrics:
         Args:
             job_type (str): Either "apbs" or "pdb2pqr".
             output_dir (str): The directory to find the output files.
+        Returns:
+            N/A
         """
         self.job_type = job_type
         self.output_dir = Path(output_dir)
