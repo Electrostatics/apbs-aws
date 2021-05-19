@@ -17,6 +17,7 @@ def test_generate_id_and_tokens():
 
     assert "job_id" in response, "Service did not generate new Job ID"
     assert "urls" in response, "Service did not generate the presigned URLs"
+    assert "date" in response, "Service did not generate date for Job ID"
     assert len(response["urls"]) == len(
         test_api_gateway_event_without_jobid["file_list"]
     ), (
