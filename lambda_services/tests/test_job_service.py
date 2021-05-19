@@ -319,24 +319,118 @@ def test_interpret_job_submission_pdb2pqr_noupload(
     job_service.JOB_QUEUE_REGION = original_JOB_QUEUE_REGION
 
 
-def test_interpret_job_submission_apbs(
+def test_interpret_job_submission_apbs_direct(
     initialize_input_and_output_bucket, initialize_job_queue
 ):
     # Retrieve initialized AWS client and bucket name
+    (
+        s3_client,
+        input_bucket_name,
+        output_bucket_name,
+    ) = initialize_input_and_output_bucket
+    sqs_client, queue_name, region_name = initialize_job_queue
+
     # Retrieve original global variable names from module
+    original_OUTPUT_BUCKET = job_service.OUTPUT_BUCKET
+    original_SQS_QUEUE_NAME = job_service.SQS_QUEUE_NAME
+    original_JOB_QUEUE_REGION = job_service.JOB_QUEUE_REGION
+
+    # Initialize job variables
+    job_id = "sampleId"
+    job_date = "2021-05-16"
+    job_tag = f"{job_date}/{job_id}"
 
     # Upload APBS job JSON to input bucket
+    input_name = "lambda_services/tests/input_data/apbs-direct-job.json"
+    expected_apbs_job_info: dict
+    with open(input_name) as fin:
+        expected_apbs_job_info = load(fin)
+
+    object_name = f"{job_date}/{job_id}/apbs-direct-job.json"
+    upload_data(
+        s3_client,
+        input_bucket_name,
+        object_name,
+        dumps(expected_apbs_job_info),
+    )
+
     # Setup dict with expected S3 trigger content
+    s3_event: dict
+    s3_event_filepath = (
+        "lambda_services/tests/input_data/apbs-direct-s3_trigger.json"
+    )
+    with open(s3_event_filepath) as fin:
+        s3_event = load(fin)
+
+    # Upload *.in and associated *.pqr file
+    in_filepath: str = "lambda_services/tests/input_data/1fas.in"
+    upload_data(s3_client, input_bucket_name, f"{job_tag}/1fas.in", open(in_filepath).read())
+    pqr_filepath: str = "lambda_services/tests/input_data/1fas.pqr"
+    upload_data(s3_client, input_bucket_name, f"{job_tag}/1fas.pqr", open(pqr_filepath).read())
+
     # Set module globals and interpret APBS job trigger
+    job_service.SQS_QUEUE_NAME = queue_name
+    job_service.OUTPUT_BUCKET = output_bucket_name
+    job_service.JOB_QUEUE_REGION = region_name
+    job_service.interpret_job_submission(s3_event, None)
 
     # Obtain SQS message
+    queue_url: str = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
+    queue_message_response = sqs_client.receive_message(
+        QueueUrl=queue_url, MaxNumberOfMessages=1
+    )
+    assert "Messages" in queue_message_response
+    queue_message = queue_message_response["Messages"][0]
+    message_contents: dict = loads(queue_message["Body"])
+    message_receipt_handle = queue_message["ReceiptHandle"]
+    print(f"message_contents: {dumps(message_contents, indent=2)}")
 
     # Declare expected output of SQS message
+    expected_sqs_message = {
+        "job_id": "sampleId",
+        "job_type": "apbs",
+        "job_date": "2021-05-16",
+        "bucket_name": "pytest_input_bucket",
+        "input_files": [
+            "2021-05-16/sampleId/1fas.in",
+            "2021-05-16/sampleId/1fas.pqr"
+        ],
+        "command_line_args": "1fas.in",
+        "max_run_time": 7200
+    }
+
     # Compare queue contents with expected
+    assert expected_sqs_message == message_contents
 
     # Delete message from SQS queue
+    sqs_client.delete_message(
+        QueueUrl=queue_url, ReceiptHandle=message_receipt_handle
+    )
+
+    # Get status from output bucket
+    status_object_name: str = f"{job_date}/{job_id}/apbs-status.json"
+    status_object_data: dict = loads(
+        download_data(s3_client, output_bucket_name, status_object_name)
+    )
+
+    # Check that status contains expected values
+    assert status_object_data["jobid"] == "sampleId"
+    assert status_object_data["jobtype"] == "apbs"
+    assert "apbs" in status_object_data
+    assert status_object_data["apbs"]["status"] == "pending"
+    assert status_object_data["apbs"]["inputFiles"] == [
+        "2021-05-16/sampleId/1fas.in",
+        "2021-05-16/sampleId/1fas.pqr"
+    ]
+    assert status_object_data["apbs"]["outputFiles"] == []
+    # Checking type here since startTime is determined at runtime
+    assert isinstance(status_object_data["apbs"]["startTime"], float)
+    assert status_object_data["apbs"]["endTime"] is None
+
     # Reset module global variables to original state
-    pass
+    job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME
+    job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
+    job_service.JOB_QUEUE_REGION = original_JOB_QUEUE_REGION
 
 
 def test_interpret_job_submission_invalid(

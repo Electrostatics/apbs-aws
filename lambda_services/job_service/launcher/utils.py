@@ -43,9 +43,9 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
         return True
 
     except ClientError as err:
-        if err.response["Error"]["Message"] == "NoSuchKey":
+        if err.response["Error"]["Code"] == "404":  # "NoSuchKey" error
             return False
-        elif err.response["Error"]["Message"] == "Forbidden":
+        elif err.response["Error"]["Code"] == "403":  # "Forbidden" error
             objectname_split: list = object_name.split("/")
             job_id: str = objectname_split[-2]
             job_date: str = objectname_split[-3]
