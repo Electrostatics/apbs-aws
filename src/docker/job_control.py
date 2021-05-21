@@ -210,6 +210,7 @@ class JobMetrics:
             self.end_time - self.start_time
         )
         metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
+        metrics["metrics"]["exit_code"] = self.exit_code
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
 
@@ -226,23 +227,6 @@ class JobMetrics:
         _LOGGER.debug("OUTPUTDIR: %s", self.output_dir)
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(self.get_metrics(), indent=4))
-
-    def write_exit_code(self, job_type: str, output_dir: str):
-        """Get the exit code of the latest process and create the output file.
-
-        Args:
-            job_type (str): Either "apbs" or "pdb2pqr".
-            output_dir (str): The directory to find the output files.
-        """
-        if self.job_type is None:
-            self.job_type = job_type
-        if self.output_dir is None:
-            self.output_dir = Path(output_dir)
-        _LOGGER.debug("EXIT_CODE: %d", self.exit_code)
-        _LOGGER.debug("JOBTYPE: %s", self.job_type)
-        _LOGGER.debug("OUTPUTDIR: %s", self.output_dir)
-        with open(f"{job_type}-exit_code.txt", "w") as fout:
-            fout.write(f"{str(self.exit_code)}\n")
 
 
 def printCurrentState():
@@ -554,9 +538,8 @@ def run_job(
         )
         metrics.set_end_time()
 
-        # Set and write the returned exit code to disk
+        # Set the returned exit code
         metrics.set_exit_code(exit_code)
-        metrics.write_exit_code(job_type, ".")
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_TOPLEVEL_BUCKET.
