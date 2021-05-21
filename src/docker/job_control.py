@@ -107,6 +107,7 @@ class JobMetrics:
         self.output_dir = None
         self.start_time = 0
         self.end_time = 0
+        self.exit_code = None
         self.values: Dict = {}
         self.values["ru_utime"] = metrics.ru_utime
         self.values["ru_stime"] = metrics.ru_stime
@@ -186,6 +187,12 @@ class JobMetrics:
         """
         self.end_time = time()
 
+    def set_exit_code(self, exit_code: int):
+        """
+        Set the exit code of the job executed.
+        """
+        self.exit_code = exit_code
+
     def get_metrics(self):
         """
         Create a dictionary of memory usage, execution time, and amount of
@@ -203,6 +210,7 @@ class JobMetrics:
             self.end_time - self.start_time
         )
         metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
+        metrics["metrics"]["exit_code"] = self.exit_code
         _LOGGER.debug("METRICS: %s", metrics)
         return metrics
 
@@ -381,22 +389,27 @@ def execute_command(
     command_line_str: str,
     stdout_filename: str,
     stderr_filename: str,
-):
+) -> int:
     """Spawn a subprocess and collect all the information about it.
+    Returns the exit code the of the executed command.
 
     Args:
         job_tag (str): The unique job id.
         command_line_str (str): The command and arguments.
         stdout_filename (str): The name of the output file for stdout.
         stderr_filename (str): The name of the output file for stderr.
+    Return:
+        exit_code (int): The exit code of the executed command
     """
     command_split = command_line_str.split()
     stdout_text: str
     stderr_text: str
+    exit_code: int
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
         stdout_text = proc.stdout.decode("utf-8")
         stderr_text = proc.stderr.decode("utf-8")
+        exit_code = proc.returncode
     except CalledProcessError as cpe:
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
@@ -406,6 +419,7 @@ def execute_command(
         )
         stdout_text = cpe.stdout.decode("utf-8")
         stderr_text = cpe.stderr.decode("utf-8")
+        exit_code = cpe.returncode
 
     # Write stdout to file
     with open(stdout_filename, "w") as fout:
@@ -414,6 +428,8 @@ def execute_command(
     # Write stderr to file
     with open(stderr_filename, "w") as fout:
         fout.write(stderr_text)
+
+    return exit_code
 
 
 # TODO: intendo - 2021/05/10 - Break run_job into multiple functions
@@ -510,9 +526,11 @@ def run_job(
         )
 
     file = "MISSING"
+
+    # Execute job binary with appropriate arguments and record metrics
     try:
         metrics.set_start_time()
-        execute_command(
+        exit_code = execute_command(
             job_tag,
             command,
             f"{job_type}.stdout.txt",
@@ -520,27 +538,40 @@ def run_job(
         )
         metrics.set_end_time()
 
+        # Set the returned exit code
+        metrics.set_exit_code(exit_code)
+
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_TOPLEVEL_BUCKET.
         metrics.write_metrics(job_type, ".")
-
-        for file in listdir("."):
-            file_path = f"{job_tag}/{file}"
-            s3client.upload_file(
-                f"{GLOBAL_VARS['JOB_PATH']}{file_path}",
-                GLOBAL_VARS["S3_TOPLEVEL_BUCKET"],
-                f"{file_path}",
-            )
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
         _LOGGER.exception(
-            "%s ERROR: Failed to upload file, %s \n\t%s",
+            "%s ERROR: Failed to execute job, %s \n\t%s",
             job_tag,
             f"{job_tag}/{file}",
             error,
         )
         # TODO: Should this return 1 because noone else will succeed?
         ret_val = 1
+
+    # Upload directory contents to S3
+    for file in listdir("."):
+        try:
+            file_path = f"{job_tag}/{file}"
+            s3client.upload_file(
+                f"{GLOBAL_VARS['JOB_PATH']}{file_path}",
+                GLOBAL_VARS["S3_TOPLEVEL_BUCKET"],
+                f"{file_path}",
+            )
+        except ClientError as error:
+            _LOGGER.exception(
+                "%s ERROR: Failed to upload file, %s \n\t%s",
+                job_tag,
+                f"{job_tag}/{file}",
+                error,
+            )
+        # ret_val = 1
 
     # TODO: 2021/03/30, Elvis - Will need to address how we bundle output
     #       subdirectory for PDB2PKA when used; I previous bundled it as
