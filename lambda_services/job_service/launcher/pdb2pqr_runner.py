@@ -2,6 +2,7 @@
 
 from logging import getLogger
 from os.path import splitext
+from os import getenv
 
 from .jobsetup import JobSetup
 from .weboptions import WebOptions, WebOptionsError
@@ -15,10 +16,9 @@ class Runner(JobSetup):
         self.cli_params = None
         self.command_line_args: str = None
         self.job_id = job_id
-        self.input_files = []
-        self.output_files = []
         self.estimated_max_runtime = 2700
         self._logger = getLogger(__class__.__name__)
+        self._logger.setLevel(getenv("LOG_LEVEL", "INFO"))
 
         try:
             if "invoke_method" in form:
@@ -67,6 +67,11 @@ class Runner(JobSetup):
         elif self.invoke_method in ["cli", "v2"]:
             command_line_args = self.version_2_job()
         self.command_line_args = command_line_args
+        self._logger.info(
+            "%s Using command line arguments: %s",
+            self.job_tag,
+            command_line_args,
+        )
         return command_line_args
 
     def version_2_job(self):
