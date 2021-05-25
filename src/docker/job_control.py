@@ -105,8 +105,8 @@ class JobMetrics:
         metrics = getrusage(RUSAGE_CHILDREN)
         self.job_type = None
         self.output_dir = None
-        self.start_time = 0
-        self.end_time = 0
+        self._start_time = 0
+        self._end_time = 0
         self.exit_code = None
         self.values: Dict = {}
         self.values["ru_utime"] = metrics.ru_utime
@@ -180,9 +180,9 @@ class JobMetrics:
         return self._start_time
 
     @start_time.setter
-    def start_time(self):
+    def start_time(self, value):
         """Set the current time to denote that the job started."""
-        self._start_time = time()
+        self._start_time = value
 
     @property
     def end_time(self):
@@ -190,9 +190,9 @@ class JobMetrics:
         return self._end_time
 
     @end_time.setter
-    def end_time(self):
+    def end_time(self, value):
         """Set the current time to denote that the job ended."""
-        self._end_time = time()
+        self._end_time = value
 
     def set_exit_code(self, exit_code: int):
         """
@@ -538,14 +538,14 @@ def run_job(
 
     # Execute job binary with appropriate arguments and record metrics
     try:
-        metrics.set_start_time()
+        metrics.set_start_time(time())
         exit_code = execute_command(
             job_tag,
             command,
             f"{job_type}.stdout.txt",
             f"{job_type}.stderr.txt",
         )
-        metrics.set_end_time()
+        metrics.set_end_time(time())
 
         # Set the returned exit code
         metrics.set_exit_code(exit_code)
