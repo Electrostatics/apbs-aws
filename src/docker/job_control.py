@@ -221,7 +221,7 @@ class JobMetrics:
         )
         metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
         metrics["metrics"]["exit_code"] = self.exit_code
-        _LOGGER.debug("METRICS: %s", metrics)
+        _LOGGER.info("METRICS: %s", metrics)
         return metrics
 
     def write_metrics(self, job_type, output_dir: str):
@@ -235,8 +235,8 @@ class JobMetrics:
         """
         self.job_type = job_type
         self.output_dir = Path(output_dir)
-        _LOGGER.debug("JOBTYPE: %s", self.job_type)
-        _LOGGER.debug("OUTPUTDIR: %s", self.output_dir)
+        _LOGGER.info("JOBTYPE: %s", self.job_type)
+        _LOGGER.info("OUTPUTDIR: %s", self.output_dir)
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(self.get_metrics(), indent=4))
 
@@ -324,7 +324,7 @@ def get_messages(sqs: client, qurl: str) -> Any:
         loop += 1
         if loop == GLOBAL_VARS["MAX_TRIES"]:
             return None
-        _LOGGER.info("Waiting ....")
+        _LOGGER.debug("Waiting ....")
         sleep(GLOBAL_VARS["RETRY_TIME"])
         messages = sqs.receive_message(
             QueueUrl=qurl,
