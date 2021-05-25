@@ -174,18 +174,25 @@ class JobMetrics:
             if f.is_file()
         )
 
-    # TODO: intendo - 2021/05/10 - These should be properties
-    def set_start_time(self):
-        """
-        Set the current time to denote that the job started.
-        """
-        self.start_time = time()
+    @property
+    def start_time(self):
+        """The time the job started."""
+        return self._start_time
 
-    def set_end_time(self):
-        """
-        Set the current time to denote that the job ended.
-        """
-        self.end_time = time()
+    @start_time.setter
+    def start_time(self):
+        """Set the current time to denote that the job started."""
+        self._start_time = time()
+
+    @property
+    def end_time(self):
+        """The time the job ended."""
+        return self._end_time
+
+    @end_time.setter
+    def end_time(self):
+        """Set the current time to denote that the job ended."""
+        self._end_time = time()
 
     def set_exit_code(self, exit_code: int):
         """
@@ -220,6 +227,8 @@ class JobMetrics:
         Args:
             job_type (str): Either "apbs" or "pdb2pqr".
             output_dir (str): The directory to find the output files.
+        Returns:
+            N/A
         """
         self.job_type = job_type
         self.output_dir = Path(output_dir)
