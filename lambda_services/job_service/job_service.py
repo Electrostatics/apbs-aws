@@ -238,5 +238,5 @@ def interpret_job_submission(event: dict, context):
         }
         sqs_client = resource("sqs")
         queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
-        _LOGGER.info("%s Sending message to queue: %s", sqs_json)
+        _LOGGER.info("%s Sending message to queue: %s", job_tag, sqs_json)
         queue.send_message(MessageBody=dumps(sqs_json))
