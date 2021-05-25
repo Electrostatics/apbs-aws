@@ -1,1 +1,0 @@
-2021/05/17 - intendo - Added daemon.js as described in https://docs.docker.com/config/containers/logging/awslogs/
