@@ -5,7 +5,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, DEBUG, INFO
+from logging import getLogger, DEBUG, INFO, StreamHandler
 from os import chdir, getenv, getpid, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
@@ -34,6 +34,9 @@ GLOBAL_VARS = {
 }
 _LOGGER = getLogger(__name__)
 _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
+ch = StreamHandler()
+_LOGGER.addHandler(ch)
+
 
 # Default to start processing immediately
 PROCESSING = True
