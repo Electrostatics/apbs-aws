@@ -538,14 +538,14 @@ def run_job(
 
     # Execute job binary with appropriate arguments and record metrics
     try:
-        metrics.set_start_time(time())
+        metrics.start_time = time()
         exit_code = execute_command(
             job_tag,
             command,
             f"{job_type}.stdout.txt",
             f"{job_type}.stderr.txt",
         )
-        metrics.set_end_time(time())
+        metrics.end_time = time()
 
         # Set the returned exit code
         metrics.set_exit_code(exit_code)
