@@ -1,6 +1,0 @@
-{
-    "log-driver": "awslogs",
-    "log-opts": {
-        "awslogs-region": "us-west-2"
-    }
-}
