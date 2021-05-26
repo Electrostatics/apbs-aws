@@ -20,7 +20,7 @@ JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 _LOGGER = getLogger(__name__)
 basicConfig(
     format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-    level=getenv("LOG_LEVEL", str(INFO)),
+    level=int(getenv("LOG_LEVEL", str(INFO))),
     handlers=[StreamHandler(stdout)],
 )
 

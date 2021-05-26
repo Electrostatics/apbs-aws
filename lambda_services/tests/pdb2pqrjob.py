@@ -42,7 +42,7 @@ class Pdb2PqrJob(JobInterface):
         self._logger = getLogger(__class__.__name__)
         basicConfig(
             format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-            level=getenv("LOG_LEVEL", str(INFO)),
+            level=int(getenv("LOG_LEVEL", str(INFO))),
             handlers=[StreamHandler(stdout)],
         )
         super().__init__(jobid, file_path, file_list)
