@@ -1,6 +1,6 @@
 """A class to interpret/prepare a PDB2PQR job submission for job queue."""
 
-from logging import getLogger
+from logging import basicConfig, getLogger, INFO, StreamHandler
 from os.path import splitext
 from os import getenv
 
@@ -9,6 +9,8 @@ from .weboptions import WebOptions, WebOptionsError
 
 
 class Runner(JobSetup):
+    """Class to setup a PDB2PQR job."""
+
     def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
         self.weboptions = None
@@ -18,7 +20,11 @@ class Runner(JobSetup):
         self.job_id = job_id
         self.estimated_max_runtime = 2700
         self._logger = getLogger(__class__.__name__)
-        self._logger.setLevel(getenv("LOG_LEVEL", "INFO"))
+        basicConfig(
+            format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            level=getenv("LOG_LEVEL", str(INFO)),
+            handlers=[StreamHandler],
+        )
 
         try:
             if "invoke_method" in form:
@@ -55,11 +61,11 @@ class Runner(JobSetup):
                     )
                 self.invoke_method = "gui"
                 self.weboptions = WebOptions(form)
-
         except WebOptionsError:
             raise
 
     def prepare_job(self):
+        """Setup the job to run from the GUI or the command line."""
         job_id = self.job_id
 
         if self.invoke_method in ["gui", "v1"]:
@@ -75,6 +81,7 @@ class Runner(JobSetup):
         return command_line_args
 
     def version_2_job(self):
+        """Setup the job to run from the command line."""
         # construct command line argument string for when CLI is invoked
         command_line_list = []
 
@@ -114,6 +121,7 @@ class Runner(JobSetup):
         return result
 
     def version_1_job(self, job_id):
+        """Setup the job to run from the Web GUI."""
         # Retrieve information about the
         #   PDB fileand command line arguments
         if self.weboptions.user_did_upload:

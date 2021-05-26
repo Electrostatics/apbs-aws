@@ -1,16 +1,21 @@
 """A collection of utility functions."""
 
+from io import StringIO
+from logging import basicConfig, getLogger, INFO, StreamHandler
+from os import getenv
 from boto3 import client
 from botocore.exceptions import ClientError
-from io import StringIO
-from logging import getLogger, ERROR, INFO
 
 _LOGGER = getLogger(__name__)
-_LOGGER.setLevel(ERROR)
-_LOGGER.setLevel(INFO)
+basicConfig(
+    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    level=getenv("LOG_LEVEL", str(INFO)),
+    handlers=[StreamHandler],
+)
 
 
 def s3_download_file_str(bucket_name: str, object_name: str) -> str:
+    job_tag = f"{bucket_name}/{object_name}"
     try:
         s3_client = client("s3")
         s3_response: dict = s3_client.get_object(
@@ -19,17 +24,19 @@ def s3_download_file_str(bucket_name: str, object_name: str) -> str:
         )
         return s3_response["Body"].read().decode("utf-8")
     except Exception as err:
-        _LOGGER.exception("%s ERROR: %s", bucket_name, err)
+        _LOGGER.exception("%s ERROR: %s", job_tag, err)
         raise
 
 
 def s3_put_object(bucket_name: str, object_name: str, body):
+    job_tag = f"{bucket_name}/{object_name}"
     s3_client = client("s3")
     _ = s3_client.put_object(
         Bucket=bucket_name,
         Key=object_name,
         Body=body,
     )
+    _LOGGER.info("%s Putting file: %s", job_tag, object_name)
 
 
 def s3_object_exists(bucket_name: str, object_name: str) -> bool:
@@ -40,18 +47,15 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
             Key=object_name,
         )
         return True
-
     except ClientError as err:
         if err.response["Error"]["Message"] == "NoSuchKey":
             return False
         elif err.response["Error"]["Message"] == "Forbidden":
             objectname_split: list = object_name.split("/")
-            job_id: str = objectname_split[-2]
-            job_date: str = objectname_split[-3]
-            _LOGGER.warn(
-                "%s %s Received '%s' (%d) message on object HEAD: %s",
-                job_id,
-                job_date,
+            job_tag: str = f"{objectname_split[-3]}/{objectname_split[-2]}"
+            _LOGGER.warning(
+                "%s Received '%s' (%d) message on object HEAD: %s",
+                job_tag,
                 err.response["Error"]["Message"],
                 err.response["ResponseMetadata"]["HTTPStatusCode"],
                 object_name,
@@ -61,7 +65,7 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
             raise
 
 
-def apbs_extract_input_files(infile_text):
+def apbs_extract_input_files(job_tag, infile_text):
     # Read only the READ section of infile,
     # extracting out the files needed for APBS
     read_start = False
@@ -95,10 +99,11 @@ def apbs_extract_input_files(infile_text):
                         for arg in line.split()[2:]:
                             file_list.append(arg)
 
+    _LOGGER.info("%s Input files: %s", job_tag, file_list)
     return file_list
 
 
-def apbs_infile_creator(apbsOptions: dict) -> str:
+def apbs_infile_creator(job_tag, apbsOptions: dict) -> str:
     """
     Creates a new APBS input file, using the data from the form
     """
@@ -306,4 +311,5 @@ def apbs_infile_creator(apbsOptions: dict) -> str:
     apbsinput_io.seek(0)
 
     # Return contents of updated input file
+    _LOGGER.info("%s Created APBS Input file", job_tag)
     return apbsinput_io.read()

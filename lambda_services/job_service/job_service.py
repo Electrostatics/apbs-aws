@@ -2,7 +2,7 @@
 from json import dumps, loads, JSONDecodeError
 from os import getenv
 from time import time
-from logging import getLogger
+from logging import basicConfig, getLogger, INFO, StreamHandler
 from boto3 import client, resource
 from botocore.exceptions import ClientError
 from .launcher import pdb2pqr_runner, apbs_runner
@@ -16,8 +16,12 @@ SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
-_LOGGER = getLogger()
-_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
+_LOGGER = getLogger(__name__)
+basicConfig(
+    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    level=getenv("LOG_LEVEL", str(INFO)),
+    handlers=[StreamHandler],
+)
 
 
 def get_job_info(

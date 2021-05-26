@@ -1,7 +1,7 @@
 """Generate unique job id and S3 tokens for each job."""
 
 from datetime import datetime
-from logging import getLogger
+from logging import basicConfig, getLogger, INFO, StreamHandler
 from os import getenv
 from random import choices
 from string import ascii_lowercase, digits
@@ -12,7 +12,11 @@ from dateutil import tz
 
 # Initialize logger
 _LOGGER = getLogger(__name__)
-_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
+basicConfig(
+    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    level=getenv("LOG_LEVEL", str(INFO)),
+    handlers=[StreamHandler],
+)
 
 
 def create_s3_url(bucket_name: str, job_tag: str, file_name: str) -> str:

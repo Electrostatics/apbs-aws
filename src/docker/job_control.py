@@ -5,7 +5,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, DEBUG, INFO, StreamHandler
+from logging import basicConfig, basicConfig, DEBUG, INFO, StreamHandler
 from os import chdir, getenv, getpid, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
@@ -33,9 +33,11 @@ GLOBAL_VARS = {
     "QUEUE": None,
 }
 _LOGGER = getLogger(__name__)
-_LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
-ch = StreamHandler()
-_LOGGER.addHandler(ch)
+basicConfig(
+    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    level=GLOBAL_VARS["LOG_LEVEL"],
+    handlers=[StreamHandler],
+)
 
 
 # Default to start processing immediately
@@ -221,10 +223,9 @@ class JobMetrics:
         )
         metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
         metrics["metrics"]["exit_code"] = self.exit_code
-        _LOGGER.info("METRICS: %s", metrics)
         return metrics
 
-    def write_metrics(self, job_type, output_dir: str):
+    def write_metrics(self, job_tag, job_type, output_dir: str):
         """Get the metrics of the latest subprocess and create the output file.
 
         Args:
@@ -235,29 +236,32 @@ class JobMetrics:
         """
         self.job_type = job_type
         self.output_dir = Path(output_dir)
-        _LOGGER.info("JOBTYPE: %s", self.job_type)
-        _LOGGER.info("OUTPUTDIR: %s", self.output_dir)
+        _LOGGER.info("%s JOBTYPE: %s", job_tag, self.job_type)
+        _LOGGER.info("%s OUTPUTDIR: %s", job_tag, self.output_dir)
+        metrics = self.get_metrics()
+        _LOGGER.info("%s METRICS: %s", job_tag, metrics)
         with open(f"{job_type}-metrics.json", "w") as fout:
-            fout.write(dumps(self.get_metrics(), indent=4))
+            fout.write(dumps(metrics, indent=4))
 
 
-def printCurrentState():
+def print_current_state():
     for idx in sorted(GLOBAL_VARS):
         _LOGGER.info("VAR: %s, VALUE: %s", idx, GLOBAL_VARS[idx])
         print(f"VAR: {idx}, VALUE: set to: {GLOBAL_VARS[idx]}", file=stderr)
     _LOGGER.info("PROCESSING state: %s", PROCESSING)
-    print(f"PROCESSING state: {PROCESSING}", file=stderr)
+    print(f"PROCESSING state: {PROCESSING}\n", file=stderr)
 
 
-def receiveSignal(signalNumber, frame):
-    _LOGGER.info("Received signal: %s, %s", signalNumber, frame)
-    print(f"Received signal: {signalNumber}, {frame}", file=stderr)
-    signalHelp(signalNumber, frame)
+def receive_signal(signal_number, frame):
+    _LOGGER.info("Received signal: %s, %s", signal_number, frame)
+    print(f"Received signal: {signal_number}, {frame}", file=stderr)
+    signal_help(signal_number, frame)
 
 
-def signalHelp(signalNumber, frame):
+def signal_help(signal_number, frame):
+    # pylint: disable=unused-argument
     print("\n", file=stderr)
-    print(f"RECEIVED SIGNAL: {signalNumber}\n\n", file=stderr)
+    print(f"RECEIVED SIGNAL: {signal_number}\n\n", file=stderr)
     print("\tYou have asked for help:\n\n", file=stderr)
     print(
         f"\tTo update environment variables, type: kill -USR1 {getpid()}\n\n",
@@ -266,22 +270,25 @@ def signalHelp(signalNumber, frame):
     print(
         f"\tTo toggle processing, type: kill -USR2 {getpid()}\n\n", file=stderr
     )
-    printCurrentState()
+    print_current_state()
 
 
-def terminateProcess(signalNumber, frame):
-    print("Caught (SIGTERM) terminating the process", file=stderr)
+def terminate_process(signal_number, frame):
+    # pylint: disable=unused-argument
+    print("Caught (SIGTERM) terminating the process\n", file=stderr)
     sys.exit()
 
 
-def toggleProcessing(signalNumber, frame):
+def toggle_processing(signal_number, frame):
+    # pylint: disable=unused-argument
     global PROCESSING
     PROCESSING = not PROCESSING
     _LOGGER.info("PROCESSING set to: %s", PROCESSING)
-    print(f"PROCESSING set to:{PROCESSING}", file=stderr)
+    print(f"PROCESSING set to:{PROCESSING}\n", file=stderr)
 
 
-def updateEnvironment(signalNumber, frame):
+def update_environment(signal_number, frame):
+    # pylint: disable=unused-argument
     # TODO: This may need to be increased or calculated based
     #       on complexity of the job (dimension of molecule?)
     #       The job could get launched multiple times if the
@@ -370,13 +377,13 @@ def update_status(
         )
     except ClientError as cerr:
         _LOGGER.exception(
-            "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
+            "%s ERROR: ClientError exception from s3.put_object, %s",
             job_tag,
             cerr,
         )
     except ParamValidationError as perr:
         _LOGGER.exception(
-            "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            "%s ERROR: ParamValidation exception from s3.put_object, %s",
             job_tag,
             perr,
         )
@@ -384,13 +391,13 @@ def update_status(
     return object_response
 
 
-def cleanup_job(rundir: str) -> int:
+def cleanup_job(job_tag: str, rundir: str) -> int:
     """Remove the directory for the job.
 
     :param rundir:  The local directory where the job is being executed.
     :return:  int
     """
-    _LOGGER.info("Deleting run directory, %s", rundir)
+    _LOGGER.info("%s Deleting run directory, %s", job_tag, rundir)
     chdir(GLOBAL_VARS["JOB_PATH"])
     rmtree(rundir)
     return 1
@@ -497,7 +504,7 @@ def run_job(
                     name,
                     error,
                 )
-                return cleanup_job(rundir)
+                return cleanup_job(job_tag, rundir)
         else:
             try:
                 s3client.download_file(
@@ -511,7 +518,7 @@ def run_job(
                     file,
                     error,
                 )
-                return cleanup_job(rundir)
+                return cleanup_job(job_tag, rundir)
 
     # Run job and record associated metrics
     update_status(
@@ -555,7 +562,7 @@ def run_job(
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_TOPLEVEL_BUCKET.
-        metrics.write_metrics(job_type, ".")
+        metrics.write_metrics(job_tag, job_type, ".")
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
         _LOGGER.exception(
@@ -600,7 +607,7 @@ def run_job(
     ]
 
     # Cleanup job directory and update status
-    cleanup_job(rundir)
+    cleanup_job(job_tag, rundir)
     update_status(
         s3client,
         job_tag,
@@ -662,24 +669,23 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
-    updateEnvironment(None, None)
+    update_environment(None, None)
 
-    signal.signal(signal.SIGHUP, signalHelp)
-    signal.signal(signal.SIGINT, receiveSignal)
-    signal.signal(signal.SIGQUIT, receiveSignal)
-    signal.signal(signal.SIGILL, receiveSignal)
-    signal.signal(signal.SIGTRAP, receiveSignal)
-    signal.signal(signal.SIGABRT, receiveSignal)
-    signal.signal(signal.SIGBUS, receiveSignal)
-    signal.signal(signal.SIGFPE, receiveSignal)
+    signal.signal(signal.SIGHUP, signal_help)
+    signal.signal(signal.SIGINT, receive_signal)
+    signal.signal(signal.SIGQUIT, receive_signal)
+    signal.signal(signal.SIGILL, receive_signal)
+    signal.signal(signal.SIGTRAP, receive_signal)
+    signal.signal(signal.SIGABRT, receive_signal)
+    signal.signal(signal.SIGBUS, receive_signal)
+    signal.signal(signal.SIGFPE, receive_signal)
     # signal.signal(signal.SIGKILL, receiveSignal)
-    signal.signal(signal.SIGUSR1, updateEnvironment)
-    signal.signal(signal.SIGSEGV, receiveSignal)
-    signal.signal(signal.SIGUSR2, toggleProcessing)
-    signal.signal(signal.SIGPIPE, receiveSignal)
-    signal.signal(signal.SIGALRM, receiveSignal)
-    signal.signal(signal.SIGTERM, terminateProcess)
+    signal.signal(signal.SIGUSR1, update_environment)
+    signal.signal(signal.SIGSEGV, receive_signal)
+    signal.signal(signal.SIGUSR2, toggle_processing)
+    signal.signal(signal.SIGPIPE, receive_signal)
+    signal.signal(signal.SIGALRM, receive_signal)
+    signal.signal(signal.SIGTERM, terminate_process)
 
     parser = build_parser()
     args = parser.parse_args()

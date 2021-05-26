@@ -2,7 +2,7 @@
 
 from io import StringIO
 from locale import atof, atoi
-from logging import getLogger
+from logging import basicConfig, getLogger, INFO, StreamHandler
 from os.path import splitext
 from os import getenv
 
@@ -25,7 +25,11 @@ class Runner(JobSetup):
         self.infile_support_filenames = []
         self.estimated_max_runtime = 7200
         self._logger = getLogger(__class__.__name__)
-        self._logger.setLevel(getenv("LOG_LEVEL", "INFO"))
+        basicConfig(
+            format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            level=getenv("LOG_LEVEL", str(INFO)),
+            handlers=[StreamHandler],
+        )
 
         if "filename" in form:
             self.infile_name = form["filename"]
@@ -51,6 +55,7 @@ class Runner(JobSetup):
     def prepare_job(
         self, output_bucket_name: str, input_bucket_name: str
     ) -> str:
+        """Setup the APBS job to run."""
         # taken from mainInput()
         self._logger.info("%s Preparing APBS job execution", self.job_tag)
         infile_name = self.infile_name
@@ -113,12 +118,12 @@ class Runner(JobSetup):
             )
 
             # Extracts PQR file name from the '*.in' file within storage bucket
-            pqr_file_name = apbs_extract_input_files(infile_str)[0]
+            pqr_file_name = apbs_extract_input_files(job_tag, infile_str)[0]
             apbs_options["pqrFileName"] = pqr_file_name
 
             # Get contents of updated APBS input file, based on form
             apbs_options["tempFile"] = "apbsinput.in"
-            new_infile_contents = apbs_infile_creator(apbs_options)
+            new_infile_contents = apbs_infile_creator(job_tag, apbs_options)
 
             # Get contents of PQR file from PDB2PQR run
             pqrfile_text = s3_download_file_str(
