@@ -5,13 +5,13 @@ from enum import Enum
 from logging import basicConfig, getLogger, INFO, StreamHandler
 from os.path import isfile
 from os import getenv
-from sys import stderr
+from sys import stdout
 
 _LOGGER = getLogger(__name__)
 basicConfig(
-    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
     level=getenv("LOG_LEVEL", str(INFO)),
-    handlers=[StreamHandler(stderr)],
+    handlers=[StreamHandler(stdout)],
 )
 
 

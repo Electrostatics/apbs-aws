@@ -34,7 +34,7 @@ GLOBAL_VARS = {
 }
 _LOGGER = getLogger(__name__)
 basicConfig(
-    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
     level=GLOBAL_VARS["LOG_LEVEL"],
     handlers=[StreamHandler(stderr)],
 )
