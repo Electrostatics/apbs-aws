@@ -7,6 +7,7 @@ from logging import basicConfig, getLogger, INFO, StreamHandler
 from pathlib import Path
 from os import getenv
 from typing import List
+from sys import stderr
 
 from jobinterface import JobInterface
 from utiljob import get_contents, JOBTYPE
@@ -42,7 +43,7 @@ class Pdb2PqrJob(JobInterface):
         basicConfig(
             format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
             level=getenv("LOG_LEVEL", str(INFO)),
-            handlers=[StreamHandler],
+            handlers=[StreamHandler(stderr)],
         )
         super().__init__(jobid, file_path, file_list)
 

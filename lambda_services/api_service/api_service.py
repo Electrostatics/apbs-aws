@@ -1,21 +1,22 @@
 """Generate unique job id and S3 tokens for each job."""
 
 from datetime import datetime
+from dateutil.tz import UTC
 from logging import basicConfig, getLogger, INFO, StreamHandler
 from os import getenv
 from random import choices
 from string import ascii_lowercase, digits
+from sys import stderr
 from typing import List
 from boto3 import client
 from botocore.exceptions import ClientError
-from dateutil import tz
 
 # Initialize logger
 _LOGGER = getLogger(__name__)
 basicConfig(
     format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
     level=getenv("LOG_LEVEL", str(INFO)),
-    handlers=[StreamHandler],
+    handlers=[StreamHandler(stderr)],
 )
 
 
@@ -79,7 +80,7 @@ def generate_id_and_tokens(event: dict, context) -> dict:
 
     # Create URLs with S3 tokens
     url_dict = {}
-    current_date = datetime.now(tz.UTC).strftime("%Y-%m-%d")
+    current_date = datetime.now(UTC).strftime("%Y-%m-%d")
     job_tag = f"{current_date}/{job_id}"
     for file_name in file_list:
         # Generate presigned URL for file

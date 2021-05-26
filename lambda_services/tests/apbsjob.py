@@ -7,6 +7,7 @@ from logging import basicConfig, getLogger, INFO, StreamHandler
 from os import getenv
 from pathlib import Path
 from re import findall
+from sys import stderr
 from typing import List
 
 from jobinterface import JobInterface
@@ -43,7 +44,7 @@ class ApbsJob(JobInterface):
         basicConfig(
             format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
             level=getenv("LOG_LEVEL", str(INFO)),
-            handlers=[StreamHandler],
+            handlers=[StreamHandler(stderr)],
         )
         super().__init__(jobid, file_path, file_list)
 

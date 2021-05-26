@@ -1,8 +1,9 @@
 """Interpret APBS/PDBP2QR job configurations and submit to SQS."""
 from json import dumps, loads, JSONDecodeError
-from os import getenv
-from time import time
 from logging import basicConfig, getLogger, INFO, StreamHandler
+from os import getenv
+from sys import stderr
+from time import time
 from boto3 import client, resource
 from botocore.exceptions import ClientError
 from .launcher import pdb2pqr_runner, apbs_runner
@@ -20,7 +21,7 @@ _LOGGER = getLogger(__name__)
 basicConfig(
     format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
     level=getenv("LOG_LEVEL", str(INFO)),
-    handlers=[StreamHandler],
+    handlers=[StreamHandler(stderr)],
 )
 
 
