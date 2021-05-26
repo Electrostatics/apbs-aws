@@ -3,7 +3,7 @@
 from logging import basicConfig, getLogger, INFO, StreamHandler
 from os.path import splitext
 from os import getenv
-from sys import stderr
+from sys import stdout
 
 from .jobsetup import JobSetup
 from .weboptions import WebOptions, WebOptionsError
@@ -22,9 +22,9 @@ class Runner(JobSetup):
         self.estimated_max_runtime = 2700
         self._logger = getLogger(__class__.__name__)
         basicConfig(
-            format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
             level=getenv("LOG_LEVEL", str(INFO)),
-            handlers=[StreamHandler(stderr)],
+            handlers=[StreamHandler(stdout)],
         )
 
         try:

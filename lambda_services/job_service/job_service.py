@@ -2,7 +2,7 @@
 from json import dumps, loads, JSONDecodeError
 from logging import basicConfig, getLogger, INFO, StreamHandler
 from os import getenv
-from sys import stderr
+from sys import stdout
 from time import time
 from boto3 import client, resource
 from botocore.exceptions import ClientError
@@ -19,9 +19,9 @@ JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 # Initialize logger
 _LOGGER = getLogger(__name__)
 basicConfig(
-    format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
     level=getenv("LOG_LEVEL", str(INFO)),
-    handlers=[StreamHandler(stderr)],
+    handlers=[StreamHandler(stdout)],
 )
 
 
