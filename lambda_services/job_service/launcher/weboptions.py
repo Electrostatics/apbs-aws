@@ -4,7 +4,15 @@ from re import split
 from io import StringIO
 
 
-def sanitize_fileName(file_name):
+def sanitize_file_name(file_name):
+    """Make sure that a file name does not have any special characters in it.
+
+    Args:
+        file_name (str): A file path the may include special characters.
+
+    Returns:
+        str: the filename without any spaces
+    """
     # TODO: 2020/06/30, Elvis - log that sanitization is happening if
     #                           pattern is seen
     file_name = split(r"[/\\]", file_name)[-1]
@@ -61,7 +69,7 @@ class WebOptions:
             # self.pdbfile = StringIO(self.pdbfilestring)
             # self.pdbfilename = sanitizeFileName(files["PDB"].filename)
             # pass filename through client
-            self.pdbfilename = sanitize_fileName(
+            self.pdbfilename = sanitize_file_name(
                 form["PDBFILE"]
             )  # pass filename through client
             # print("filename: "+self.pdbfilename)
@@ -106,7 +114,7 @@ class WebOptions:
             # if "USERFF") and form["USERFF"].filename:
             # self.userfffilename = sanitizeFileName(form["USERFF"].filename)
             if "USERFFFILE" in form and form["USERFFFILE"] != "":
-                self.userfffilename = sanitize_fileName(form["USERFFFILE"])
+                self.userfffilename = sanitize_file_name(form["USERFFFILE"])
                 # self.userffstring = form["USERFF"]
                 self.runoptions["userff"] = StringIO(form["USERFFFILE"])
             else:
@@ -118,7 +126,7 @@ class WebOptions:
 
             # if form.has_key("USERNAMES") and form["USERNAMES"].filename:
             if "NAMESFILE" in form and form["NAMESFILE"] != "":
-                self.usernamesfilename = sanitize_fileName(form["NAMESFILE"])
+                self.usernamesfilename = sanitize_file_name(form["NAMESFILE"])
                 # self.usernamesstring = form["USERNAMES"]
                 self.runoptions["usernames"] = StringIO(form["NAMESFILE"])
             else:
@@ -146,7 +154,7 @@ class WebOptions:
         # if form.has_key("LIGAND") and form['LIGAND'].filename:
         # self.ligandfilename=sanitizeFileName(form["LIGAND"].filename)
         if "LIGANDFILE" in form and form["LIGANDFILE"] != "":
-            self.ligandfilename = sanitize_fileName(form["LIGANDFILE"])
+            self.ligandfilename = sanitize_file_name(form["LIGANDFILE"])
             # ligandfilestring = form["LIGAND"]
             # for Windows and Mac style newline compatibility for pdb2pka
             # ligandfilestring = ligandfilestring.replace('\r\n', '\n')

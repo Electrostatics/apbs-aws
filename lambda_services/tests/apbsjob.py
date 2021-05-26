@@ -3,7 +3,8 @@
 
 
 from json import dumps
-from logging import getLogger
+from logging import basicConfig, getLogger, INFO, StreamHandler
+from os import getenv
 from pathlib import Path
 from re import findall
 from typing import List
@@ -39,6 +40,11 @@ class ApbsJob(JobInterface):
 
         self.job_type = JOBTYPE.APBS.name.lower()
         self._logger = getLogger(__class__.__name__)
+        basicConfig(
+            format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            level=getenv("LOG_LEVEL", str(INFO)),
+            handlers=[StreamHandler],
+        )
         super().__init__(jobid, file_path, file_list)
 
     def get_memory_usage(self):
