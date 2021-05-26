@@ -5,7 +5,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, basicConfig, DEBUG, INFO, StreamHandler
+from logging import basicConfig, basicConfig, DEBUG, INFO, StreamHandler
 from os import chdir, getenv, getpid, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
