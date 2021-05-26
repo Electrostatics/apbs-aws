@@ -3,6 +3,7 @@
 from io import StringIO
 from logging import basicConfig, getLogger, INFO, StreamHandler
 from os import getenv
+from sys import stderr
 from boto3 import client
 from botocore.exceptions import ClientError
 
@@ -10,7 +11,7 @@ _LOGGER = getLogger(__name__)
 basicConfig(
     format="[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
     level=getenv("LOG_LEVEL", str(INFO)),
-    handlers=[StreamHandler],
+    handlers=[StreamHandler(stderr)],
 )
 
 
