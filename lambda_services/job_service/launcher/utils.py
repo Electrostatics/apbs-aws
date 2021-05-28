@@ -1,18 +1,60 @@
 """A collection of utility functions."""
 
 from io import StringIO
-from logging import basicConfig, getLogger, INFO, StreamHandler
+from logging import getLevelName, getLogger, Formatter, INFO, StreamHandler
+from re import split
 from os import getenv
 from sys import stdout
 from boto3 import client
 from botocore.exceptions import ClientError
 
-_LOGGER = getLogger(__name__)
-basicConfig(
-    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-    level=int(getenv("LOG_LEVEL", str(INFO))),
-    handlers=[StreamHandler(stdout)],
-)
+
+def apbs_logger():
+    """Get a singleton logger for all code.
+
+    Returns:
+        Logger: An all encompassing logger.
+    """
+    apbs_logger = getLogger()
+    apbs_logger.handlers.clear()
+    handler = StreamHandler(stdout)
+    handler.setFormatter(
+        Formatter(
+            "[%(aws_request_id)s] [%(levelname)s] "
+            "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+        )
+    )
+    apbs_logger.addHandler(handler)
+    apbs_logger.setLevel(getenv("LOG_LEVEL", getLevelName(INFO)))
+    return apbs_logger
+
+
+_LOGGER = apbs_logger()
+
+
+def sanitize_file_name(job_tag, file_name):
+    """Make sure that a file name does not have any special characters in it.
+
+    Args:
+        file_name (str): A file path the may include special characters.
+
+    Returns:
+        str: the filename without any spaces
+    """
+    # TODO: 2020/06/30, Elvis - log that sanitization is happening if
+    #                           pattern is seen
+    orig_name = file_name
+    file_name = split(r"[/\\]", file_name)[-1]
+    file_name = file_name.replace(" ", "_")
+    # fileName = fileName.replace('-', '_')
+    if orig_name != file_name:
+        _LOGGER.warning(
+            "%s Sanatized filename from '%s' to '%s'",
+            job_tag,
+            orig_name,
+            file_name,
+        )
+    return file_name
 
 
 def s3_download_file_str(bucket_name: str, object_name: str) -> str:
@@ -104,7 +146,7 @@ def apbs_extract_input_files(job_tag, infile_text):
     return file_list
 
 
-def apbs_infile_creator(job_tag, apbsOptions: dict) -> str:
+def apbs_infile_creator(job_tag, apbs_options: dict) -> str:
     """
     Creates a new APBS input file, using the data from the form
     """
@@ -115,194 +157,194 @@ def apbs_infile_creator(job_tag, apbsOptions: dict) -> str:
     # writing READ section to file
     apbsinput_io.write("read\n")
     apbsinput_io.write(
-        f"\t{apbsOptions['readType']} "
-        f"{apbsOptions['readFormat']} "
-        f"{apbsOptions['pqrPath']}{apbsOptions['pqrFileName']}\n"
+        f"\t{apbs_options['readType']} "
+        f"{apbs_options['readFormat']} "
+        f"{apbs_options['pqrPath']}{apbs_options['pqrFileName']}\n"
     )
     apbsinput_io.write("end\n")
 
     # writing ELEC section to file
     apbsinput_io.write("elec\n")
-    apbsinput_io.write(f"\t{apbsOptions['calcType']}\n")
-    if apbsOptions["calcType"] != "fe-manual":
+    apbsinput_io.write(f"\t{apbs_options['calcType']}\n")
+    if apbs_options["calcType"] != "fe-manual":
         apbsinput_io.write(
-            f"\tdime {apbsOptions['dimeNX']} "
-            f"{apbsOptions['dimeNY']} {apbsOptions['dimeNZ']}\n"
+            f"\tdime {apbs_options['dimeNX']} "
+            f"{apbs_options['dimeNY']} {apbs_options['dimeNZ']}\n"
         )
-    if apbsOptions["calcType"] == "mg-para":
+    if apbs_options["calcType"] == "mg-para":
         apbsinput_io.write(
-            f"\tpdime {apbsOptions['pdimeNX']} "
-            f"{apbsOptions['pdimeNY']} {apbsOptions['pdimeNZ']}\n"
+            f"\tpdime {apbs_options['pdimeNX']} "
+            f"{apbs_options['pdimeNY']} {apbs_options['pdimeNZ']}\n"
         )
-        apbsinput_io.write(f"\tofrac {apbsOptions['ofrac']}\n")
-        if apbsOptions["asyncflag"]:
-            apbsinput_io.write(f"\tasync {apbsOptions['async']}\n")
+        apbsinput_io.write(f"\tofrac {apbs_options['ofrac']}\n")
+        if apbs_options["asyncflag"]:
+            apbsinput_io.write(f"\tasync {apbs_options['async']}\n")
 
-    if apbsOptions["calcType"] == "mg-manual":
+    if apbs_options["calcType"] == "mg-manual":
         apbsinput_io.write(
-            f"\tglen {apbsOptions['glenX']} "
-            f"{apbsOptions['glenY']} {apbsOptions['glenZ']}\n"
+            f"\tglen {apbs_options['glenX']} "
+            f"{apbs_options['glenY']} {apbs_options['glenZ']}\n"
         )
-    if apbsOptions["calcType"] in ["mg-auto", "mg-para", "mg-dummy"]:
+    if apbs_options["calcType"] in ["mg-auto", "mg-para", "mg-dummy"]:
         apbsinput_io.write(
-            f"\tcglen {apbsOptions['cglenX']} "
-            f"{apbsOptions['cglenY']} {apbsOptions['cglenZ']}\n"
+            f"\tcglen {apbs_options['cglenX']} "
+            f"{apbs_options['cglenY']} {apbs_options['cglenZ']}\n"
         )
-    if apbsOptions["calcType"] in ["mg-auto", "mg-para"]:
+    if apbs_options["calcType"] in ["mg-auto", "mg-para"]:
         apbsinput_io.write(
-            f"\tfglen {apbsOptions['fglenX']} "
-            f"{apbsOptions['fglenY']} {apbsOptions['fglenZ']}\n"
+            f"\tfglen {apbs_options['fglenX']} "
+            f"{apbs_options['fglenY']} {apbs_options['fglenZ']}\n"
         )
 
-        if apbsOptions["coarseGridCenterMethod"] == "molecule":
+        if apbs_options["coarseGridCenterMethod"] == "molecule":
             apbsinput_io.write(
-                f"\tcgcent mol {apbsOptions['coarseGridCenterMoleculeID']}\n"
+                f"\tcgcent mol {apbs_options['coarseGridCenterMoleculeID']}\n"
             )
-        elif apbsOptions["coarseGridCenterMethod"] == "coordinate":
+        elif apbs_options["coarseGridCenterMethod"] == "coordinate":
             apbsinput_io.write(
-                f"\tcgcent {apbsOptions['cgxCent']} "
-                f"{apbsOptions['cgyCent']} {apbsOptions['cgzCent']}\n"
-            )
-
-        if apbsOptions["fineGridCenterMethod"] == "molecule":
-            apbsinput_io.write(
-                f"\tfgcent mol {apbsOptions['fineGridCenterMoleculeID']}\n"
-            )
-        elif apbsOptions["fineGridCenterMethod"] == "coordinate":
-            apbsinput_io.write(
-                f"\tfgcent {apbsOptions['fgxCent']} "
-                f"{apbsOptions['fgyCent']} {apbsOptions['fgzCent']}\n"
+                f"\tcgcent {apbs_options['cgxCent']} "
+                f"{apbs_options['cgyCent']} {apbs_options['cgzCent']}\n"
             )
 
-    if apbsOptions["calcType"] in ["mg-manual", "mg-dummy"]:
-        if apbsOptions["gridCenterMethod"] == "molecule":
+        if apbs_options["fineGridCenterMethod"] == "molecule":
             apbsinput_io.write(
-                f"\tgcent mol {apbsOptions['gridCenterMoleculeID']}\n"
+                f"\tfgcent mol {apbs_options['fineGridCenterMoleculeID']}\n"
             )
-        elif apbsOptions["gridCenterMethod"] == "coordinate":
+        elif apbs_options["fineGridCenterMethod"] == "coordinate":
             apbsinput_io.write(
-                f"\tgcent {apbsOptions['gxCent']} "
-                f"{apbsOptions['gyCent']} {apbsOptions['gzCent']}\n"
+                f"\tfgcent {apbs_options['fgxCent']} "
+                f"{apbs_options['fgyCent']} {apbs_options['fgzCent']}\n"
             )
 
-    apbsinput_io.write(f"\tmol {apbsOptions['mol']}\n")
-    apbsinput_io.write(f"\t{apbsOptions['solveType']}\n")
-    apbsinput_io.write(f"\tbcfl {apbsOptions['boundaryConditions']}\n")
+    if apbs_options["calcType"] in ["mg-manual", "mg-dummy"]:
+        if apbs_options["gridCenterMethod"] == "molecule":
+            apbsinput_io.write(
+                f"\tgcent mol {apbs_options['gridCenterMoleculeID']}\n"
+            )
+        elif apbs_options["gridCenterMethod"] == "coordinate":
+            apbsinput_io.write(
+                f"\tgcent {apbs_options['gxCent']} "
+                f"{apbs_options['gyCent']} {apbs_options['gzCent']}\n"
+            )
+
+    apbsinput_io.write(f"\tmol {apbs_options['mol']}\n")
+    apbsinput_io.write(f"\t{apbs_options['solveType']}\n")
+    apbsinput_io.write(f"\tbcfl {apbs_options['boundaryConditions']}\n")
     apbsinput_io.write(
-        f"\tpdie {apbsOptions['biomolecularDielectricConstant']}\n"
+        f"\tpdie {apbs_options['biomolecularDielectricConstant']}\n"
     )
-    apbsinput_io.write(f"\tsdie {apbsOptions['dielectricSolventConstant']}\n")
+    apbsinput_io.write(f"\tsdie {apbs_options['dielectricSolventConstant']}\n")
     apbsinput_io.write(
-        f"\tsrfm {apbsOptions['dielectricIonAccessibilityModel']}\n"
-    )
-    apbsinput_io.write(
-        f"\tchgm {apbsOptions['biomolecularPointChargeMapMethod']}\n"
+        f"\tsrfm {apbs_options['dielectricIonAccessibilityModel']}\n"
     )
     apbsinput_io.write(
-        f"\tsdens {apbsOptions['surfaceConstructionResolution']}\n"
+        f"\tchgm {apbs_options['biomolecularPointChargeMapMethod']}\n"
     )
-    apbsinput_io.write(f"\tsrad {apbsOptions['solventRadius']}\n")
-    apbsinput_io.write(f"\tswin {apbsOptions['surfaceDefSupportSize']}\n")
-    apbsinput_io.write(f"\ttemp {apbsOptions['temperature']}\n")
-    apbsinput_io.write(f"\tcalcenergy {apbsOptions['calcEnergy']}\n")
-    apbsinput_io.write(f"\tcalcforce {apbsOptions['calcForce']}\n")
+    apbsinput_io.write(
+        f"\tsdens {apbs_options['surfaceConstructionResolution']}\n"
+    )
+    apbsinput_io.write(f"\tsrad {apbs_options['solventRadius']}\n")
+    apbsinput_io.write(f"\tswin {apbs_options['surfaceDefSupportSize']}\n")
+    apbsinput_io.write(f"\ttemp {apbs_options['temperature']}\n")
+    apbsinput_io.write(f"\tcalcenergy {apbs_options['calcEnergy']}\n")
+    apbsinput_io.write(f"\tcalcforce {apbs_options['calcForce']}\n")
     for idx in range(3):
         ch_str = f"charge{idx}"
         conc_str = f"conc{idx}"
         rad_str = f"radius{idx}"
         if (
-            ("chStr" in apbsOptions)
-            and ("concStr" in apbsOptions)
-            and ("radStr" in apbsOptions)
+            ("chStr" in apbs_options)
+            and ("concStr" in apbs_options)
+            and ("radStr" in apbs_options)
         ):
             # ion charge {charge} conc {conc} radius {radius}
             apbsinput_io.write(
-                f"\tion charge {apbsOptions[ch_str]} "
-                f"conc {apbsOptions[conc_str]} radius {apbsOptions[rad_str]}\n"
+                f"\tion charge {apbs_options[ch_str]} "
+                f"conc {apbs_options[conc_str]} radius {apbs_options[rad_str]}\n"
             )
 
-    if apbsOptions["writeCharge"]:
+    if apbs_options["writeCharge"]:
         apbsinput_io.write(
-            f"\twrite charge {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-charge\n"
+            f"\twrite charge {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-charge\n"
         )
 
-    if apbsOptions["writePot"]:
+    if apbs_options["writePot"]:
         apbsinput_io.write(
-            f"\twrite pot {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-pot\n"
+            f"\twrite pot {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-pot\n"
         )
 
-    if apbsOptions["writeSmol"]:
+    if apbs_options["writeSmol"]:
         apbsinput_io.write(
-            f"\twrite smol {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-smol\n"
+            f"\twrite smol {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-smol\n"
         )
 
-    if apbsOptions["writeSspl"]:
+    if apbs_options["writeSspl"]:
         apbsinput_io.write(
-            f"\twrite sspl {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-sspl\n"
+            f"\twrite sspl {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-sspl\n"
         )
 
-    if apbsOptions["writeVdw"]:
+    if apbs_options["writeVdw"]:
         apbsinput_io.write(
-            f"\twrite vdw {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-vdw\n"
+            f"\twrite vdw {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-vdw\n"
         )
 
-    if apbsOptions["writeIvdw"]:
+    if apbs_options["writeIvdw"]:
         apbsinput_io.write(
-            f"\twrite ivdw {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-ivdw\n"
+            f"\twrite ivdw {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-ivdw\n"
         )
 
-    if apbsOptions["writeLap"]:
+    if apbs_options["writeLap"]:
         apbsinput_io.write(
-            f"\twrite lap {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-lap\n"
+            f"\twrite lap {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-lap\n"
         )
 
-    if apbsOptions["writeEdens"]:
+    if apbs_options["writeEdens"]:
         apbsinput_io.write(
-            f"\twrite edens {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-edens\n"
+            f"\twrite edens {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-edens\n"
         )
 
-    if apbsOptions["writeNdens"]:
+    if apbs_options["writeNdens"]:
         apbsinput_io.write(
-            f"\twrite ndens {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-ndens\n"
+            f"\twrite ndens {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-ndens\n"
         )
 
-    if apbsOptions["writeQdens"]:
+    if apbs_options["writeQdens"]:
         apbsinput_io.write(
-            f"\twrite qdens {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-qdens\n"
+            f"\twrite qdens {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-qdens\n"
         )
 
-    if apbsOptions["writeDielx"]:
+    if apbs_options["writeDielx"]:
         apbsinput_io.write(
-            f"\twrite dielx {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-dielx\n"
+            f"\twrite dielx {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-dielx\n"
         )
 
-    if apbsOptions["writeDiely"]:
+    if apbs_options["writeDiely"]:
         apbsinput_io.write(
-            f"\twrite diely {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-diely\n"
+            f"\twrite diely {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-diely\n"
         )
 
-    if apbsOptions["writeDielz"]:
+    if apbs_options["writeDielz"]:
         apbsinput_io.write(
-            f"\twrite dielz {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-dielz\n"
+            f"\twrite dielz {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-dielz\n"
         )
 
-    if apbsOptions["writeKappa"]:
+    if apbs_options["writeKappa"]:
         apbsinput_io.write(
-            f"\twrite kappa {apbsOptions['writeFormat']} "
-            f"{apbsOptions['writeStem']}-kappa\n"
+            f"\twrite kappa {apbs_options['writeFormat']} "
+            f"{apbs_options['writeStem']}-kappa\n"
         )
 
     apbsinput_io.write("end\n")

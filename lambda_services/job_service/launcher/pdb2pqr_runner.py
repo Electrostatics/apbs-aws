@@ -1,11 +1,9 @@
 """A class to interpret/prepare a PDB2PQR job submission for job queue."""
 
-from logging import basicConfig, getLogger, INFO, StreamHandler
 from os.path import splitext
-from os import getenv
-from sys import stdout
 
 from .jobsetup import JobSetup
+from .utils import _LOGGER
 from .weboptions import WebOptions, WebOptionsError
 
 
@@ -20,18 +18,12 @@ class Runner(JobSetup):
         self.command_line_args: str = None
         self.job_id = job_id
         self.estimated_max_runtime = 2700
-        self._logger = getLogger(__class__.__name__)
-        basicConfig(
-            format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-            level=int(getenv("LOG_LEVEL", str(INFO))),
-            handlers=[StreamHandler(stdout)],
-        )
 
         try:
             if "invoke_method" in form:
-                self._logger.info(
+                _LOGGER.info(
                     "%s Invoke_method found, value: %s",
-                    self.job_id,
+                    self.job_tag,
                     str(form["invoke_method"]),
                 )
                 if form["invoke_method"].lower() in ["v2", "cli"]:
@@ -44,24 +36,26 @@ class Runner(JobSetup):
 
                 elif form["invoke_method"].lower() in ["v1", "gui"]:
                     self.invoke_method = "gui"
-                    self.weboptions = WebOptions(form)
+                    self.weboptions = WebOptions(self.job_tag, form)
             else:
-                self._logger.warning(
+                _LOGGER.warning(
                     "%s Invoke_method not found: %s",
-                    job_id,
+                    self.job_tag,
                     str("invoke_method" in form),
                 )
                 if "invoke_method" in form:
-                    self._logger.debug(
+                    _LOGGER.debug(
                         "%s Form['invoke_method']: %s",
-                        job_id,
+                        self.job_tag,
                         str(form["invoke_method"]),
                     )
-                    self._logger.debug(
-                        "%s Form type: %s", job_id, type(form["invoke_method"])
+                    _LOGGER.debug(
+                        "%s Form type: %s",
+                        self.job_tag,
+                        type(form["invoke_method"]),
                     )
                 self.invoke_method = "gui"
-                self.weboptions = WebOptions(form)
+                self.weboptions = WebOptions(self.job_tag, form)
         except WebOptionsError:
             raise
 
@@ -74,7 +68,7 @@ class Runner(JobSetup):
         elif self.invoke_method in ["cli", "v2"]:
             command_line_args = self.version_2_job()
         self.command_line_args = command_line_args
-        self._logger.info(
+        _LOGGER.info(
             "%s Using command line arguments: %s",
             self.job_tag,
             command_line_args,
@@ -156,8 +150,8 @@ class Runner(JobSetup):
         if "--summary" in result:
             result = result.replace("--summary", "")
 
-        self._logger.debug("%s Result: %s", job_id, result)
-        self._logger.debug(
+        _LOGGER.debug("%s Result: %s", job_id, result)
+        _LOGGER.debug(
             "%s PDB Filename: %s", job_id, self.weboptions.pdbfilename
         )
 

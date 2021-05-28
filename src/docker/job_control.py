@@ -34,7 +34,10 @@ GLOBAL_VARS = {
 }
 _LOGGER = getLogger(__name__)
 basicConfig(
-    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    format=(
+        "[%(levelname)s] "
+        "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+    ),
     level=GLOBAL_VARS["LOG_LEVEL"],
     handlers=[StreamHandler(stderr)],
 )
@@ -237,7 +240,6 @@ class JobMetrics:
         self.job_type = job_type
         self.output_dir = Path(output_dir)
         _LOGGER.info("%s JOBTYPE: %s", job_tag, self.job_type)
-        _LOGGER.info("%s OUTPUTDIR: %s", job_tag, self.output_dir)
         metrics = self.get_metrics()
         _LOGGER.info("%s METRICS: %s", job_tag, metrics)
         with open(f"{job_type}-metrics.json", "w") as fout:

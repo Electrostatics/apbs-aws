@@ -2,13 +2,11 @@
 
 from io import StringIO
 from locale import atof, atoi
-from logging import basicConfig, getLogger, INFO, StreamHandler
 from os.path import splitext
-from os import getenv
-from sys import stdout
 
 from .jobsetup import JobSetup, MissingFilesError
 from .utils import (
+    _LOGGER,
     apbs_extract_input_files,
     apbs_infile_creator,
     s3_download_file_str,
@@ -25,12 +23,6 @@ class Runner(JobSetup):
         self.command_line_args = None
         self.infile_support_filenames = []
         self.estimated_max_runtime = 7200
-        self._logger = getLogger(__class__.__name__)
-        basicConfig(
-            format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-            level=int(getenv("LOG_LEVEL", str(INFO))),
-            handlers=[StreamHandler(stdout)],
-        )
 
         if "filename" in form:
             self.infile_name = form["filename"]
@@ -58,7 +50,7 @@ class Runner(JobSetup):
     ) -> str:
         """Setup the APBS job to run."""
         # taken from mainInput()
-        self._logger.info("%s Preparing APBS job execution", self.job_tag)
+        _LOGGER.info("%s Preparing APBS job execution", self.job_tag)
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
@@ -73,7 +65,7 @@ class Runner(JobSetup):
             # Check S3 for .in file existence; add to missing list if not
             self.add_input_file(infile_name)
             if not s3_object_exists(input_bucket_name, infile_object_name):
-                self._logger.error(
+                _LOGGER.error(
                     "%s Missing APBS input file '%s'",
                     job_tag,
                     infile_name,
@@ -88,7 +80,7 @@ class Runner(JobSetup):
                 object_name = f"{job_tag}/{name}"
                 self.add_input_file(str(name))
                 if not s3_object_exists(input_bucket_name, object_name):
-                    self._logger.error(
+                    _LOGGER.error(
                         "%s Missing APBS input file '%s'",
                         job_tag,
                         name,
@@ -161,13 +153,13 @@ class Runner(JobSetup):
                     pqrfile_text = nowater_pqrfile_text
 
             except Exception as err:
-                self._logger.exception(
+                _LOGGER.exception(
                     "%s Failed to remove water molecules: %s", self.job_id, err
                 )
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            self._logger.info(
+            _LOGGER.info(
                 "%s Write file to S3: %s",
                 job_tag,
                 f"{job_tag}/{apbs_options['tempFile']}",
@@ -177,7 +169,7 @@ class Runner(JobSetup):
                 f"{job_tag}/{apbs_options['tempFile']}",
                 new_infile_contents.encode("utf-8"),
             )
-            self._logger.info(
+            _LOGGER.info(
                 "%s Write file to S3: %s",
                 job_tag,
                 f"{job_tag}/{pqr_file_name}",
@@ -277,9 +269,7 @@ class Runner(JobSetup):
         if apbs_options["writeCheck"] > 4:
             # TODO: 2021/03/02, Elvis - validation error;
             #       please raise exception here
-            self._logger.error(
-                "Please select a maximum of four write statements."
-            )
+            _LOGGER.error("Please select a maximum of four write statements.")
 
         # READ section variables
         apbs_options["readType"] = "mol"
@@ -369,7 +359,5 @@ class Runner(JobSetup):
         # apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
         apbs_options["writeStem"] = form["pdb2pqrid"]
 
-        self._logger.info(
-            "%s Setting APBS Options: %s", self.job_tag, apbs_options
-        )
+        _LOGGER.info("%s Setting APBS Options: %s", self.job_tag, apbs_options)
         return apbs_options
