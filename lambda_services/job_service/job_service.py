@@ -1,13 +1,12 @@
 """Interpret APBS/PDBP2QR job configurations and submit to SQS."""
 from json import dumps, loads, JSONDecodeError
-from logging import basicConfig, getLogger, INFO, StreamHandler
 from os import getenv
-from sys import stdout
 from time import time
 from boto3 import client, resource
 from botocore.exceptions import ClientError
 from .launcher import pdb2pqr_runner, apbs_runner
 from .launcher.jobsetup import MissingFilesError
+from .launcher.utils import _LOGGER
 
 OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
 FARGATE_CLUSTER = getenv("FARGATE_CLUSTER")
@@ -17,12 +16,6 @@ SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
-_LOGGER = getLogger(__name__)
-basicConfig(
-    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-    level=int(getenv("LOG_LEVEL", str(INFO))),
-    handlers=[StreamHandler(stdout)],
-)
 
 
 def get_job_info(

@@ -1,24 +1,7 @@
 """This file contains utilities to handle options from the GUI."""
 
-from re import split
 from io import StringIO
-
-
-def sanitize_file_name(file_name):
-    """Make sure that a file name does not have any special characters in it.
-
-    Args:
-        file_name (str): A file path the may include special characters.
-
-    Returns:
-        str: the filename without any spaces
-    """
-    # TODO: 2020/06/30, Elvis - log that sanitization is happening if
-    #                           pattern is seen
-    file_name = split(r"[/\\]", file_name)[-1]
-    file_name = file_name.replace(" ", "_")
-    # fileName = fileName.replace('-', '_')
-    return file_name
+from .utils import sanitize_file_name
 
 
 class WebOptionsError(Exception):
@@ -30,7 +13,7 @@ class WebOptionsError(Exception):
 class WebOptions:
     """Helper class for gathering and querying options selected by the user"""
 
-    def __init__(self, form):
+    def __init__(self, job_tag, form):
         """
         Gleans all information about the user selected options and uploaded
         files.
@@ -40,6 +23,7 @@ class WebOptions:
         # TODO: set second parameter of WebOptionError calls to specify bad key
 
         # options to pass to runPDB2PQR
+        self.job_tag = job_tag
         self.runoptions = {}
         self.otheroptions = {}
 
@@ -70,7 +54,7 @@ class WebOptions:
             # self.pdbfilename = sanitizeFileName(files["PDB"].filename)
             # pass filename through client
             self.pdbfilename = sanitize_file_name(
-                form["PDBFILE"]
+                self.job_tag, form["PDBFILE"]
             )  # pass filename through client
             # print("filename: "+self.pdbfilename)
         else:
@@ -114,7 +98,9 @@ class WebOptions:
             # if "USERFF") and form["USERFF"].filename:
             # self.userfffilename = sanitizeFileName(form["USERFF"].filename)
             if "USERFFFILE" in form and form["USERFFFILE"] != "":
-                self.userfffilename = sanitize_file_name(form["USERFFFILE"])
+                self.userfffilename = sanitize_file_name(
+                    self.job_tag, form["USERFFFILE"]
+                )
                 # self.userffstring = form["USERFF"]
                 self.runoptions["userff"] = StringIO(form["USERFFFILE"])
             else:
@@ -126,7 +112,9 @@ class WebOptions:
 
             # if form.has_key("USERNAMES") and form["USERNAMES"].filename:
             if "NAMESFILE" in form and form["NAMESFILE"] != "":
-                self.usernamesfilename = sanitize_file_name(form["NAMESFILE"])
+                self.usernamesfilename = sanitize_file_name(
+                    self.job_tag, form["NAMESFILE"]
+                )
                 # self.usernamesstring = form["USERNAMES"]
                 self.runoptions["usernames"] = StringIO(form["NAMESFILE"])
             else:
@@ -240,9 +228,9 @@ class WebOptions:
         if "ffout" in self.runoptions:
             command_line.append(f"--ffout={self.runoptions['ffout']}")
 
-        for o in ("chain", "typemap", "neutraln", "neutralc", "verbose"):
-            if self.runoptions[o]:
-                command_line.append("--" + o)
+        for idx in ("chain", "typemap", "neutraln", "neutralc", "verbose"):
+            if self.runoptions[idx]:
+                command_line.append("--" + idx)
 
         if "ligand" in self.runoptions:
             command_line.append(f"--ligand={self.ligandfilename}")

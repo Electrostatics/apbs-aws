@@ -1,8 +1,7 @@
 """Generate unique job id and S3 tokens for each job."""
 
 from datetime import datetime
-from dateutil.tz import UTC
-from logging import basicConfig, getLogger, INFO, StreamHandler
+from logging import getLevelName, getLogger, Formatter, INFO, StreamHandler
 from os import getenv
 from random import choices
 from string import ascii_lowercase, digits
@@ -10,14 +9,30 @@ from sys import stdout
 from typing import List
 from boto3 import client
 from botocore.exceptions import ClientError
+from dateutil.tz import UTC
 
-# Initialize logger
-_LOGGER = getLogger(__name__)
-basicConfig(
-    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
-    level=int(getenv("LOG_LEVEL", str(INFO))),
-    handlers=[StreamHandler(stdout)],
-)
+
+def apbs_logger():
+    """Get a singleton logger for all code.
+
+    Returns:
+        Logger: An all encompassing logger.
+    """
+    _apbs_logger = getLogger()
+    _apbs_logger.handlers.clear()
+    handler = StreamHandler(stdout)
+    handler.setFormatter(
+        Formatter(
+            "[%(aws_request_id)s] [%(levelname)s] "
+            "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+        )
+    )
+    _apbs_logger.addHandler(handler)
+    _apbs_logger.setLevel(getenv("LOG_LEVEL", getLevelName(INFO)))
+    return _apbs_logger
+
+
+_LOGGER = apbs_logger()
 
 
 def create_s3_url(bucket_name: str, job_tag: str, file_name: str) -> str:
