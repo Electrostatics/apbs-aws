@@ -15,7 +15,6 @@ def apbs_logger():
         Logger: An all encompassing logger.
     """
     _apbs_logger = getLogger()
-    _apbs_logger.handlers.clear()
     for handler in _apbs_logger.handlers:
         handler.setFormatter(
             Formatter(
