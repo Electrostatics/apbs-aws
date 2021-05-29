@@ -1,10 +1,9 @@
 """A collection of utility functions."""
 
 from io import StringIO
-from logging import getLevelName, getLogger, Formatter, INFO, StreamHandler
+from logging import getLevelName, getLogger, Formatter, INFO
 from re import split
 from os import getenv
-from sys import stdout
 from boto3 import client
 from botocore.exceptions import ClientError
 
@@ -15,18 +14,17 @@ def apbs_logger():
     Returns:
         Logger: An all encompassing logger.
     """
-    apbs_logger = getLogger()
-    apbs_logger.handlers.clear()
-    handler = StreamHandler(stdout)
-    handler.setFormatter(
-        Formatter(
-            "[%(aws_request_id)s] [%(levelname)s] "
-            "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+    _apbs_logger = getLogger()
+    _apbs_logger.handlers.clear()
+    for handler in _apbs_logger.handlers:
+        handler.setFormatter(
+            Formatter(
+                "[%(aws_request_id)s] [%(levelname)s] "
+                "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+            )
         )
-    )
-    apbs_logger.addHandler(handler)
-    apbs_logger.setLevel(getenv("LOG_LEVEL", getLevelName(INFO)))
-    return apbs_logger
+    _apbs_logger.setLevel(getenv("LOG_LEVEL", getLevelName(INFO)))
+    return _apbs_logger
 
 
 _LOGGER = apbs_logger()

@@ -1,11 +1,10 @@
 """Generate unique job id and S3 tokens for each job."""
 
 from datetime import datetime
-from logging import getLevelName, getLogger, Formatter, INFO, StreamHandler
+from logging import getLevelName, getLogger, Formatter, INFO
 from os import getenv
 from random import choices
 from string import ascii_lowercase, digits
-from sys import stdout
 from typing import List
 from boto3 import client
 from botocore.exceptions import ClientError
@@ -20,14 +19,13 @@ def apbs_logger():
     """
     _apbs_logger = getLogger()
     _apbs_logger.handlers.clear()
-    handler = StreamHandler(stdout)
-    handler.setFormatter(
-        Formatter(
-            "[%(aws_request_id)s] [%(levelname)s] "
-            "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+    for handler in _apbs_logger.handlers:
+        handler.setFormatter(
+            Formatter(
+                "[%(aws_request_id)s] [%(levelname)s] "
+                "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+            )
         )
-    )
-    _apbs_logger.addHandler(handler)
     _apbs_logger.setLevel(getenv("LOG_LEVEL", getLevelName(INFO)))
     return _apbs_logger
 
