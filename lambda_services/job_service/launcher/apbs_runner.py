@@ -16,7 +16,7 @@ from .utils import (
 
 
 class Runner(JobSetup):
-    def __init__(self, form, job_id, job_date):
+    def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
         self.form = None
         self.infile_name = None
@@ -29,16 +29,17 @@ class Runner(JobSetup):
             self.infile_support_filenames = form["support_files"]
         elif form is not None:
 
-            for key in form:
+            if "output_scalar" in form:
                 # Unravels output parameters from form
-                if key == "output_scalar":
-                    for option in form[key]:
-                        form[option] = option
-                    form.pop("output_scalar")
-                elif not isinstance(form[key], str):
+                for option in form["output_scalar"]:
+                    form[option] = option
+                form.pop("output_scalar")
+
+            for key, value in form.items():
+                if not isinstance(value, str):
                     # TODO: 2021/03/03, Elvis - Eliminate need to cast all
                     #   items as string (see 'self.fieldStorageToDict()')
-                    form[key] = str(form[key])
+                    form[key] = str(value)
 
             self.form = form
             self.apbs_options = self.field_storage_to_dict(form)
