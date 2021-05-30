@@ -129,8 +129,6 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
         if err.response["Error"]["Message"] == "NoSuchKey":
             return False
         elif err.response["Error"]["Message"] == "Forbidden":
-            # objectname_split: list = object_name.split("/")
-            # job_tag: str = f"{objectname_split[-3]}/{objectname_split[-2]}"
             job_tag: str = _extract_job_tag_from_objectname(object_name)
             _LOGGER.warning(
                 "%s Received '%s' (%d) message on object HEAD: %s",
