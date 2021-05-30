@@ -155,7 +155,9 @@ class Runner(JobSetup):
 
             except Exception as err:
                 _LOGGER.exception(
-                    "%s Failed to remove water molecules: %s", self.job_id, err
+                    "%s Failed to remove water molecules: %s",
+                    self.job_tag,
+                    err,
                 )
                 raise
 
@@ -270,7 +272,10 @@ class Runner(JobSetup):
         if apbs_options["writeCheck"] > 4:
             # TODO: 2021/03/02, Elvis - validation error;
             #       please raise exception here
-            _LOGGER.error("Please select a maximum of four write statements.")
+            _LOGGER.error(
+                "%s Please select a maximum of four write statements.",
+                self.job_tag,
+            )
 
         # READ section variables
         apbs_options["readType"] = "mol"
