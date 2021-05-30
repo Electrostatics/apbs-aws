@@ -107,7 +107,7 @@ class Runner(JobSetup):
                 cli_arg = f"--{pair[0]}={str(pair[1])}"
             result = f"{result} {cli_arg}"
 
-            # Add PDB and PQR file names to command line string
+        # Add PDB and PQR file names to command line string
         result = (
             f"{result} {self.cli_params['pdb_name']} "
             f"{self.cli_params['pqr_name']}"
@@ -150,9 +150,9 @@ class Runner(JobSetup):
         if "--summary" in result:
             result = result.replace("--summary", "")
 
-        _LOGGER.debug("%s Result: %s", job_id, result)
+        _LOGGER.debug("%s Generated CLI args: %s", self.job_tag, result)
         _LOGGER.debug(
-            "%s PDB Filename: %s", job_id, self.weboptions.pdbfilename
+            "%s PDB Filename: %s", self.job_tag, self.weboptions.pdbfilename
         )
 
         return result

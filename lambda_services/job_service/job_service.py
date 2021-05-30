@@ -40,7 +40,7 @@ def get_job_info(
     except (ClientError) as err:
         _LOGGER.exception(
             "%s Unable to get object for Bucket, %s, and Key, %s: %s",
-            f"{bucket_name}/{info_object_name}",
+            job_tag,
             bucket_name,
             info_object_name,
             err,
@@ -198,7 +198,7 @@ def interpret_job_submission(event: dict, context):
         #   - Log and (maybe) raise exception
         status = "invalid"
         message = "Invalid job type. No job executed"
-        _LOGGER.error("%s Invalid job type - Job Type: %s", job_id, job_type)
+        _LOGGER.error("%s Invalid job type - Job Type: %s", job_tag, job_type)
 
     if job_type in ("apbs", "pdb2pqr"):
         input_files = job_runner.input_files
