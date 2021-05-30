@@ -17,14 +17,18 @@ def apbs_logger():
     Returns:
         Logger: An all encompassing logger.
     """
-    _apbs_logger = getLogger()
-    for handler in _apbs_logger.handlers:
+    # Override Lambda's log format
+    root_logger = getLogger()
+    for handler in root_logger.handlers:
         handler.setFormatter(
             Formatter(
                 "[%(aws_request_id)s] [%(levelname)s] "
                 "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
             )
         )
+
+    # Set log level for our context
+    _apbs_logger = getLogger(__name__)
     _apbs_logger.setLevel(getenv("LOG_LEVEL", getLevelName(INFO)))
     return _apbs_logger
 
