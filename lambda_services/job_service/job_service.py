@@ -169,6 +169,7 @@ def interpret_job_submission(event: dict, context):
     job_info_form = get_job_info(job_tag, bucket_name, jobinfo_object_name)[
         "form"
     ]
+    _LOGGER.info("%s Preparing %s job execution", job_tag, job_type.upper())
     if job_type in "pdb2pqr":
         # If PDB2PQR:
         #   - Obtain job configuration from config file

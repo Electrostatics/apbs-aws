@@ -143,8 +143,12 @@ class JobMetrics:
         :rtype:  Dict
         """
         metrics = getrusage(RUSAGE_CHILDREN)
-        self.values["ru_utime"] = metrics.ru_utime - self.values["ru_utime"]
-        self.values["ru_stime"] = metrics.ru_stime - self.values["ru_stime"]
+        self.values[
+            "ru_utime"
+        ] = f"{(metrics.ru_utime - self.values['ru_utime']):.2f}"
+        self.values[
+            "ru_stime"
+        ] = f"{(metrics.ru_stime - self.values['ru_stime']):.2f}"
         self.values["ru_maxrss"] = metrics.ru_maxrss - self.values["ru_maxrss"]
         self.values["ru_ixrss"] = metrics.ru_ixrss - self.values["ru_ixrss"]
         self.values["ru_idrss"] = metrics.ru_idrss - self.values["ru_idrss"]
@@ -224,9 +228,9 @@ class JobMetrics:
         }
         disk_usage = self.get_storage_usage()
         metrics["metrics"]["rusage"] = self.get_rusage_delta()
-        metrics["metrics"]["runtime_in_seconds"] = int(
-            self.end_time - self.start_time
-        )
+        metrics["metrics"][
+            "runtime_in_seconds"
+        ] = f"{(self.end_time - self.start_time):.2f}"
         metrics["metrics"]["disk_storage_in_bytes"] = disk_usage
         metrics["metrics"]["exit_code"] = self.exit_code
         return metrics

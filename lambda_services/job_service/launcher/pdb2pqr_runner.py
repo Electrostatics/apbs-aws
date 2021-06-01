@@ -68,7 +68,7 @@ class Runner(JobSetup):
         elif self.invoke_method in ["cli", "v2"]:
             command_line_args = self.version_2_job()
         self.command_line_args = command_line_args
-        _LOGGER.info(
+        _LOGGER.debug(
             "%s Using command line arguments: %s",
             self.job_tag,
             command_line_args,
