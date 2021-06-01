@@ -111,7 +111,6 @@ class JobMetrics:
     def __init__(self):
         """Capture the initial state of the resource usage."""
         metrics = getrusage(RUSAGE_CHILDREN)
-        self.job_type = None
         self.output_dir = None
         self._start_time = 0
         self._end_time = 0
@@ -202,11 +201,17 @@ class JobMetrics:
         """Set the current time to denote that the job ended."""
         self._end_time = value
 
-    def set_exit_code(self, exit_code: int):
+    @property
+    def exit_code(self):
+        """The exit code of the process."""
+        return self._exit_code
+
+    @exit_code.setter
+    def exit_code(self, exit_code: int):
         """
         Set the exit code of the job executed.
         """
-        self.exit_code = exit_code
+        self._exit_code = exit_code
 
     def get_metrics(self):
         """
@@ -228,7 +233,7 @@ class JobMetrics:
         metrics["metrics"]["exit_code"] = self.exit_code
         return metrics
 
-    def write_metrics(self, job_tag, job_type, output_dir: str):
+    def write_metrics(self, job_tag: str, job_type: str, output_dir: str):
         """Get the metrics of the latest subprocess and create the output file.
 
         Args:
@@ -237,11 +242,9 @@ class JobMetrics:
         Returns:
             N/A
         """
-        self.job_type = job_type
         self.output_dir = Path(output_dir)
-        _LOGGER.info("%s JOBTYPE: %s", job_tag, self.job_type)
         metrics = self.get_metrics()
-        _LOGGER.info("%s METRICS: %s", job_tag, metrics)
+        _LOGGER.info("%s %s METRICS: %s", job_tag, job_type.upper(), metrics)
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(metrics, indent=4))
 
@@ -560,7 +563,7 @@ def run_job(
         metrics.end_time = time()
 
         # Set the returned exit code
-        metrics.set_exit_code(exit_code)
+        metrics.exit_code(exit_code)
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_TOPLEVEL_BUCKET.
