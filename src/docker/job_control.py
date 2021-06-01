@@ -547,12 +547,10 @@ def run_job(
             VisibilityTimeout=int(job_info["max_run_time"]),
         )
 
-    file = "MISSING"
-
     # Execute job binary with appropriate arguments and record metrics
     try:
         metrics.start_time = time()
-        exit_code = execute_command(
+        metrics.exit_code = execute_command(
             job_tag,
             command,
             f"{job_type}.stdout.txt",
@@ -560,18 +558,14 @@ def run_job(
         )
         metrics.end_time = time()
 
-        # Set the returned exit code
-        metrics.exit_code(exit_code)
-
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_TOPLEVEL_BUCKET.
         metrics.write_metrics(job_tag, job_type, ".")
     except Exception as error:
         # TODO: intendo 2021/05/05 - Find more specific exception
         _LOGGER.exception(
-            "%s ERROR: Failed to execute job, %s \n\t%s",
+            "%s ERROR: Failed to execute job: %s",
             job_tag,
-            f"{job_tag}/{file}",
             error,
         )
         # TODO: Should this return 1 because noone else will succeed?
