@@ -51,7 +51,6 @@ class Runner(JobSetup):
     ) -> str:
         """Setup the APBS job to run."""
         # taken from mainInput()
-        _LOGGER.info("%s Preparing APBS job execution", self.job_tag)
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
@@ -162,7 +161,7 @@ class Runner(JobSetup):
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            _LOGGER.info(
+            _LOGGER.debug(
                 "%s Write file to S3: %s",
                 job_tag,
                 f"{job_tag}/{apbs_options['tempFile']}",
@@ -172,7 +171,7 @@ class Runner(JobSetup):
                 f"{job_tag}/{apbs_options['tempFile']}",
                 new_infile_contents.encode("utf-8"),
             )
-            _LOGGER.info(
+            _LOGGER.debug(
                 "%s Write file to S3: %s",
                 job_tag,
                 f"{job_tag}/{pqr_file_name}",
@@ -365,5 +364,7 @@ class Runner(JobSetup):
         # apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
         apbs_options["writeStem"] = form["pdb2pqrid"]
 
-        _LOGGER.info("%s Setting APBS Options: %s", self.job_tag, apbs_options)
+        _LOGGER.debug(
+            "%s Setting APBS Options: %s", self.job_tag, apbs_options
+        )
         return apbs_options

@@ -169,11 +169,12 @@ def interpret_job_submission(event: dict, context):
     job_info_form = get_job_info(job_tag, bucket_name, jobinfo_object_name)[
         "form"
     ]
+    _LOGGER.info("%s Preparing %s job execution", job_tag, job_type.upper())
     if job_type in "pdb2pqr":
         # If PDB2PQR:
         #   - Obtain job configuration from config file
         #   - Use weboptions if from web
-        #   - Interpret as is if using only command line args
+        #   - Interpret as is if using only command line argsinfo
         job_runner = pdb2pqr_runner.Runner(job_info_form, job_id, job_date)
         job_command_line_args = job_runner.prepare_job()
 

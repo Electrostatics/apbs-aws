@@ -111,8 +111,7 @@ def s3_put_object(bucket_name: str, object_name: str, body):
         Key=object_name,
         Body=body,
     )
-    # NOTE: (Eo300) Should we log before the put_object() operation?
-    _LOGGER.info(
+    _LOGGER.debug(
         "%s Putting file: %s (bucket: %s)", job_tag, object_name, bucket_name
     )
 
@@ -176,7 +175,7 @@ def apbs_extract_input_files(job_tag, infile_text):
                         for arg in line.split()[2:]:
                             file_list.append(arg)
 
-    _LOGGER.info("%s Input files: %s", job_tag, file_list)
+    _LOGGER.debug("%s Input files: %s", job_tag, file_list)
     return file_list
 
 
@@ -388,5 +387,5 @@ def apbs_infile_creator(job_tag, apbs_options: dict) -> str:
     apbsinput_io.seek(0)
 
     # Return contents of updated input file
-    _LOGGER.info("%s Created APBS Input file", job_tag)
+    _LOGGER.debug("%s Created APBS Input file", job_tag)
     return apbsinput_io.read()
