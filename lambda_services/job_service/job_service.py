@@ -55,16 +55,16 @@ def get_job_info(
     except JSONDecodeError as jerr:
         _LOGGER.exception(
             "%s Can't decode JSON: %s, (%s)",
-            bucket_name,
+            job_tag,
             object_response,
             jerr,
         )
-    except Exception as jerr:
+    except Exception as err:
         _LOGGER.exception(
             "%s Can't loads JSON: %s, (%s)",
-            bucket_name,
+            job_tag,
             object_response,
-            jerr,
+            err,
         )
         raise
 
