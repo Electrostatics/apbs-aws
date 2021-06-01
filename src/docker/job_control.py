@@ -133,7 +133,7 @@ class JobMetrics:
         self.values["ru_nvcsw"] = metrics.ru_nvcsw
         self.values["ru_nivcsw"] = metrics.ru_nivcsw
 
-    def get_rusage_delta(self, memory_disk_usage):
+    def get_rusage_delta(self):
         """
         Caluculate the difference between the last time getrusage
         was called and now.
@@ -145,9 +145,7 @@ class JobMetrics:
         metrics = getrusage(RUSAGE_CHILDREN)
         self.values["ru_utime"] = metrics.ru_utime - self.values["ru_utime"]
         self.values["ru_stime"] = metrics.ru_stime - self.values["ru_stime"]
-        self.values["ru_maxrss"] = (
-            metrics.ru_maxrss - self.values["ru_maxrss"] - memory_disk_usage
-        )
+        self.values["ru_maxrss"] = metrics.ru_maxrss - self.values["ru_maxrss"]
         self.values["ru_ixrss"] = metrics.ru_ixrss - self.values["ru_ixrss"]
         self.values["ru_idrss"] = metrics.ru_idrss - self.values["ru_idrss"]
         self.values["ru_isrss"] = metrics.ru_isrss - self.values["ru_isrss"]
@@ -224,12 +222,12 @@ class JobMetrics:
         metrics = {
             "metrics": {"rusage": {}},
         }
-        memory_disk_usage = self.get_storage_usage()
-        metrics["metrics"]["rusage"] = self.get_rusage_delta(memory_disk_usage)
+        disk_usage = self.get_storage_usage()
+        metrics["metrics"]["rusage"] = self.get_rusage_delta()
         metrics["metrics"]["runtime_in_seconds"] = int(
             self.end_time - self.start_time
         )
-        metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
+        metrics["metrics"]["disk_storage_in_bytes"] = disk_usage
         metrics["metrics"]["exit_code"] = self.exit_code
         return metrics
 
