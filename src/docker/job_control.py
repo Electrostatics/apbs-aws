@@ -579,6 +579,9 @@ def run_job(
     for file in listdir("."):
         try:
             file_path = f"{job_tag}/{file}"
+            _LOGGER.info(
+                "%s Uploading file to output bucket, %s", job_tag, file
+            )
             s3client.upload_file(
                 f"{GLOBAL_VARS['JOB_PATH']}{file_path}",
                 GLOBAL_VARS["S3_TOPLEVEL_BUCKET"],
