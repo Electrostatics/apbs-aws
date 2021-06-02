@@ -142,7 +142,9 @@ class WebOptions:
         # if form.has_key("LIGAND") and form['LIGAND'].filename:
         # self.ligandfilename=sanitizeFileName(form["LIGAND"].filename)
         if "LIGANDFILE" in form and form["LIGANDFILE"] != "":
-            self.ligandfilename = sanitize_file_name(form["LIGANDFILE"])
+            self.ligandfilename = sanitize_file_name(
+                self.job_tag, form["LIGANDFILE"]
+            )
             # ligandfilestring = form["LIGAND"]
             # for Windows and Mac style newline compatibility for pdb2pka
             # ligandfilestring = ligandfilestring.replace('\r\n', '\n')
