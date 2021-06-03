@@ -13,49 +13,35 @@ class Runner(JobSetup):
     def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
         self.weboptions = None
-        self.invoke_method = None
+        self.invoke_method = "gui" # Assumes web submission unless specified
         self.cli_params = None
         self.command_line_args: str = None
         self.job_id = job_id
         self.estimated_max_runtime = 2700
 
         try:
+            # Reassign self.invoke_method if found in form
             if "invoke_method" in form:
                 _LOGGER.info(
-                    "%s Invoke_method found, value: %s",
+                    "%s Submission method specified: %s",
                     self.job_tag,
                     str(form["invoke_method"]),
                 )
-                if form["invoke_method"].lower() in ["v2", "cli"]:
+                submission_method = form["invoke_method"].lower()
+                if submission_method in ["v2", "cli"]:
                     self.invoke_method = "cli"
                     self.cli_params = {
                         "pdb_name": form["pdb_name"],
                         "pqr_name": form["pqr_name"],
                         "flags": form["flags"],
                     }
+                elif submission_method in ["v1", "gui"]:
+                    self.invoke_method = submission_method
 
-                elif form["invoke_method"].lower() in ["v1", "gui"]:
-                    self.invoke_method = "gui"
-                    self.weboptions = WebOptions(self.job_tag, form)
-            else:
-                _LOGGER.warning(
-                    "%s Invoke_method not found: %s",
-                    self.job_tag,
-                    str("invoke_method" in form),
-                )
-                if "invoke_method" in form:
-                    _LOGGER.debug(
-                        "%s Form['invoke_method']: %s",
-                        self.job_tag,
-                        str(form["invoke_method"]),
-                    )
-                    _LOGGER.debug(
-                        "%s Form type: %s",
-                        self.job_tag,
-                        type(form["invoke_method"]),
-                    )
-                self.invoke_method = "gui"
+            # Instantiate self.weboptions if job is web submission
+            if self.invoke_method in ("v1", "gui"):
                 self.weboptions = WebOptions(self.job_tag, form)
+
         except WebOptionsError:
             raise
 
