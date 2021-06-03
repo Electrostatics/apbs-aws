@@ -5,7 +5,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import datetime
 from enum import Enum
 from json import dumps, loads, JSONDecodeError
-from logging import getLogger, DEBUG, INFO
+from logging import basicConfig, getLogger, DEBUG, INFO, StreamHandler
 from os import chdir, getenv, getpid, listdir, makedirs
 from pathlib import Path
 from resource import getrusage, RUSAGE_CHILDREN
@@ -33,7 +33,15 @@ GLOBAL_VARS = {
     "QUEUE": None,
 }
 _LOGGER = getLogger(__name__)
-_LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
+basicConfig(
+    format=(
+        "[%(levelname)s] "
+        "[%(filename)s:%(lineno)s:%(funcName)s()] %(message)s"
+    ),
+    level=GLOBAL_VARS["LOG_LEVEL"],
+    handlers=[StreamHandler(stderr)],
+)
+
 
 # Default to start processing immediately
 PROCESSING = True
@@ -103,10 +111,10 @@ class JobMetrics:
     def __init__(self):
         """Capture the initial state of the resource usage."""
         metrics = getrusage(RUSAGE_CHILDREN)
-        self.job_type = None
         self.output_dir = None
-        self.start_time = 0
-        self.end_time = 0
+        self._start_time = 0
+        self._end_time = 0
+        self.exit_code = None
         self.values: Dict = {}
         self.values["ru_utime"] = metrics.ru_utime
         self.values["ru_stime"] = metrics.ru_stime
@@ -125,7 +133,7 @@ class JobMetrics:
         self.values["ru_nvcsw"] = metrics.ru_nvcsw
         self.values["ru_nivcsw"] = metrics.ru_nivcsw
 
-    def get_rusage_delta(self, memory_disk_usage):
+    def get_rusage_delta(self):
         """
         Caluculate the difference between the last time getrusage
         was called and now.
@@ -135,11 +143,13 @@ class JobMetrics:
         :rtype:  Dict
         """
         metrics = getrusage(RUSAGE_CHILDREN)
-        self.values["ru_utime"] = metrics.ru_utime - self.values["ru_utime"]
-        self.values["ru_stime"] = metrics.ru_stime - self.values["ru_stime"]
-        self.values["ru_maxrss"] = (
-            metrics.ru_maxrss - self.values["ru_maxrss"] - memory_disk_usage
+        self.values["ru_utime"] = round(
+            metrics.ru_utime - self.values["ru_utime"], 2
         )
+        self.values["ru_stime"] = round(
+            metrics.ru_stime - self.values["ru_stime"], 2
+        )
+        self.values["ru_maxrss"] = metrics.ru_maxrss - self.values["ru_maxrss"]
         self.values["ru_ixrss"] = metrics.ru_ixrss - self.values["ru_ixrss"]
         self.values["ru_idrss"] = metrics.ru_idrss - self.values["ru_idrss"]
         self.values["ru_isrss"] = metrics.ru_isrss - self.values["ru_isrss"]
@@ -173,18 +183,37 @@ class JobMetrics:
             if f.is_file()
         )
 
-    # TODO: intendo - 2021/05/10 - These should be properties
-    def set_start_time(self):
-        """
-        Set the current time to denote that the job started.
-        """
-        self.start_time = time()
+    @property
+    def start_time(self):
+        """The time the job started."""
+        return self._start_time
 
-    def set_end_time(self):
+    @start_time.setter
+    def start_time(self, value):
+        """Set the current time to denote that the job started."""
+        self._start_time = value
+
+    @property
+    def end_time(self):
+        """The time the job ended."""
+        return self._end_time
+
+    @end_time.setter
+    def end_time(self, value):
+        """Set the current time to denote that the job ended."""
+        self._end_time = value
+
+    @property
+    def exit_code(self):
+        """The exit code of the process."""
+        return self._exit_code
+
+    @exit_code.setter
+    def exit_code(self, exit_code: int):
         """
-        Set the current time to denote that the job ended.
+        Set the exit code of the job executed.
         """
-        self.end_time = time()
+        self._exit_code = exit_code
 
     def get_metrics(self):
         """
@@ -197,47 +226,49 @@ class JobMetrics:
         metrics = {
             "metrics": {"rusage": {}},
         }
-        memory_disk_usage = self.get_storage_usage()
-        metrics["metrics"]["rusage"] = self.get_rusage_delta(memory_disk_usage)
-        metrics["metrics"]["runtime_in_seconds"] = int(
-            self.end_time - self.start_time
+        disk_usage = self.get_storage_usage()
+        metrics["metrics"]["rusage"] = self.get_rusage_delta()
+        metrics["metrics"]["runtime_in_seconds"] = round(
+            self.end_time - self.start_time, 2
         )
-        metrics["metrics"]["disk_storage_in_bytes"] = memory_disk_usage
-        _LOGGER.debug("METRICS: %s", metrics)
+        metrics["metrics"]["disk_storage_in_bytes"] = disk_usage
+        metrics["metrics"]["exit_code"] = self.exit_code
         return metrics
 
-    def write_metrics(self, job_type, output_dir: str):
+    def write_metrics(self, job_tag: str, job_type: str, output_dir: str):
         """Get the metrics of the latest subprocess and create the output file.
 
         Args:
             job_type (str): Either "apbs" or "pdb2pqr".
             output_dir (str): The directory to find the output files.
+        Returns:
+            N/A
         """
-        self.job_type = job_type
         self.output_dir = Path(output_dir)
-        _LOGGER.debug("JOBTYPE: %s", self.job_type)
-        _LOGGER.debug("OUTPUTDIR: %s", self.output_dir)
+        metrics = self.get_metrics()
+        _LOGGER.info("%s %s METRICS: %s", job_tag, job_type.upper(), metrics)
         with open(f"{job_type}-metrics.json", "w") as fout:
-            fout.write(dumps(self.get_metrics(), indent=4))
+            fout.write(dumps(metrics, indent=4))
 
 
-def printCurrentState():
+def print_current_state():
     for idx in sorted(GLOBAL_VARS):
         _LOGGER.info("VAR: %s, VALUE: %s", idx, GLOBAL_VARS[idx])
         print(f"VAR: {idx}, VALUE: set to: {GLOBAL_VARS[idx]}", file=stderr)
     _LOGGER.info("PROCESSING state: %s", PROCESSING)
-    print(f"PROCESSING state: {PROCESSING}", file=stderr)
+    print(f"PROCESSING state: {PROCESSING}\n", file=stderr)
 
 
-def receiveSignal(signalNumber, frame):
-    _LOGGER.info("Received signal: %s, %s", signalNumber, frame)
-    print(f"Received signal: {signalNumber}, {frame}", file=stderr)
-    signalHelp(signalNumber, frame)
+def receive_signal(signal_number, frame):
+    _LOGGER.info("Received signal: %s, %s", signal_number, frame)
+    print(f"Received signal: {signal_number}, {frame}", file=stderr)
+    signal_help(signal_number, frame)
 
 
-def signalHelp(signalNumber, frame):
+def signal_help(signal_number, frame):
+    # pylint: disable=unused-argument
     print("\n", file=stderr)
-    print(f"RECEIVED SIGNAL: {signalNumber}\n\n", file=stderr)
+    print(f"RECEIVED SIGNAL: {signal_number}\n\n", file=stderr)
     print("\tYou have asked for help:\n\n", file=stderr)
     print(
         f"\tTo update environment variables, type: kill -USR1 {getpid()}\n\n",
@@ -246,22 +277,25 @@ def signalHelp(signalNumber, frame):
     print(
         f"\tTo toggle processing, type: kill -USR2 {getpid()}\n\n", file=stderr
     )
-    printCurrentState()
+    print_current_state()
 
 
-def terminateProcess(signalNumber, frame):
-    print("Caught (SIGTERM) terminating the process", file=stderr)
+def terminate_process(signal_number, frame):
+    # pylint: disable=unused-argument
+    print("Caught (SIGTERM) terminating the process\n", file=stderr)
     sys.exit()
 
 
-def toggleProcessing(signalNumber, frame):
+def toggle_processing(signal_number, frame):
+    # pylint: disable=unused-argument
     global PROCESSING
     PROCESSING = not PROCESSING
     _LOGGER.info("PROCESSING set to: %s", PROCESSING)
-    print(f"PROCESSING set to:{PROCESSING}", file=stderr)
+    print(f"PROCESSING set to:{PROCESSING}\n", file=stderr)
 
 
-def updateEnvironment(signalNumber, frame):
+def update_environment(signal_number, frame):
+    # pylint: disable=unused-argument
     # TODO: This may need to be increased or calculated based
     #       on complexity of the job (dimension of molecule?)
     #       The job could get launched multiple times if the
@@ -304,7 +338,7 @@ def get_messages(sqs: client, qurl: str) -> Any:
         loop += 1
         if loop == GLOBAL_VARS["MAX_TRIES"]:
             return None
-        _LOGGER.info("Waiting ....")
+        _LOGGER.debug("Waiting ....")
         sleep(GLOBAL_VARS["RETRY_TIME"])
         messages = sqs.receive_message(
             QueueUrl=qurl,
@@ -350,13 +384,13 @@ def update_status(
         )
     except ClientError as cerr:
         _LOGGER.exception(
-            "%s ERROR: Unknown ClientError exception from s3.put_object, %s",
+            "%s ERROR: ClientError exception from s3.put_object, %s",
             job_tag,
             cerr,
         )
     except ParamValidationError as perr:
         _LOGGER.exception(
-            "%s ERROR: Unknown ParamValidation exception from s3.put_object, %s",
+            "%s ERROR: ParamValidation exception from s3.put_object, %s",
             job_tag,
             perr,
         )
@@ -364,13 +398,13 @@ def update_status(
     return object_response
 
 
-def cleanup_job(rundir: str) -> int:
+def cleanup_job(job_tag: str, rundir: str) -> int:
     """Remove the directory for the job.
 
     :param rundir:  The local directory where the job is being executed.
     :return:  int
     """
-    _LOGGER.info("Deleting run directory, %s", rundir)
+    _LOGGER.info("%s Deleting run directory, %s", job_tag, rundir)
     chdir(GLOBAL_VARS["JOB_PATH"])
     rmtree(rundir)
     return 1
@@ -381,22 +415,27 @@ def execute_command(
     command_line_str: str,
     stdout_filename: str,
     stderr_filename: str,
-):
+) -> int:
     """Spawn a subprocess and collect all the information about it.
+    Returns the exit code the of the executed command.
 
     Args:
         job_tag (str): The unique job id.
         command_line_str (str): The command and arguments.
         stdout_filename (str): The name of the output file for stdout.
         stderr_filename (str): The name of the output file for stderr.
+    Return:
+        exit_code (int): The exit code of the executed command
     """
     command_split = command_line_str.split()
     stdout_text: str
     stderr_text: str
+    exit_code: int
     try:
         proc = run(command_split, stdout=PIPE, stderr=PIPE, check=True)
         stdout_text = proc.stdout.decode("utf-8")
         stderr_text = proc.stderr.decode("utf-8")
+        exit_code = proc.returncode
     except CalledProcessError as cpe:
         _LOGGER.exception(
             "%s failed to run command, %s: %s",
@@ -406,6 +445,7 @@ def execute_command(
         )
         stdout_text = cpe.stdout.decode("utf-8")
         stderr_text = cpe.stderr.decode("utf-8")
+        exit_code = cpe.returncode
 
     # Write stdout to file
     with open(stdout_filename, "w") as fout:
@@ -414,6 +454,8 @@ def execute_command(
     # Write stderr to file
     with open(stderr_filename, "w") as fout:
         fout.write(stderr_text)
+
+    return exit_code
 
 
 # TODO: intendo - 2021/05/10 - Break run_job into multiple functions
@@ -469,7 +511,7 @@ def run_job(
                     name,
                     error,
                 )
-                return cleanup_job(rundir)
+                return cleanup_job(job_tag, rundir)
         else:
             try:
                 s3client.download_file(
@@ -483,7 +525,7 @@ def run_job(
                     file,
                     error,
                 )
-                return cleanup_job(rundir)
+                return cleanup_job(job_tag, rundir)
 
     # Run job and record associated metrics
     update_status(
@@ -509,38 +551,50 @@ def run_job(
             VisibilityTimeout=int(job_info["max_run_time"]),
         )
 
-    file = "MISSING"
+    # Execute job binary with appropriate arguments and record metrics
     try:
-        metrics.set_start_time()
-        execute_command(
+        metrics.start_time = time()
+        metrics.exit_code = execute_command(
             job_tag,
             command,
             f"{job_type}.stdout.txt",
             f"{job_type}.stderr.txt",
         )
-        metrics.set_end_time()
+        metrics.end_time = time()
 
         # We need to create the {job_type}-metrics.json before we upload
         # the files to the S3_TOPLEVEL_BUCKET.
-        metrics.write_metrics(job_type, ".")
+        metrics.write_metrics(job_tag, job_type, ".")
+    except Exception as error:
+        # TODO: intendo 2021/05/05 - Find more specific exception
+        _LOGGER.exception(
+            "%s ERROR: Failed to execute job: %s",
+            job_tag,
+            error,
+        )
+        # TODO: Should this return 1 because noone else will succeed?
+        ret_val = 1
 
-        for file in listdir("."):
+    # Upload directory contents to S3
+    for file in listdir("."):
+        try:
             file_path = f"{job_tag}/{file}"
+            _LOGGER.info(
+                "%s Uploading file to output bucket, %s", job_tag, file
+            )
             s3client.upload_file(
                 f"{GLOBAL_VARS['JOB_PATH']}{file_path}",
                 GLOBAL_VARS["S3_TOPLEVEL_BUCKET"],
                 f"{file_path}",
             )
-    except Exception as error:
-        # TODO: intendo 2021/05/05 - Find more specific exception
-        _LOGGER.exception(
-            "%s ERROR: Failed to upload file, %s \n\t%s",
-            job_tag,
-            f"{job_tag}/{file}",
-            error,
-        )
-        # TODO: Should this return 1 because noone else will succeed?
-        ret_val = 1
+        except ClientError as error:
+            _LOGGER.exception(
+                "%s ERROR: Failed to upload file, %s \n\t%s",
+                job_tag,
+                f"{job_tag}/{file}",
+                error,
+            )
+        # ret_val = 1
 
     # TODO: 2021/03/30, Elvis - Will need to address how we bundle output
     #       subdirectory for PDB2PKA when used; I previous bundled it as
@@ -557,7 +611,7 @@ def run_job(
     ]
 
     # Cleanup job directory and update status
-    cleanup_job(rundir)
+    cleanup_job(job_tag, rundir)
     update_status(
         s3client,
         job_tag,
@@ -619,24 +673,23 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
-    updateEnvironment(None, None)
+    update_environment(None, None)
 
-    signal.signal(signal.SIGHUP, signalHelp)
-    signal.signal(signal.SIGINT, receiveSignal)
-    signal.signal(signal.SIGQUIT, receiveSignal)
-    signal.signal(signal.SIGILL, receiveSignal)
-    signal.signal(signal.SIGTRAP, receiveSignal)
-    signal.signal(signal.SIGABRT, receiveSignal)
-    signal.signal(signal.SIGBUS, receiveSignal)
-    signal.signal(signal.SIGFPE, receiveSignal)
+    signal.signal(signal.SIGHUP, signal_help)
+    signal.signal(signal.SIGINT, receive_signal)
+    signal.signal(signal.SIGQUIT, receive_signal)
+    signal.signal(signal.SIGILL, receive_signal)
+    signal.signal(signal.SIGTRAP, receive_signal)
+    signal.signal(signal.SIGABRT, receive_signal)
+    signal.signal(signal.SIGBUS, receive_signal)
+    signal.signal(signal.SIGFPE, receive_signal)
     # signal.signal(signal.SIGKILL, receiveSignal)
-    signal.signal(signal.SIGUSR1, updateEnvironment)
-    signal.signal(signal.SIGSEGV, receiveSignal)
-    signal.signal(signal.SIGUSR2, toggleProcessing)
-    signal.signal(signal.SIGPIPE, receiveSignal)
-    signal.signal(signal.SIGALRM, receiveSignal)
-    signal.signal(signal.SIGTERM, terminateProcess)
+    signal.signal(signal.SIGUSR1, update_environment)
+    signal.signal(signal.SIGSEGV, receive_signal)
+    signal.signal(signal.SIGUSR2, toggle_processing)
+    signal.signal(signal.SIGPIPE, receive_signal)
+    signal.signal(signal.SIGALRM, receive_signal)
+    signal.signal(signal.SIGTERM, terminate_process)
 
     parser = build_parser()
     args = parser.parse_args()
