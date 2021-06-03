@@ -13,7 +13,7 @@ class Runner(JobSetup):
     def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
         self.weboptions = None
-        self.invoke_method = "gui" # Assumes web submission unless specified
+        self.invoke_method = "gui"  # Assumes web submission unless specified
         self.cli_params = None
         self.command_line_args: str = None
         self.job_id = job_id
