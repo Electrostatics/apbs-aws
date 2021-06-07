@@ -118,7 +118,9 @@ def test_get_job_info(initialize_input_bucket):
     )
 
     # Download using get_job_info()
-    job_info: dict = job_service.get_job_info(bucket_name, object_name)
+    job_info: dict = job_service.get_job_info(
+        "2021-05-21/sampleId", bucket_name, object_name
+    )
 
     # Verify output is dictionary and contents match input
     # TODO: Eo300 - check if '==' comparison is sufficient
@@ -145,7 +147,7 @@ def test_build_status_dict_valid_job():
         message=None,
     )
     assert "jobid" in status_dict
-    assert "jobtag" in status_dict
+    # assert "jobtag" in status_dict
     assert "jobtype" in status_dict
     assert job_type in status_dict
     assert "status" in status_dict[job_type]
@@ -290,6 +292,7 @@ def test_interpret_job_submission_pdb2pqr_noupload(
         "job_id": "sampleId",
         "job_type": "pdb2pqr",
         "job_date": "2021-05-16",
+        "job_tag": "2021-05-16/sampleId",
         "bucket_name": "pytest_input_bucket",
         "input_files": ["https://files.rcsb.org/download/1fas.pdb"],
         "command_line_args": "--with-ph=7.0 --ph-calc-method=propka --drop-water --apbs-input --ff=parse --verbose  1fas.pdb sampleId.pqr",  # noqa: E501
@@ -374,9 +377,19 @@ def test_interpret_job_submission_apbs_direct(
 
     # Upload *.in and associated *.pqr file
     in_filepath: str = "lambda_services/tests/input_data/1fas.in"
-    upload_data(s3_client, input_bucket_name, f"{job_tag}/1fas.in", open(in_filepath).read())
+    upload_data(
+        s3_client,
+        input_bucket_name,
+        f"{job_tag}/1fas.in",
+        open(in_filepath).read(),
+    )
     pqr_filepath: str = "lambda_services/tests/input_data/1fas.pqr"
-    upload_data(s3_client, input_bucket_name, f"{job_tag}/1fas.pqr", open(pqr_filepath).read())
+    upload_data(
+        s3_client,
+        input_bucket_name,
+        f"{job_tag}/1fas.pqr",
+        open(pqr_filepath).read(),
+    )
 
     # Set module globals and interpret APBS job trigger
     job_service.SQS_QUEUE_NAME = queue_name
@@ -400,13 +413,14 @@ def test_interpret_job_submission_apbs_direct(
         "job_id": "sampleId",
         "job_type": "apbs",
         "job_date": "2021-05-16",
+        "job_tag": "2021-05-16/sampleId",
         "bucket_name": "pytest_input_bucket",
         "input_files": [
             "2021-05-16/sampleId/1fas.in",
-            "2021-05-16/sampleId/1fas.pqr"
+            "2021-05-16/sampleId/1fas.pqr",
         ],
         "command_line_args": "1fas.in",
-        "max_run_time": 7200
+        "max_run_time": 7200,
     }
 
     # Compare queue contents with expected
@@ -430,7 +444,7 @@ def test_interpret_job_submission_apbs_direct(
     assert status_object_data["apbs"]["status"] == "pending"
     assert status_object_data["apbs"]["inputFiles"] == [
         "2021-05-16/sampleId/1fas.in",
-        "2021-05-16/sampleId/1fas.pqr"
+        "2021-05-16/sampleId/1fas.pqr",
     ]
     assert status_object_data["apbs"]["outputFiles"] == []
     # Checking type here since startTime is determined at runtime
