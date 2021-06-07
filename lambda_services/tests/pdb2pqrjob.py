@@ -3,9 +3,11 @@
 """Pdb2PqrJob is used to hold information about an PDB2PQR job."""
 
 from json import dumps
-from logging import getLogger
+from logging import basicConfig, getLogger, INFO, StreamHandler
 from pathlib import Path
+from os import getenv
 from typing import List
+from sys import stdout
 
 from jobinterface import JobInterface
 from utiljob import get_contents, JOBTYPE
@@ -38,6 +40,11 @@ class Pdb2PqrJob(JobInterface):
 
         self.job_type = JOBTYPE.PDB2PQR.name.lower()
         self._logger = getLogger(__class__.__name__)
+        basicConfig(
+            format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            level=int(getenv("LOG_LEVEL", str(INFO))),
+            handlers=[StreamHandler(stdout)],
+        )
         super().__init__(jobid, file_path, file_list)
 
     def get_memory_usage(self):

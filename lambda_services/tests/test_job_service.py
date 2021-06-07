@@ -130,14 +130,22 @@ def test_build_status_dict_valid_job():
 
     # Valid job
     job_id = "sampleId"
+    job_tag = f"2021-05-21/{job_id}"
     job_type = "apbs"
     input_files = ["sampleId.in", "1fas.pqr"]
     output_files = []
     job_status = "pending"
     status_dict: dict = job_service.build_status_dict(
-        job_id, job_type, job_status, input_files, output_files, message=None
+        job_id,
+        job_tag,
+        job_type,
+        job_status,
+        input_files,
+        output_files,
+        message=None,
     )
     assert "jobid" in status_dict
+    assert "jobtag" in status_dict
     assert "jobtype" in status_dict
     assert job_type in status_dict
     assert "status" in status_dict[job_type]
@@ -153,6 +161,7 @@ def test_build_status_dict_invalid_job():
 
     # Invalid job
     job_id = "sampleId"
+    job_tag = f"2021-05-21/{job_id}"
     job_type = "nonsenseJobType"
     input_files = None
     output_files = None
@@ -160,6 +169,7 @@ def test_build_status_dict_invalid_job():
     invalid_message = "Invalid job type"
     status_dict: dict = job_service.build_status_dict(
         job_id,
+        job_tag,
         job_type,
         job_status,
         input_files,

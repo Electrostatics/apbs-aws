@@ -2,10 +2,11 @@
 from json import dumps, loads, JSONDecodeError
 from os import getenv
 from time import time
-from logging import getLogger
 from boto3 import client, resource
+from botocore.exceptions import ClientError
 from .launcher import pdb2pqr_runner, apbs_runner
 from .launcher.jobsetup import MissingFilesError
+from .launcher.utils import _LOGGER
 
 OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
 FARGATE_CLUSTER = getenv("FARGATE_CLUSTER")
@@ -16,13 +17,14 @@ JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
-_LOGGER = getLogger()
-_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
 
 
-def get_job_info(bucket_name: str, info_object_name: str) -> dict:
+def get_job_info(
+    job_tag: str, bucket_name: str, info_object_name: str
+) -> dict:
     """Retrieve job configuraiton JSON object from S3, and return as dict.
 
+    :param job_tag str: Unique ID for this job
     :param bucket_name str: AWS S3 bucket to retrieve file from
     :param info_object_name str: The name of the file to download
     :return: A dictionary of the JSON object representing a job configuration
@@ -30,35 +32,47 @@ def get_job_info(bucket_name: str, info_object_name: str) -> dict:
     """
 
     # Download job info object from S3
-    s3_client = client("s3")
-    object_response: dict = s3_client.get_object(
-        Bucket=bucket_name,
-        Key=info_object_name,
-    )
+    object_response = {}
+    try:
+        object_response = client("s3").get_object(
+            Bucket=bucket_name,
+            Key=info_object_name,
+        )
+    except (ClientError) as err:
+        _LOGGER.exception(
+            "%s Unable to get object for Bucket, %s, and Key, %s: %s",
+            job_tag,
+            bucket_name,
+            info_object_name,
+            err,
+        )
+        raise
 
     # Convert content of JSON file to dict
     try:
         job_info: dict = loads(object_response["Body"].read().decode("utf-8"))
+        _LOGGER.info("%s Found job_info: %s", job_tag, job_info)
         return job_info
     except JSONDecodeError as jerr:
         _LOGGER.exception(
             "%s Can't decode JSON: %s, (%s)",
-            bucket_name,
+            job_tag,
             object_response,
             jerr,
         )
-    except Exception as jerr:
+    except Exception as err:
         _LOGGER.exception(
             "%s Can't loads JSON: %s, (%s)",
-            bucket_name,
+            job_tag,
             object_response,
-            jerr,
+            err,
         )
         raise
 
 
 def build_status_dict(
     job_id: str,
+    job_tag: str,
     job_type: str,
     status: str,
     inputfile_list: list,
@@ -105,6 +119,7 @@ def build_status_dict(
         initial_status_dict[job_type]["inputFiles"] = None
         initial_status_dict[job_type]["outputFiles"] = None
 
+    _LOGGER.info("%s Initial Status: %s", job_tag, initial_status_dict)
     return initial_status_dict
 
 
@@ -142,31 +157,32 @@ def interpret_job_submission(event: dict, context):
     bucket_name: str = event["Records"][0]["s3"]["bucket"]["name"]
     job_id, jobinfo_filename = jobinfo_object_name.split("/")[-2:]
     job_date: str = jobinfo_object_name.split("/")[0]
+    job_tag = f"{job_date}/{job_id}"
     # Assumes 'pdb2pqr-job.json', or similar format
     job_type = jobinfo_filename.split("-")[0]
 
-    # If PDB2PQR:
-    #   - Obtain job configuration from config file
-    #   - Use weboptions if from web
-    #   - Interpret as is if using only command line args
     input_files = None
     output_files = None
+    job_runner = None
     message = None
     status = "pending"
     timeout_seconds = None
-    if job_type == "pdb2pqr":
-        job_info_form = get_job_info(bucket_name, jobinfo_object_name)["form"]
+    job_info_form = get_job_info(job_tag, bucket_name, jobinfo_object_name)[
+        "form"
+    ]
+    _LOGGER.info("%s Preparing %s job execution", job_tag, job_type.upper())
+    if job_type in "pdb2pqr":
+        # If PDB2PQR:
+        #   - Obtain job configuration from config file
+        #   - Use weboptions if from web
+        #   - Interpret as is if using only command line args
         job_runner = pdb2pqr_runner.Runner(job_info_form, job_id, job_date)
         job_command_line_args = job_runner.prepare_job()
-        input_files = job_runner.input_files
-        output_files = job_runner.output_files
-        timeout_seconds = job_runner.estimated_max_runtime
 
-    # If APBS:
-    #   - Obtain job configuration from config file
-    #   - Use form data to interpret job
-    elif job_type == "apbs":
-        job_info_form = get_job_info(bucket_name, jobinfo_object_name)["form"]
+    elif job_type in "apbs":
+        # If APBS:
+        #   - Obtain job configuration from config file
+        #   - Use form data to interpret job
         job_runner = apbs_runner.Runner(job_info_form, job_id, job_date)
         try:
             job_command_line_args = job_runner.prepare_job(
@@ -178,23 +194,30 @@ def interpret_job_submission(event: dict, context):
                 f"Files specified but not found: {err.missing_files}. "
                 f"Please check that all files upload before resubmitting."
             )
+    else:
+        # If no valid job type
+        #   - Construct "invalid" status
+        #   - Log and (maybe) raise exception
+        status = "invalid"
+        message = "Invalid job type. No job executed"
+        _LOGGER.error("%s Invalid job type - Job Type: %s", job_tag, job_type)
+
+    if job_type in ("apbs", "pdb2pqr"):
         input_files = job_runner.input_files
         output_files = job_runner.output_files
         timeout_seconds = job_runner.estimated_max_runtime
 
-    # If no valid job type
-    #   - Construct "invalid" status
-    #   - Log and (maybe) raise exception
-    else:
-        status = "invalid"
-        message = "Invalid job type. No job executed"
-        _LOGGER.error("%s Invalid job type - Job Type: %s", job_id, job_type)
-
     # Create and upload status file to S3
     status_filename = f"{job_type}-status.json"
-    status_object_name = f"{job_date}/{job_id}/{status_filename}"
+    status_object_name = f"{job_tag}/{status_filename}"
     initial_status: dict = build_status_dict(
-        job_id, job_type, status, input_files, output_files, message
+        job_id, job_tag, job_type, status, input_files, output_files, message
+    )
+    _LOGGER.info(
+        "%s Uploading status file, %s: %s",
+        job_tag,
+        status_object_name,
+        initial_status,
     )
     upload_status_file(status_object_name, initial_status)
 
@@ -204,9 +227,10 @@ def interpret_job_submission(event: dict, context):
             timeout_seconds = JOB_MAX_RUNTIME
 
         sqs_json = {
-            "job_id": job_id,
-            "job_type": job_type,
             "job_date": job_date,
+            "job_id": job_id,
+            "job_tag": job_tag,
+            "job_type": job_type,
             "bucket_name": bucket_name,
             "input_files": job_runner.input_files,
             "command_line_args": job_command_line_args,
@@ -214,4 +238,5 @@ def interpret_job_submission(event: dict, context):
         }
         sqs_client = resource("sqs", JOB_QUEUE_REGION)
         queue = sqs_client.get_queue_by_name(QueueName=SQS_QUEUE_NAME)
+        _LOGGER.info("%s Sending message to queue: %s", job_tag, sqs_json)
         queue.send_message(MessageBody=dumps(sqs_json))

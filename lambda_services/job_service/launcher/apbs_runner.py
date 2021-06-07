@@ -2,12 +2,11 @@
 
 from io import StringIO
 from locale import atof, atoi
-from logging import getLogger
 from os.path import splitext
-from os import getenv
 
 from .jobsetup import JobSetup, MissingFilesError
 from .utils import (
+    _LOGGER,
     apbs_extract_input_files,
     apbs_infile_creator,
     s3_download_file_str,
@@ -15,56 +14,48 @@ from .utils import (
     s3_put_object,
 )
 
-# Initialize logger
-_LOGGER = getLogger()
-_LOGGER.setLevel(getenv("LOG_LEVEL", "INFO"))
-
 
 class Runner(JobSetup):
-    def __init__(self, form, job_id, job_date):
+    def __init__(self, form: dict, job_id: str, job_date: str):
         super().__init__(job_id, job_date)
-        self.job_id = None
         self.form = None
         self.infile_name = None
         self.command_line_args = None
-        self.input_files = []
         self.infile_support_filenames = []
-        self.output_files = []
         self.estimated_max_runtime = 7200
-        self._logger = getLogger(__class__.__name__)
 
         if "filename" in form:
             self.infile_name = form["filename"]
             self.infile_support_filenames = form["support_files"]
         elif form is not None:
 
-            for key in form:
+            if "output_scalar" in form:
                 # Unravels output parameters from form
-                if key == "output_scalar":
-                    for option in form[key]:
-                        form[option] = option
-                    form.pop("output_scalar")
-                elif not isinstance(form[key], str):
+                for option in form["output_scalar"]:
+                    form[option] = option
+                form.pop("output_scalar")
+
+            for key, value in form.items():
+                if not isinstance(value, str):
                     # TODO: 2021/03/03, Elvis - Eliminate need to cast all
                     #   items as string (see 'self.fieldStorageToDict()')
-                    form[key] = str(form[key])
+                    form[key] = str(value)
 
             self.form = form
             self.apbs_options = self.field_storage_to_dict(form)
             # TODO: catch error if something wrong happens
             #   in fieldStorageToDict handle in tesk_proxy_service
 
-        self.job_id = job_id if job_id is not None else form["pdb2pqrid"]
-
     def prepare_job(
         self, output_bucket_name: str, input_bucket_name: str
     ) -> str:
+        """Setup the APBS job to run."""
         # taken from mainInput()
-        self._logger.info("%s Preparing APBS job execution", self.job_id)
         infile_name = self.infile_name
         form = self.form
         job_id = self.job_id
         job_date = self.job_date
+        job_tag = f"{job_date}/{job_id}"
 
         # downloading necessary files
         if infile_name is not None:
@@ -74,10 +65,9 @@ class Runner(JobSetup):
             # Check S3 for .in file existence; add to missing list if not
             self.add_input_file(infile_name)
             if not s3_object_exists(input_bucket_name, infile_object_name):
-                self._logger.error(
-                    "%s %s Missing APBS input file '%s'",
-                    job_id,
-                    job_date,
+                _LOGGER.error(
+                    "%s Missing APBS input file '%s'",
+                    job_tag,
                     infile_name,
                 )
                 self.add_missing_file(infile_name)
@@ -87,9 +77,14 @@ class Runner(JobSetup):
 
             # Check if additional expected files exist in S3
             for name in expected_files_list:
-                object_name = f"{job_date}/{job_id}/{name}"
+                object_name = f"{job_tag}/{name}"
                 self.add_input_file(str(name))
                 if not s3_object_exists(input_bucket_name, object_name):
+                    _LOGGER.error(
+                        "%s Missing APBS input file '%s'",
+                        job_tag,
+                        name,
+                    )
                     self.add_missing_file(str(name))
 
             # Set and return command line args
@@ -112,20 +107,20 @@ class Runner(JobSetup):
 
             # Get text for infile string
             infile_str = s3_download_file_str(
-                output_bucket_name, f"{job_date}/{job_id}/{infile_name}"
+                output_bucket_name, f"{job_tag}/{infile_name}"
             )
 
             # Extracts PQR file name from the '*.in' file within storage bucket
-            pqr_file_name = apbs_extract_input_files(infile_str)[0]
+            pqr_file_name = apbs_extract_input_files(job_tag, infile_str)[0]
             apbs_options["pqrFileName"] = pqr_file_name
 
             # Get contents of updated APBS input file, based on form
             apbs_options["tempFile"] = "apbsinput.in"
-            new_infile_contents = apbs_infile_creator(apbs_options)
+            new_infile_contents = apbs_infile_creator(job_tag, apbs_options)
 
             # Get contents of PQR file from PDB2PQR run
             pqrfile_text = s3_download_file_str(
-                output_bucket_name, f"{job_date}/{job_id}/{pqr_file_name}"
+                output_bucket_name, f"{job_tag}/{pqr_file_name}"
             )
 
             # Remove waters from molecule (PQR file) if requested by the user
@@ -140,25 +135,16 @@ class Runner(JobSetup):
                     )
 
                     # Add lines to new PQR text, skipping lines with water
-                    nowater_pqrfile_text = ""
-                    for line in StringIO(pqrfile_text):
-                        # if line == '':
-                        #     break
-                        # (2020/03/03) Commented out above because we not
-                        #   using while-loop; didn't seem necessary
-                        if "WAT" in line:
-                            pass
-                        elif "HOH" in line:
-                            pass
-                        else:
-                            nowater_pqrfile_text += line
-                            # nowater_pqrfile_text.write(line)
-                    # nowater_pqrfile_text.seek(0)
+                    nowater_pqrfile_text = "".join(
+                        line
+                        for line in StringIO(pqrfile_text)
+                        if "WAT" not in line and "HOH" not in line
+                    )
 
                     # Send original PQR file (with water) to S3 output bucket
                     s3_put_object(
                         output_bucket_name,
-                        f"{job_date}/{job_id}/{water_pqrname}",
+                        f"{job_tag}/{water_pqrname}",
                         pqrfile_text.encode("utf-8"),
                     )
                     self.add_output_file(f"{job_id}/{water_pqrname}")
@@ -168,19 +154,31 @@ class Runner(JobSetup):
 
             except Exception as err:
                 _LOGGER.exception(
-                    "%s Failed to remove water molecules: %s", self.job_id, err
+                    "%s Failed to remove water molecules: %s",
+                    self.job_tag,
+                    err,
                 )
                 raise
 
             # Upload *.pqr and *.in file to input bucket
-            s3_put_object(
-                input_bucket_name,
-                f"{job_date}/{job_id}/{apbs_options['tempFile']}",
-                new_infile_contents.encode("utf-8"),
+            _LOGGER.debug(
+                "%s Write file to S3: %s",
+                job_tag,
+                f"{job_tag}/{apbs_options['tempFile']}",
             )
             s3_put_object(
                 input_bucket_name,
-                f"{job_date}/{job_id}/{pqr_file_name}",
+                f"{job_tag}/{apbs_options['tempFile']}",
+                new_infile_contents.encode("utf-8"),
+            )
+            _LOGGER.debug(
+                "%s Write file to S3: %s",
+                job_tag,
+                f"{job_tag}/{pqr_file_name}",
+            )
+            s3_put_object(
+                input_bucket_name,
+                f"{job_tag}/{pqr_file_name}",
                 pqrfile_text.encode("utf-8"),
             )
 
@@ -273,8 +271,9 @@ class Runner(JobSetup):
         if apbs_options["writeCheck"] > 4:
             # TODO: 2021/03/02, Elvis - validation error;
             #       please raise exception here
-            self._logger.error(
-                "Please select a maximum of four write statements."
+            _LOGGER.error(
+                "%s Please select a maximum of four write statements.",
+                self.job_tag,
             )
 
         # READ section variables
@@ -365,4 +364,7 @@ class Runner(JobSetup):
         # apbsOptions['writeStem'] = apbsOptions['pqrFileName'][:-4]
         apbs_options["writeStem"] = form["pdb2pqrid"]
 
+        _LOGGER.debug(
+            "%s Setting APBS Options: %s", self.job_tag, apbs_options
+        )
         return apbs_options
