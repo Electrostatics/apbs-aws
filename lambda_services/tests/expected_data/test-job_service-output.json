@@ -31,6 +31,37 @@
     }
   },
   {
+    "name": "apbs-post_pdb2pqr",
+    "sqs_message": {
+      "job_id": "sampleId",
+      "job_type": "apbs",
+      "job_date": "2021-05-16",
+      "job_tag": "2021-05-16/sampleId",
+      "bucket_name": "pytest_input_bucket",
+      "input_files": [
+        "2021-05-16/sampleId/1fas.pqr",
+        "2021-05-16/sampleId/apbsinput.in"
+      ],
+      "command_line_args": "apbsinput.in",
+      "max_run_time": 7200
+    },
+    "initial_status": {
+      "jobid": "sampleId",
+      "jobtype": "apbs",
+      "apbs": {
+        "status": "pending",
+        "startTime": 1623172892.2588568,
+        "endTime": null,
+        "subtasks": [],
+        "inputFiles": [
+          "2021-05-16/sampleId/1fas.pqr",
+          "2021-05-16/sampleId/apbsinput.in"
+        ],
+        "outputFiles": []
+      }
+    }
+  },
+  {
     "name": "pdb2pqr-v1-basic",
     "sqs_message": {
       "job_date": "2021-05-16",

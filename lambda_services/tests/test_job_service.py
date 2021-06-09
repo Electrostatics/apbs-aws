@@ -343,11 +343,6 @@ with open("lambda_services/tests/expected_data/test-job_service-output.json") as
 def test_interpret_job_submission_success(
     apbs_test_job: dict, expected_output: dict
 ):
-    # print(input_job_list)
-    # print("job input data", dumps(apbs_test_job, indent=2))
-    # print(expected_output_list)
-    # print("expected output data:", dumps(expected_output, indent=2))
-    # return
     s3_event: dict = apbs_test_job["trigger"]
     job_info: dict = apbs_test_job["job"]
     expected_sqs_message: dict = expected_output["sqs_message"]
@@ -378,9 +373,12 @@ def test_interpret_job_submission_success(
 
     # Upload additional input data to input bucket
     if "upload" in apbs_test_job:
-        for file_name in apbs_test_job["upload"]:
+        for file_name in apbs_test_job["upload"]["input"]:
             file_contents: str = open(f"lambda_services/tests/input_data/{file_name}").read()
             upload_data(s3_client, input_bucket_name, f"{job_tag}/{file_name}", file_contents)
+        for file_name in apbs_test_job["upload"]["output"]:
+            file_contents: str = open(f"lambda_services/tests/input_data/{file_name}").read()
+            upload_data(s3_client, output_bucket_name, f"{job_tag}/{file_name}", file_contents)
 
     # Set module globals and interpret PDB2PQR job trigger
     job_service.SQS_QUEUE_NAME = queue_name
