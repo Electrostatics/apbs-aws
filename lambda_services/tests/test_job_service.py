@@ -406,7 +406,7 @@ def test_interpret_job_submission_apbs_direct(
     queue_message = queue_message_response["Messages"][0]
     message_contents: dict = loads(queue_message["Body"])
     message_receipt_handle = queue_message["ReceiptHandle"]
-    print(f"message_contents: {dumps(message_contents, indent=2)}")
+    # print(f"message_contents: {dumps(message_contents, indent=2)}")
 
     # Declare expected output of SQS message
     expected_sqs_message = {
@@ -450,6 +450,9 @@ def test_interpret_job_submission_apbs_direct(
     # Checking type here since startTime is determined at runtime
     assert isinstance(status_object_data["apbs"]["startTime"], float)
     assert status_object_data["apbs"]["endTime"] is None
+
+    # print("test_interpret_job_submission_apbs_direct")
+    # print(dumps(status_object_data, indent=2))
 
     # Reset module global variables to original state
     job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME
@@ -527,6 +530,134 @@ def test_interpret_job_submission_invalid(
     assert status_object_data[job_type]["outputFiles"] is None
     assert status_object_data[job_type]["startTime"] is None
     assert status_object_data[job_type]["endTime"] is None
+
+    # Reset module global variables to original state
+    job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME
+    job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
+    job_service.JOB_QUEUE_REGION = original_JOB_QUEUE_REGION
+
+
+def initialize_s3_and_sqs_clients(
+    input_bucket_name: str, output_bucket_name: str,
+    queue_name: str, region_name: str
+):
+
+    sqs_client = client("sqs", region_name=region_name)
+    sqs_client.create_queue(QueueName=queue_name)
+
+    s3_client = client("s3")
+    s3_client.create_bucket(
+        Bucket=input_bucket_name,
+        CreateBucketConfiguration={
+            "LocationConstraint": region_name,
+        },
+    )
+    s3_client.create_bucket(
+        Bucket=output_bucket_name,
+        CreateBucketConfiguration={
+            "LocationConstraint": region_name,
+        },
+    )
+
+    return s3_client, sqs_client
+
+
+INPUT_JOB_LIST: list = []
+EXPECTED_OUTPUT_LIST: list = []
+with open("lambda_services/tests/input_data/test-job_service-input.json") as fin:
+    INPUT_JOB_LIST = load(fin)
+with open("lambda_services/tests/expected_data/test-job_service-output.json") as fin:
+    EXPECTED_OUTPUT_LIST = load(fin)
+
+@mock_s3
+@mock_sqs
+@pytest.mark.parametrize("apbs_test_job,expected_output", list(zip(INPUT_JOB_LIST, EXPECTED_OUTPUT_LIST)))
+def test_interpret_job_submission_success(
+    apbs_test_job: dict, expected_output: dict
+):
+    # print(input_job_list)
+    # print("job input data", dumps(apbs_test_job, indent=2))
+    # print(expected_output_list)
+    # print("expected output data:", dumps(expected_output, indent=2))
+    # return
+    s3_event: dict = apbs_test_job["trigger"]
+    job_info: dict = apbs_test_job["job"]
+    expected_sqs_message: dict = expected_output["sqs_message"]
+    expected_status: dict = expected_output["initial_status"]
+
+    input_bucket_name = "pytest_input_bucket"
+    output_bucket_name = "pytest_output_bucket"
+    queue_name = "pytest_sqs_job_queue"
+    region_name = "us-west-2"
+
+    job_tag: str = expected_sqs_message["job_tag"]
+    job_type: str = expected_sqs_message["job_type"]
+
+    s3_client, sqs_client = initialize_s3_and_sqs_clients(
+        input_bucket_name, output_bucket_name, queue_name, region_name
+    )
+
+    # Retrieve original global variable names from module
+    original_OUTPUT_BUCKET = job_service.OUTPUT_BUCKET
+    original_SQS_QUEUE_NAME = job_service.SQS_QUEUE_NAME
+    original_JOB_QUEUE_REGION = job_service.JOB_QUEUE_REGION
+
+    # Upload job JSON to input bucket
+    job_object_name: str = s3_event["Records"][0]["s3"]["object"]["key"]
+    upload_data(
+        s3_client, input_bucket_name, job_object_name, dumps(job_info),
+    )
+
+    # Upload additional input data to input bucket
+    if "upload" in apbs_test_job:
+        for file_name in apbs_test_job["upload"]:
+            file_contents: str = open(f"lambda_services/tests/input_data/{file_name}").read()
+            upload_data(s3_client, input_bucket_name, f"{job_tag}/{file_name}", file_contents)
+
+    # Set module globals and interpret PDB2PQR job trigger
+    job_service.SQS_QUEUE_NAME = queue_name
+    job_service.OUTPUT_BUCKET = output_bucket_name
+    job_service.JOB_QUEUE_REGION = region_name
+    job_service.interpret_job_submission(s3_event, None)
+
+    # Obtain message from SQS and status from S3
+    queue_url: str = sqs_client.get_queue_url(QueueName=queue_name)["QueueUrl"]
+    queue_message_response = sqs_client.receive_message(
+        QueueUrl=queue_url, MaxNumberOfMessages=1
+    )
+
+
+    # TODO: adjust assertion to handle invalid cases
+    assert "Messages" in queue_message_response
+    queue_message = queue_message_response["Messages"][0]
+    message_contents: dict = loads(queue_message["Body"])
+    message_receipt_handle = queue_message["ReceiptHandle"]
+
+    """Compare queue contents with expected"""
+    assert message_contents == expected_sqs_message
+
+    # job_id: str = expected_sqs_message["job_id"]
+    # job_date: str = expected_sqs_message["job_date"]
+    status_object_name: str = f"{job_tag}/{job_type}-status.json"
+    status_object_data: dict = loads(
+        download_data(s3_client, output_bucket_name, status_object_name)
+    )
+
+    """Check that status contains expected values"""
+    assert status_object_data["jobid"] == expected_status["jobid"]
+    assert status_object_data["jobtype"] == expected_status["jobtype"]
+    assert job_type in status_object_data
+    assert status_object_data[job_type]["status"] == "pending"
+    assert status_object_data[job_type]["inputFiles"] == expected_status[job_type]["inputFiles"]
+    assert status_object_data[job_type]["outputFiles"] == expected_status[job_type]["outputFiles"]
+    # Checking type here since startTime is determined at runtime
+    assert isinstance(status_object_data[job_type]["startTime"], float)
+    assert status_object_data[job_type]["endTime"] is None
+
+    # Delete message from SQS queue
+    sqs_client.delete_message(
+        QueueUrl=queue_url, ReceiptHandle=message_receipt_handle
+    )
 
     # Reset module global variables to original state
     job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME

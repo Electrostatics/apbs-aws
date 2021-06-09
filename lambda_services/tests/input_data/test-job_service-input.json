@@ -1,0 +1,79 @@
+[
+  {
+    "name": "apbs-direct",
+    "type": "apbs",
+    "upload": ["1fas.pqr", "1fas.in"],
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2021-05-16/sampleId/apbs-direct-job.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "support_files": [
+          "1fas.pqr"
+        ],
+        "filename": "1fas.in"
+      },
+      "metadata": {}
+    }
+  },
+  {
+    "name": "pdb2pqr-v1-basic",
+    "type": "pdb2pqr",
+    "upload": [],
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2021-05-16/sampleId/pdb2pqr-sample-job.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "invoke_method": "v1",
+        "PDBFILE": "",
+        "USERFFFILE": "",
+        "NAMESFILE": "",
+        "LIGANDFILE": "",
+        "PDBID": "1fas",
+        "PDBSOURCE": "ID",
+        "PH": 7,
+        "PKACALCMETHOD": "propka",
+        "FF": "parse",
+        "FFOUT": "internal",
+        "OPTIONS": [
+          "atomsnotclose",
+          "optimizeHnetwork",
+          "makeapbsin",
+          "removewater"
+        ],
+        "DEBUMP": "atomsnotclose",
+        "OPT": "optimizeHnetwork",
+        "INPUT": "makeapbsin",
+        "DROPWATER": "removewater"
+      },
+      "metadata": {
+        "cli": {
+          "command": "python pdb2pqr.py --ph-calc-method=propka --with-ph=7 --ff=parse  --apbs-input --drop-water 1fas.pdb 1fas.pqr"
+        }
+      }
+    }
+  }
+]

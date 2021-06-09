@@ -1,0 +1,62 @@
+[
+  {
+    "name": "apbs-direct",
+    "sqs_message": {
+      "job_id": "sampleId",
+      "job_type": "apbs",
+      "job_date": "2021-05-16",
+      "job_tag": "2021-05-16/sampleId",
+      "bucket_name": "pytest_input_bucket",
+      "input_files": [
+        "2021-05-16/sampleId/1fas.in",
+        "2021-05-16/sampleId/1fas.pqr"
+      ],
+      "command_line_args": "1fas.in",
+      "max_run_time": 7200
+    },
+    "initial_status": {
+      "jobid": "sampleId",
+      "jobtype": "apbs",
+      "apbs": {
+        "status": "pending",
+        "startTime": 1623172892.2588568,
+        "endTime": null,
+        "subtasks": [],
+        "inputFiles": [
+          "2021-05-16/sampleId/1fas.in",
+          "2021-05-16/sampleId/1fas.pqr"
+        ],
+        "outputFiles": []
+      }
+    }
+  },
+  {
+    "name": "pdb2pqr-v1-basic",
+    "sqs_message": {
+      "job_date": "2021-05-16",
+      "job_id": "sampleId",
+      "job_tag": "2021-05-16/sampleId",
+      "job_type": "pdb2pqr",
+      "bucket_name": "pytest_input_bucket",
+      "input_files": [
+        "https://files.rcsb.org/download/1fas.pdb"
+      ],
+      "command_line_args": "--with-ph=7.0 --ph-calc-method=propka --drop-water --apbs-input --ff=parse --verbose  1fas.pdb sampleId.pqr",
+      "max_run_time": 2700
+    },
+    "initial_status": {
+      "jobid": "sampleId",
+      "jobtype": "pdb2pqr",
+      "pdb2pqr": {
+        "status": "pending",
+        "startTime": 1623261174.8676486,
+        "endTime": null,
+        "subtasks": [],
+        "inputFiles": [
+          "https://files.rcsb.org/download/1fas.pdb"
+        ],
+        "outputFiles": []
+      }
+    }
+  }
+]
