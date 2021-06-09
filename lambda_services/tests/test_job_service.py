@@ -306,8 +306,10 @@ def test_interpret_job_submission_invalid(
 
 
 def initialize_s3_and_sqs_clients(
-    input_bucket_name: str, output_bucket_name: str,
-    queue_name: str, region_name: str
+    input_bucket_name: str,
+    output_bucket_name: str,
+    queue_name: str,
+    region_name: str,
 ):
 
     sqs_client = client("sqs", region_name=region_name)
@@ -332,14 +334,22 @@ def initialize_s3_and_sqs_clients(
 
 INPUT_JOB_LIST: list = []
 EXPECTED_OUTPUT_LIST: list = []
-with open("lambda_services/tests/input_data/test-job_service-input.json") as fin:
+with open(
+    "lambda_services/tests/input_data/test-job_service-input.json"
+) as fin:
     INPUT_JOB_LIST = load(fin)
-with open("lambda_services/tests/expected_data/test-job_service-output.json") as fin:
+with open(
+    "lambda_services/tests/expected_data/test-job_service-output.json"
+) as fin:
     EXPECTED_OUTPUT_LIST = load(fin)
+
 
 @mock_s3
 @mock_sqs
-@pytest.mark.parametrize("apbs_test_job,expected_output", list(zip(INPUT_JOB_LIST, EXPECTED_OUTPUT_LIST)))
+@pytest.mark.parametrize(
+    "apbs_test_job,expected_output",
+    list(zip(INPUT_JOB_LIST, EXPECTED_OUTPUT_LIST)),
+)
 def test_interpret_job_submission_success(
     apbs_test_job: dict, expected_output: dict
 ):
@@ -368,17 +378,34 @@ def test_interpret_job_submission_success(
     # Upload job JSON to input bucket
     job_object_name: str = s3_event["Records"][0]["s3"]["object"]["key"]
     upload_data(
-        s3_client, input_bucket_name, job_object_name, dumps(job_info),
+        s3_client,
+        input_bucket_name,
+        job_object_name,
+        dumps(job_info),
     )
 
     # Upload additional input data to input bucket
     if "upload" in apbs_test_job:
         for file_name in apbs_test_job["upload"]["input"]:
-            file_contents: str = open(f"lambda_services/tests/input_data/{file_name}").read()
-            upload_data(s3_client, input_bucket_name, f"{job_tag}/{file_name}", file_contents)
+            file_contents: str = open(
+                f"lambda_services/tests/input_data/{file_name}"
+            ).read()
+            upload_data(
+                s3_client,
+                input_bucket_name,
+                f"{job_tag}/{file_name}",
+                file_contents,
+            )
         for file_name in apbs_test_job["upload"]["output"]:
-            file_contents: str = open(f"lambda_services/tests/input_data/{file_name}").read()
-            upload_data(s3_client, output_bucket_name, f"{job_tag}/{file_name}", file_contents)
+            file_contents: str = open(
+                f"lambda_services/tests/input_data/{file_name}"
+            ).read()
+            upload_data(
+                s3_client,
+                output_bucket_name,
+                f"{job_tag}/{file_name}",
+                file_contents,
+            )
 
     # Set module globals and interpret PDB2PQR job trigger
     job_service.SQS_QUEUE_NAME = queue_name
@@ -391,7 +418,6 @@ def test_interpret_job_submission_success(
     queue_message_response = sqs_client.receive_message(
         QueueUrl=queue_url, MaxNumberOfMessages=1
     )
-
 
     # TODO: adjust assertion to handle invalid cases
     assert "Messages" in queue_message_response
@@ -414,8 +440,14 @@ def test_interpret_job_submission_success(
     assert status_object_data["jobtype"] == expected_status["jobtype"]
     assert job_type in status_object_data
     assert status_object_data[job_type]["status"] == "pending"
-    assert status_object_data[job_type]["inputFiles"] == expected_status[job_type]["inputFiles"]
-    assert status_object_data[job_type]["outputFiles"] == expected_status[job_type]["outputFiles"]
+    assert (
+        status_object_data[job_type]["inputFiles"]
+        == expected_status[job_type]["inputFiles"]
+    )
+    assert (
+        status_object_data[job_type]["outputFiles"]
+        == expected_status[job_type]["outputFiles"]
+    )
     # Checking type here since startTime is determined at runtime
     assert isinstance(status_object_data[job_type]["startTime"], float)
     assert status_object_data[job_type]["endTime"] is None
