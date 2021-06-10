@@ -9,11 +9,9 @@ from .launcher.jobsetup import MissingFilesError
 from .launcher.utils import _LOGGER
 
 OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
-FARGATE_CLUSTER = getenv("FARGATE_CLUSTER")
-FARGATE_SERVICE = getenv("FARGATE_SERVICE")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
-JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION")
+JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION", "us-west-2")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
 # Initialize logger
