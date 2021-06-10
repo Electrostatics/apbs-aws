@@ -248,8 +248,6 @@
       environment_variables: 
         JOB_QUEUE_NAME: "{{ project }}-{{ deployment_group }}-job-q"
         OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
-        FARGATE_CLUSTER: "{{ project }}-{{ deployment_group }}-cluster"
-        FARGATE_SERVICE: "{{ project }}-{{ deployment_group }}-fargate-service"
       tags:
         Deployment: "{{ deployment_group }}"
     tags: 
