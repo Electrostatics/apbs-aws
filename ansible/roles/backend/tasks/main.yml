@@ -1,341 +1,338 @@
 ---
 # DAP provisioning
-  - name: Create input S3 bucket
-    amazon.aws.s3_bucket:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-input"
-      state: present
-      delete_public_access: yes
-      tags:
-         Deployment: "{{ deployment_group }}"
-    register: s3_input
-    tags: s3
+- name: Create input S3 bucket
+  amazon.aws.s3_bucket:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-input"
+    state: present
+    delete_public_access: yes
+    tags:
+      Deployment: "{{ deployment_group }}"
+  register: s3_input
+  tags: s3
 
-  - name: Debug s3
-    debug: var=s3_input
-    tags: s3
-  
-  - name: Add s3 CORS
-    aws_s3_cors:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-input"
-      state: present
-      rules:
-        - allowed_origins:
-            - '*'
-          allowed_methods:
-            - PUT
-            - POST
-            - HEAD
-          allowed_headers:
-            - '*'
-          expose_headers: 
-            - Content-Length
-          max_age_seconds: 3000
-    tags: 
-      - s3
-      - cors
-      
-  - name: Create output S3 bucket
-    amazon.aws.s3_bucket:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-output"
-      state: present
-      policy: "{{ lookup('template','files/s3-policy-output.json.j2') }}"
-      tags:
-         Deployment: "{{ deployment_group }}"
-    register: s3_output
-    tags: s3
+- name: Debug s3
+  debug: var=s3_input
+  tags: s3
 
-  - name: Debug s3
-    debug: var=s3_output
-    tags: s3
-  
-  - name: Add s3 CORS
-    aws_s3_cors:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-output"
-      state: present
-      rules:
-        - allowed_origins:
-            - '*'
-          allowed_methods:
-            - HEAD
-            - GET
-          allowed_headers:
-            - '*'
-          expose_headers: 
-            - Content-Length
-          max_age_seconds: 3000
-    tags: 
-      - s3
-      - cors
+- name: Add s3 CORS
+  aws_s3_cors:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-input"
+    state: present
+    rules:
+      - allowed_origins:
+          - "*"
+        allowed_methods:
+          - PUT
+          - POST
+          - HEAD
+        allowed_headers:
+          - "*"
+        expose_headers:
+          - Content-Length
+        max_age_seconds: 3000
+  tags:
+    - s3
+    - cors
 
-  - name: Create IAM role for apigateway 
-    iam_role: 
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-apigateway-role"
-      description: Role for "{{ project }}-{{ deployment_group }}-apigateway-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-apigateway.json') }}"
-      managed_policy: 
-        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
-    register: iam_role_apigateway
-    tags: iam
+- name: Create output S3 bucket
+  amazon.aws.s3_bucket:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-output"
+    state: present
+    policy: "{{ lookup('template','files/s3-policy-output.json.j2') }}"
+    tags:
+      Deployment: "{{ deployment_group }}"
+  register: s3_output
+  tags: s3
 
-  - name: Create IAM role for fargate 
-    iam_role: 
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-fargate-role"
-      description: Role for "{{ project }}-{{ deployment_group }}-fargate-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
-      managed_policy: 
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-    register: iam_role_fargate
-    tags: iam
+- name: Debug s3
+  debug: var=s3_output
+  tags: s3
 
-  - name: Create IAM role for ec2 
-    iam_role: 
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-ec2-role"
-      description: Role for "{{ project }}-{{ deployment_group }}-ec2-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs.json') }}"
-      managed_policy: 
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
-    register: iam_role_ec2
-    tags: iam
-    
-  - name: Create IAM role for fargate apbs instance
-    iam_role: 
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-apbs-role"
-      description: Role for "{{ project }}-{{ deployment_group }}-apbs-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
-    register: iam_role_apbs
-    tags: iam
+- name: Add s3 CORS
+  aws_s3_cors:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-output"
+    state: present
+    rules:
+      - allowed_origins:
+          - "*"
+        allowed_methods:
+          - HEAD
+          - GET
+        allowed_headers:
+          - "*"
+        expose_headers:
+          - Content-Length
+        max_age_seconds: 3000
+  tags:
+    - s3
+    - cors
 
-  - name: Update apbs IAM role
-    iam_policy:
-      profile: "{{ aws_profile }}"
-      iam_type: role
-      iam_name: "{{ project }}-{{ deployment_group }}-apbs-role"
-      policy_name: "{{ project }}-{{ deployment_group }}-apbs-policy"
-      state: present
-      policy_json: "{{ lookup('template','files/iam-policy-apbs-role.json.j2') }}"
-    tags: iam
-    
-  - name: Create dead SQS queue
-    sqs_queue:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-dead-job"
-      default_visibility_timeout: 60
-      message_retention_period: 1209600
-      maximum_message_size: 4096
-      delivery_delay: 0
-      receive_message_wait_time: 0
-    tags: sqs
-    
-  - name: Create SQS queue
-    sqs_queue:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-job-q"
-      default_visibility_timeout: 60
-      message_retention_period: 1209600
-      maximum_message_size: 4096
-      delivery_delay: 0
-      receive_message_wait_time: 0
-      redrive_policy:
-        maxReceiveCount: 1
-        deadLetterTargetArn: "arn:aws:sqs:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-dead-job"
-    tags: sqs
+- name: Create IAM role for apigateway
+  iam_role:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-apigateway-role"
+    description: Role for "{{ project }}-{{ deployment_group }}-apigateway-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam-policy-apigateway.json') }}"
+    managed_policy:
+      - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  register: iam_role_apigateway
+  tags: iam
 
+- name: Create IAM role for fargate
+  iam_role:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-fargate-role"
+    description: Role for "{{ project }}-{{ deployment_group }}-fargate-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
+    managed_policy:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  register: iam_role_fargate
+  tags: iam
 
-  - name: Create Lambda IAM role 
-    iam_role: 
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-lambda-id-role"
-      description: Role for "{{ project }}-{{ deployment_group }}-lambda-id-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
-    tags: 
-      - lambda
-    register: iam_role_lambda_receive
+- name: Create IAM role for ec2
+  iam_role:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-ec2-role"
+    description: Role for "{{ project }}-{{ deployment_group }}-ec2-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs.json') }}"
+    managed_policy:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+  register: iam_role_ec2
+  tags: iam
 
-  - name: Update Lambda IAM role
-    iam_policy:
-      profile: "{{ aws_profile }}"
-      iam_type: role
-      iam_name: "{{ project }}-{{ deployment_group }}-lambda-id-role"
-      policy_name: "{{ project }}-{{ deployment_group }}-lambda-id-policy"
-      state: present
-      policy_json: "{{ lookup('template', 'files/iam-policy-lambda-id.json.j2') }}"
-    tags: 
-      - lambda
-      - lambdarole
-   
-  - name: Create Lambda IAM role 
-    iam_role: 
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
-      description: Role for "{{ project }}-{{ deployment_group }}-lambda-job-role"
-      assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
-    tags: 
-      - lambda
-    register: iam_role_lambda_receive
-   
-  - name: Update Lambda IAM role
-    iam_policy:
-      profile: "{{ aws_profile }}"
-      iam_type: role
-      iam_name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
-      policy_name: "{{ project }}-{{ deployment_group }}-lambda-job-policy"
-      state: present
-      policy_json: "{{ lookup('template', 'files/iam-policy-lambda-job.json.j2') }}"
-    tags: 
-      - lambda
-      - lambdarole
+- name: Create IAM role for fargate apbs instance
+  iam_role:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-apbs-role"
+    description: Role for "{{ project }}-{{ deployment_group }}-apbs-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam-policy-ecs-task.json') }}"
+  register: iam_role_apbs
+  tags: iam
 
-  - name: Create id-L lambda bundle
-    archive:
-      path: "../lambda_services/api_service"
-      dest: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
-      format: zip
-    tags: 
-      - bundle
-      - archive
-      - update
-      
-  - name: Create job-L lambda bundle
-    archive:
-      path: "../lambda_services/job_service"
-      dest: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
-      format: zip
-    tags: 
-      - bundle
-      - archive
-      - update
+- name: Update apbs IAM role
+  iam_policy:
+    profile: "{{ aws_profile }}"
+    iam_type: role
+    iam_name: "{{ project }}-{{ deployment_group }}-apbs-role"
+    policy_name: "{{ project }}-{{ deployment_group }}-apbs-policy"
+    state: present
+    policy_json: "{{ lookup('template','files/iam-policy-apbs-role.json.j2') }}"
+  tags: iam
 
-  - name: List function versions
-    community.aws.lambda_info:
-      query: config
-      function_name: "{{ project }}-{{ deployment_group }}-job-L"
-    register: lambda_job_config
-    ignore_errors: true
-  
-  - name: Create job-L lambda function
-    lambda:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-job-L"
-      state: present
-      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
-      runtime: 'python3.6'
-      role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
-      handler: "job_service.job_service.interpret_job_submission"
-      memory_size: 512
-      timeout: 360 
-      environment_variables: 
-        JOB_QUEUE_NAME: "{{ project }}-{{ deployment_group }}-job-q"
-        OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
-        FARGATE_CLUSTER: "{{ project }}-{{ deployment_group }}-cluster"
-        FARGATE_SERVICE: "{{ project }}-{{ deployment_group }}-fargate-service"
-      tags:
-        Deployment: "{{ deployment_group }}"
-    tags: 
-      - lambda2
-      - lambda
-      - update
-    when: not lambda_job_config
-    
-  - name: List function versions
-    community.aws.lambda_info:
-      query: config
-      function_name: "{{ project }}-{{ deployment_group }}-jid-L"
-    register: lambda_id_config
-    ignore_errors: true
-     
-  - name: Create id-L lambda function
-    lambda:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-id-L"
-      state: present
-      zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
-      runtime: 'python3.6'
-      role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-id-role"
-      handler: "api_service.api_service.generate_id_and_tokens"
-      memory_size: 512
-      timeout: 360 
-      environment_variables: 
-        INPUT_BUCKET: "{{ project }}-{{ deployment_group }}-input"
-      tags:
-        Deployment: "{{ deployment_group }}"
-    tags: 
-      - lambda2
-      - lambda
-      - update
-    when: not lambda_id_config
+- name: Create dead SQS queue
+  sqs_queue:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-dead-job"
+    default_visibility_timeout: 60
+    message_retention_period: 1209600
+    maximum_message_size: 4096
+    delivery_delay: 0
+    receive_message_wait_time: 0
+  tags: sqs
 
-  - name: ID Lambda api gateway   permissions
-    community.aws.lambda_policy:
-      state: present
-      function_name: "{{ project }}-{{ deployment_group }}-id-L"
-      statement_id: lambda-api-id
-      action: lambda:InvokeFunction
-      principal: apigateway.amazonaws.com
-      source_arn: "arn:aws:execute-api:{{ aws_region }}:{{ aws_account_id }}:{{ gateway_name }}/*/*/jobid"
+- name: Create SQS queue
+  sqs_queue:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-job-q"
+    default_visibility_timeout: 60
+    message_retention_period: 1209600
+    maximum_message_size: 4096
+    delivery_delay: 0
+    receive_message_wait_time: 0
+    redrive_policy:
+      maxReceiveCount: 1
+      deadLetterTargetArn: "arn:aws:sqs:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-dead-job"
+  tags: sqs
 
-  - name: Job Lambda S3 event notification permissions
-    community.aws.lambda_policy:
-      state: present
-      function_name: "{{ project }}-{{ deployment_group }}-job-L"
-      statement_id: lambda-s3-put-job
-      action: lambda:InvokeFunction
-      principal: s3.amazonaws.com
-      source_arn: "arn:aws:s3:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-input"
-      source_account: "{{ aws_account_id }}"
+- name: Create Lambda IAM role
+  iam_role:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-lambda-id-role"
+    description: Role for "{{ project }}-{{ deployment_group }}-lambda-id-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
+  tags:
+    - lambda
+  register: iam_role_lambda_receive
 
-  - name: Create s3 bucket notification (needs to exist first?)
-    community.aws.s3_bucket_notification:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      state: present
-      event_name: "job-put"
-      bucket_name: "{{ project }}-{{ deployment_group }}-input"
-      lambda_function_arn: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
-      events: ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
-      suffix: job.json
-    
-  - name: Cluster creation
-    community.aws.ecs_cluster:
-            name: "{{ project }}-{{ deployment_group }}-cluster"
-            state: present
+- name: Update Lambda IAM role
+  iam_policy:
+    profile: "{{ aws_profile }}"
+    iam_type: role
+    iam_name: "{{ project }}-{{ deployment_group }}-lambda-id-role"
+    policy_name: "{{ project }}-{{ deployment_group }}-lambda-id-policy"
+    state: present
+    policy_json: "{{ lookup('template', 'files/iam-policy-lambda-id.json.j2') }}"
+  tags:
+    - lambda
+    - lambdarole
 
-  - name: Create log groups fargate
-    community.aws.cloudwatchlogs_log_group:
-      state: present
-      log_group_name: /ecs/{{ project }}-{{ deployment_group }}-apbs-fargate
-      
-  - name: Create log groups ec2
-    community.aws.cloudwatchlogs_log_group:
-      state: present
-      log_group_name: /ecs/{{ project }}-{{ deployment_group }}-apbs-ec2
-            
-  - name: Create task definition for fargate
-    community.aws.ecs_taskdefinition:
-      family: "{{ project }}-{{ deployment_group }}-apbs-fargate"
-      containers:
+- name: Create Lambda IAM role
+  iam_role:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
+    description: Role for "{{ project }}-{{ deployment_group }}-lambda-job-role"
+    assume_role_policy_document: "{{ lookup('file', 'iam-policy-lambda-assumed.json') }}"
+  tags:
+    - lambda
+  register: iam_role_lambda_receive
+
+- name: Update Lambda IAM role
+  iam_policy:
+    profile: "{{ aws_profile }}"
+    iam_type: role
+    iam_name: "{{ project }}-{{ deployment_group }}-lambda-job-role"
+    policy_name: "{{ project }}-{{ deployment_group }}-lambda-job-policy"
+    state: present
+    policy_json: "{{ lookup('template', 'files/iam-policy-lambda-job.json.j2') }}"
+  tags:
+    - lambda
+    - lambdarole
+
+- name: Create id-L lambda bundle
+  archive:
+    path: "../lambda_services/api_service"
+    dest: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
+    format: zip
+  tags:
+    - bundle
+    - archive
+    - update
+
+- name: Create job-L lambda bundle
+  archive:
+    path: "../lambda_services/job_service"
+    dest: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
+    format: zip
+  tags:
+    - bundle
+    - archive
+    - update
+
+- name: List function versions
+  community.aws.lambda_info:
+    query: config
+    function_name: "{{ project }}-{{ deployment_group }}-job-L"
+  register: lambda_job_config
+  ignore_errors: true
+
+- name: Create job-L lambda function
+  lambda:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-job-L"
+    state: present
+    zip_file: "/tmp/{{ project }}-{{ deployment_group }}-job-L.zip"
+    runtime: "python3.6"
+    role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-job-role"
+    handler: "job_service.job_service.interpret_job_submission"
+    memory_size: 512
+    timeout: 360
+    environment_variables:
+      JOB_QUEUE_NAME: "{{ project }}-{{ deployment_group }}-job-q"
+      OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
+    tags:
+      Deployment: "{{ deployment_group }}"
+  tags:
+    - lambda2
+    - lambda
+    - update
+  when: not lambda_job_config
+
+- name: List function versions
+  community.aws.lambda_info:
+    query: config
+    function_name: "{{ project }}-{{ deployment_group }}-jid-L"
+  register: lambda_id_config
+  ignore_errors: true
+
+- name: Create id-L lambda function
+  lambda:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-id-L"
+    state: present
+    zip_file: "/tmp/{{ project }}-{{ deployment_group }}-id-L.zip"
+    runtime: "python3.6"
+    role: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-lambda-id-role"
+    handler: "api_service.api_service.generate_id_and_tokens"
+    memory_size: 512
+    timeout: 360
+    environment_variables:
+      INPUT_BUCKET: "{{ project }}-{{ deployment_group }}-input"
+    tags:
+      Deployment: "{{ deployment_group }}"
+  tags:
+    - lambda2
+    - lambda
+    - update
+  when: not lambda_id_config
+
+- name: ID Lambda api gateway   permissions
+  community.aws.lambda_policy:
+    state: present
+    function_name: "{{ project }}-{{ deployment_group }}-id-L"
+    statement_id: lambda-api-id
+    action: lambda:InvokeFunction
+    principal: apigateway.amazonaws.com
+    source_arn: "arn:aws:execute-api:{{ aws_region }}:{{ aws_account_id }}:{{ gateway_name }}/*/*/jobid"
+
+- name: Job Lambda S3 event notification permissions
+  community.aws.lambda_policy:
+    state: present
+    function_name: "{{ project }}-{{ deployment_group }}-job-L"
+    statement_id: lambda-s3-put-job
+    action: lambda:InvokeFunction
+    principal: s3.amazonaws.com
+    source_arn: "arn:aws:s3:{{ aws_region }}:{{ aws_account_id }}:{{ project }}-{{ deployment_group }}-input"
+    source_account: "{{ aws_account_id }}"
+
+- name: Create s3 bucket notification (needs to exist first?)
+  community.aws.s3_bucket_notification:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    state: present
+    event_name: "job-put"
+    bucket_name: "{{ project }}-{{ deployment_group }}-input"
+    lambda_function_arn: "arn:aws:lambda:{{ aws_region }}:{{ aws_account_id }}:function:{{ project }}-{{ deployment_group }}-job-L"
+    events: ["s3:ObjectCreated:Put", "s3:ObjectCreated:CompleteMultipartUpload"]
+    suffix: job.json
+
+- name: Cluster creation
+  community.aws.ecs_cluster:
+    name: "{{ project }}-{{ deployment_group }}-cluster"
+    state: present
+
+- name: Create log groups fargate
+  community.aws.cloudwatchlogs_log_group:
+    state: present
+    log_group_name: /ecs/{{ project }}-{{ deployment_group }}-apbs-fargate
+
+- name: Create log groups ec2
+  community.aws.cloudwatchlogs_log_group:
+    state: present
+    log_group_name: /ecs/{{ project }}-{{ deployment_group }}-apbs-ec2
+
+- name: Create task definition for fargate
+  community.aws.ecs_taskdefinition:
+    family: "{{ project }}-{{ deployment_group }}-apbs-fargate"
+    containers:
       - name: "apbs"
         essential: true
         image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
@@ -350,167 +347,165 @@
             awslogs-group: /ecs/{{ project }}-{{ deployment_group }}-apbs-fargate
             awslogs-region: us-west-2
             awslogs-stream-prefix: ecs
-      launch_type: FARGATE
-      task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
-      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-      cpu: 2048
-      memory: 7GB
-      state: present
-      network_mode: awsvpc
-    register: fargate_task
+    launch_type: FARGATE
+    task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
+    execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
+    cpu: 2048
+    memory: 7GB
+    state: present
+    network_mode: awsvpc
+  register: fargate_task
 
-  - name: Create task definition for ec2
-    community.aws.ecs_taskdefinition:
-      family: "{{ project }}-{{ deployment_group }}-apbs-ec2"
-      containers:
-        - name: "apbs"
-          essential: true
-          image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
-          environment:
-            - name: "JOB_QUEUE_NAME"
-              value: "{{ project }}-{{ deployment_group }}-job-q"
-            - name: "OUTPUT_BUCKET"
-              value: "{{ project }}-{{ deployment_group }}-output"
-          logConfiguration:
-            logDriver: awslogs
-            options:
-              awslogs-group: /ecs/{{ project }}-{{ deployment_group }}-apbs-ec2
-              awslogs-region: us-west-2
-              awslogs-stream-prefix: ecs
-      launch_type: EC2
-      task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
-      execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
-      cpu: 2048
-      memory: 7GB
-      state: present
-      network_mode: bridge
-    register: ec2_task
+- name: Create task definition for ec2
+  community.aws.ecs_taskdefinition:
+    family: "{{ project }}-{{ deployment_group }}-apbs-ec2"
+    containers:
+      - name: "apbs"
+        essential: true
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/apbs:{{ deployment_group }}"
+        environment:
+          - name: "JOB_QUEUE_NAME"
+            value: "{{ project }}-{{ deployment_group }}-job-q"
+          - name: "OUTPUT_BUCKET"
+            value: "{{ project }}-{{ deployment_group }}-output"
+        logConfiguration:
+          logDriver: awslogs
+          options:
+            awslogs-group: /ecs/{{ project }}-{{ deployment_group }}-apbs-ec2
+            awslogs-region: us-west-2
+            awslogs-stream-prefix: ecs
+    launch_type: EC2
+    task_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-apbs-role"
+    execution_role_arn: "arn:aws:iam::{{ aws_account_id }}:role/{{ project }}-{{ deployment_group }}-fargate-role"
+    cpu: 2048
+    memory: 7GB
+    state: present
+    network_mode: bridge
+  register: ec2_task
 
-
-  - name: create ECS fargate service on VPC network
-    community.aws.ecs_service:
-            state: present
-            name: "{{ project }}-{{ deployment_group }}-fargate-service"
-            cluster: "{{ project }}-{{ deployment_group }}-cluster"
-            launch_type: FARGATE
-            task_definition: '{{ fargate_task.taskdefinition.taskDefinitionArn }}'
-            network_configuration:
-                    subnets:
-                      - '{{ vpc_subnet_id }}'
-                      - '{{ vpc_subnet_id2 }}'
-                    assign_public_ip: yes
-                    security_groups:
-                      - '{{ default_sg }}'
-            desired_count: 0
-            
-
-  - name: create ECS ec2 service on VPC network
-    community.aws.ecs_service:
-      state: present
-      name: "{{ project }}-{{ deployment_group }}-ec2-service"
-      cluster: "{{ project }}-{{ deployment_group }}-cluster"
-      launch_type: EC2
-      task_definition: "{{ ec2_task.taskdefinition.taskDefinitionArn }}"
-      desired_count: 1
-
-  - name: Run a shell command to get current ECS ami
-    shell: aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended | jq -r '.Parameters[0].Value' | jq -r '.image_id'
-    register: ecs_ami
-    ignore_errors: true
-
-  - name: Create launch configuration
-    community.aws.ec2_lc:
-      name: "{{ project }}-{{ deployment_group }}-ecs-lc"
-      image_id: "{{ ecs_ami.stdout }}"
+- name: create ECS fargate service on VPC network
+  community.aws.ecs_service:
+    state: present
+    name: "{{ project }}-{{ deployment_group }}-fargate-service"
+    cluster: "{{ project }}-{{ deployment_group }}-cluster"
+    launch_type: FARGATE
+    task_definition: "{{ fargate_task.taskdefinition.taskDefinitionArn }}"
+    network_configuration:
+      subnets:
+        - "{{ vpc_subnet_id }}"
+        - "{{ vpc_subnet_id2 }}"
       assign_public_ip: yes
-      instance_type: t3.large
-      user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config\n yum install -y ec2-instance-connect"
-      key_name: "{{ key_name }}"
-      security_groups: ["{{ default_sg }}"]
-      instance_profile_name: "{{ project }}-{{ deployment_group }}-ec2-role"
-      state: present
-    register: lc_info
+      security_groups:
+        - "{{ default_sg }}"
+    desired_count: 0
 
-  - name: Create ASG
-    community.aws.ec2_asg:
-      name: "{{ project }}-{{ deployment_group }}-ecs-asg"
-      state: present
-      availability_zones: ["{{ az_id }}", "{{ az_id2}}"]
-      launch_config_name: "{{ project }}-{{ deployment_group }}-ecs-lc"
-      min_size: 1
-      max_size: 1
-      desired_capacity: 1
-      vpc_zone_identifier: ["{{ vpc_subnet_id }}", "{{ vpc_subnet_id2 }}"]
+- name: create ECS ec2 service on VPC network
+  community.aws.ecs_service:
+    state: present
+    name: "{{ project }}-{{ deployment_group }}-ec2-service"
+    cluster: "{{ project }}-{{ deployment_group }}-cluster"
+    launch_type: EC2
+    task_definition: "{{ ec2_task.taskdefinition.taskDefinitionArn }}"
+    desired_count: 1
 
-  - name: Scale up policy
-    community.aws.aws_application_scaling_policy:
-      state: present
-      policy_name: "up_{{ deployment_group }}"
-      service_namespace: ecs
-      resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
-      scalable_dimension: ecs:service:DesiredCount
-      policy_type: StepScaling
-      minimum_tasks: 0
-      maximum_tasks: 6
-      step_scaling_policy_configuration:
-        AdjustmentType: ChangeInCapacity
-        StepAdjustments:
-          - MetricIntervalLowerBound: 0
-            ScalingAdjustment: 1
-        Cooldown: 63
-        MetricAggregationType: Average
-    register: up_policy
+- name: Run a shell command to get current ECS ami
+  shell: aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-linux-2/recommended | jq -r '.Parameters[0].Value' | jq -r '.image_id'
+  register: ecs_ami
+  ignore_errors: true
 
-  - name: Scale down policy
-    community.aws.aws_application_scaling_policy:
-      state: present
-      policy_name: "down_{{ deployment_group }}"
-      service_namespace: ecs
-      resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
-      scalable_dimension: ecs:service:DesiredCount
-      policy_type: StepScaling
-      minimum_tasks: 0
-      maximum_tasks: 6
-      step_scaling_policy_configuration:
-        AdjustmentType: ChangeInCapacity
-        StepAdjustments:
-          - MetricIntervalUpperBound: 0
-            ScalingAdjustment: -1
-        Cooldown: 63
-        MetricAggregationType: Average
-    register: down_policy
+- name: Create launch configuration
+  community.aws.ec2_lc:
+    name: "{{ project }}-{{ deployment_group }}-ecs-lc"
+    image_id: "{{ ecs_ami.stdout }}"
+    assign_public_ip: yes
+    instance_type: t3.large
+    user_data: "#!/bin/bash\n echo ECS_CLUSTER={{ project }}-{{ deployment_group }}-cluster >> /etc/ecs/ecs.config\n yum install -y ec2-instance-connect"
+    key_name: "{{ key_name }}"
+    security_groups: ["{{ default_sg }}"]
+    instance_profile_name: "{{ project }}-{{ deployment_group }}-ec2-role"
+    state: present
+  register: lc_info
 
-  - name: Create an alarm scale up fargate tasks
-    community.aws.ec2_metric_alarm:
-      state: present
-      region: "{{ aws_region }}"
-      name: "{{ project }}-{{ deployment_group }}-q-up"
-      metric: "ApproximateNumberOfMessagesVisible"
-      namespace: "AWS/SQS"
-      treat_missing_data: "ignore"
-      statistic: "Average"
-      comparison: GreaterThanOrEqualToThreshold
-      threshold: 1.0
-      period: 60
-      evaluation_periods: 1
-      unit: "Count"
-      description: "{{ aws_region }} job-q check"
-      dimensions: { "QueueName": "{{ project }}-{{ deployment_group }}-job-q" }
-      alarm_actions: ["{{ up_policy.response.policy_arn }}"]
+- name: Create ASG
+  community.aws.ec2_asg:
+    name: "{{ project }}-{{ deployment_group }}-ecs-asg"
+    state: present
+    availability_zones: ["{{ az_id }}", "{{ az_id2}}"]
+    launch_config_name: "{{ project }}-{{ deployment_group }}-ecs-lc"
+    min_size: 1
+    max_size: 1
+    desired_capacity: 1
+    vpc_zone_identifier: ["{{ vpc_subnet_id }}", "{{ vpc_subnet_id2 }}"]
 
-  - name: set down metric
-    set_fact:
-      down_metric: "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2', convert_data=False) | string }}"
-      
-  - name: Create an alarm scale down fargate tasks
-    shell: >
-      aws cloudwatch put-metric-alarm --region {{ aws_region }} 
-      --alarm-name "{{ project }}-{{ deployment_group }}-q-down" 
-      --alarm-description "{{ aws_region }} job-q check"
-      --alarm-actions "{{ down_policy.response.policy_arn }}"
-      --evaluation-periods 3
-      --threshold "0.1"
-      --comparison-operator LessThanThreshold
-      --treat-missing-data "ignore"
-      --metrics '{{ down_metric }}'
-    ignore_errors: true
+- name: Scale up policy
+  community.aws.aws_application_scaling_policy:
+    state: present
+    policy_name: "up_{{ deployment_group }}"
+    service_namespace: ecs
+    resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
+    scalable_dimension: ecs:service:DesiredCount
+    policy_type: StepScaling
+    minimum_tasks: 0
+    maximum_tasks: 6
+    step_scaling_policy_configuration:
+      AdjustmentType: ChangeInCapacity
+      StepAdjustments:
+        - MetricIntervalLowerBound: 0
+          ScalingAdjustment: 1
+      Cooldown: 63
+      MetricAggregationType: Average
+  register: up_policy
+
+- name: Scale down policy
+  community.aws.aws_application_scaling_policy:
+    state: present
+    policy_name: "down_{{ deployment_group }}"
+    service_namespace: ecs
+    resource_id: "service/{{ project }}-{{ deployment_group }}-cluster/{{ project }}-{{ deployment_group }}-fargate-service"
+    scalable_dimension: ecs:service:DesiredCount
+    policy_type: StepScaling
+    minimum_tasks: 0
+    maximum_tasks: 6
+    step_scaling_policy_configuration:
+      AdjustmentType: ChangeInCapacity
+      StepAdjustments:
+        - MetricIntervalUpperBound: 0
+          ScalingAdjustment: -1
+      Cooldown: 63
+      MetricAggregationType: Average
+  register: down_policy
+
+- name: Create an alarm scale up fargate tasks
+  community.aws.ec2_metric_alarm:
+    state: present
+    region: "{{ aws_region }}"
+    name: "{{ project }}-{{ deployment_group }}-q-up"
+    metric: "ApproximateNumberOfMessagesVisible"
+    namespace: "AWS/SQS"
+    treat_missing_data: "ignore"
+    statistic: "Average"
+    comparison: GreaterThanOrEqualToThreshold
+    threshold: 1.0
+    period: 60
+    evaluation_periods: 1
+    unit: "Count"
+    description: "{{ aws_region }} job-q check"
+    dimensions: { "QueueName": "{{ project }}-{{ deployment_group }}-job-q" }
+    alarm_actions: ["{{ up_policy.response.policy_arn }}"]
+
+- name: set down metric
+  set_fact:
+    down_metric: "{{ lookup('template', 'files/cloudwatch-metric-totalq.json.j2', convert_data=False) | string }}"
+
+- name: Create an alarm scale down fargate tasks
+  shell: >
+    aws cloudwatch put-metric-alarm --region {{ aws_region }} 
+    --alarm-name "{{ project }}-{{ deployment_group }}-q-down" 
+    --alarm-description "{{ aws_region }} job-q check"
+    --alarm-actions "{{ down_policy.response.policy_arn }}"
+    --evaluation-periods 3
+    --threshold "0.1"
+    --comparison-operator LessThanThreshold
+    --treat-missing-data "ignore"
+    --metrics '{{ down_metric }}'
+  ignore_errors: true
