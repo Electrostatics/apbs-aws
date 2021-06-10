@@ -1,0 +1,14 @@
+{
+  "Records": [
+    {
+      "s3": {
+        "bucket": {
+          "name": "pytest_input_bucket"
+        },
+        "object": {
+          "key": "2021-05-16/sampleId/apbs-direct-job.json"
+        }
+      }
+    }
+  ]
+}

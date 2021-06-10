@@ -1,8 +1,10 @@
 """Tests for the generating unique IDs and S3 tokens."""
 from copy import copy
 from lambda_services.api_service.api_service import generate_id_and_tokens
+from moto import mock_s3
 
 
+@mock_s3
 def test_generate_id_and_tokens():
     """Test token request with no existing Job ID."""
     test_api_gateway_event_without_jobid = {
@@ -15,6 +17,7 @@ def test_generate_id_and_tokens():
 
     assert "job_id" in response, "Service did not generate new Job ID"
     assert "urls" in response, "Service did not generate the presigned URLs"
+    assert "date" in response, "Service did not generate date for Job ID"
     assert len(response["urls"]) == len(
         test_api_gateway_event_without_jobid["file_list"]
     ), (

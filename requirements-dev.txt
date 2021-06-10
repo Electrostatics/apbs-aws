@@ -1,3 +1,9 @@
 boto3==1.17.8
 pytest==6.2.2
+pytest-cov==2.12.1
 urllib3==1.26.3
+moto==2.0.7
+docker==5.0.0
+flake8==3.9.2
+black==21.5b2
+pylint==2.8.3
