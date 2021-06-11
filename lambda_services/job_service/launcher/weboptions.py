@@ -172,30 +172,6 @@ class WebOptions:
         """Returns argument suitable for runPDB2PQR"""
         return self.runoptions.copy()
 
-    def get_options(self) -> dict:
-        """Returns all options for reporting to Google analytics"""
-        options = self.runoptions.copy()
-        options.update(self.otheroptions)
-
-        options["ff"] = self.ff
-
-        options["pdb"] = self.pdbfilename
-
-        # propkaOptions is redundant.
-        if "ph_calc_options" in options:
-            del options["ph_calc_options"]
-
-        if "ligand" in options:
-            options["ligand"] = self.ligandfilename
-
-        if "userff" in options:
-            options["userff"] = self.userfffilename
-
-        if "usernames" in options:
-            options["usernames"] = self.usernamesfilename
-
-        return options
-
     def get_command_line(self) -> str:
         command_line = []
 
