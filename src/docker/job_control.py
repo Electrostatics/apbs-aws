@@ -536,10 +536,12 @@ def run_job(
         [],
     )
 
+    # TODO: (Eo300) consider moving binary
+    #       command (e.g. 'apbs', 'pdb2pqr30') into SQS message
     if JOBTYPE.APBS.name.lower() in job_type:
         command = f"apbs {job_info['command_line_args']}"
     elif JOBTYPE.PDB2PQR.name.lower() in job_type:
-        command = f"pdb2pqr.py {job_info['command_line_args']}"
+        command = f"pdb2pqr30 {job_info['command_line_args']}"
     else:
         raise KeyError(f"Invalid job type, {job_type}")
 
