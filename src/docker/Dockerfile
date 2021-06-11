@@ -1,9 +1,6 @@
 
-# FROM public.ecr.aws/j4g5x5m8/pdb2pqr:latest as pdb2pqr-build
-
-# Copy builds to cleaner base
-FROM public.ecr.aws/ubuntu/ubuntu:18.04 as pdb2pqr-final
-# COPY --from=pdb2pqr-build /app/builds /app/builds
+# Start with Ubuntu 18.04 base image
+FROM public.ecr.aws/ubuntu/ubuntu:18.04 as job-controller-build
 
 ENV DEBIAN_FRONTEND="noninteractive"
 
