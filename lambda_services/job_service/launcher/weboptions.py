@@ -129,7 +129,6 @@ class WebOptions:
             self.runoptions["ffout"] = form["FFOUT"]
 
         self.runoptions["keep-chain"] = "CHAIN" in form
-        self.runoptions["typemap"] = "TYPEMAP" in form
         self.runoptions["neutraln"] = "NEUTRALN" in form
         self.runoptions["neutralc"] = "NEUTRALC" in form
         self.runoptions["drop_water"] = "DROPWATER" in form
@@ -234,7 +233,7 @@ class WebOptions:
         if "ffout" in self.runoptions:
             command_line.append(f"--ffout={self.runoptions['ffout'].upper()}")
 
-        for idx in ("keep-chain", "typemap", "neutraln", "neutralc"):
+        for idx in ("keep-chain", "neutraln", "neutralc"):
             if self.runoptions[idx]:
                 command_line.append("--" + idx)
 
