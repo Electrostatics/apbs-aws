@@ -209,14 +209,14 @@ class WebOptions:
 
         if "ph_calc_method" in self.runoptions:
             command_line.append(
-                f"--ph-calc-method={self.runoptions['ph_calc_method']}"
+                f"--titration-state-method={self.runoptions['ph_calc_method']}"
             )
 
         if self.runoptions["drop_water"]:
             command_line.append("--drop-water")
 
         if self.otheroptions["apbs"]:
-            command_line.append("--apbs-input")
+            command_line.append(f"--apbs-input={splitext(self.pqrfilename[0])}.in")
 
         if self.otheroptions["whitespace"]:
             command_line.append("--whitespace")
