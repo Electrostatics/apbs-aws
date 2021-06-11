@@ -218,7 +218,9 @@ class WebOptions:
             command_line.append("--drop-water")
 
         if self.otheroptions["apbs"]:
-            command_line.append(f"--apbs-input={splitext(self.pqrfilename[0])}.in")
+            command_line.append(
+                f"--apbs-input={splitext(self.pqrfilename[0])}.in"
+            )
 
         if self.otheroptions["whitespace"]:
             command_line.append("--whitespace")
