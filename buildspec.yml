@@ -11,8 +11,10 @@ phases:
       - IMAGE_TAG=test
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
+      - ls -lR
       - lasttime=$(aws ecr describe-images --region $AWS_DEFAULT_REGION --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG | jq -r '.imageDetails[0].imagePushedAt')
       - dockerchange=$(find src/docker -newermt '@'$lasttime | wc -l)
+      - echo lasttime $lasttime $dockerchange
       - if [ "$dockerchange" ]; then echo Building the Docker image... $dockerchange ; fi
       - docker build -t $IMAGE_REPO_NAME:main.base src/docker
       - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
