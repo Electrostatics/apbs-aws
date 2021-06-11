@@ -2,6 +2,7 @@
 
 from io import StringIO
 from .utils import sanitize_file_name
+from os.path import splitext
 
 
 class WebOptionsError(Exception):
@@ -127,7 +128,7 @@ class WebOptions:
         if "FFOUT" in form and form["FFOUT"] != "internal":
             self.runoptions["ffout"] = form["FFOUT"]
 
-        self.runoptions["chain"] = "CHAIN" in form
+        self.runoptions["keep-chain"] = "CHAIN" in form
         self.runoptions["typemap"] = "TYPEMAP" in form
         self.runoptions["neutraln"] = "NEUTRALN" in form
         self.runoptions["neutralc"] = "NEUTRALC" in form
@@ -153,8 +154,9 @@ class WebOptions:
             # self.runoptions['ligand'] = StringIO(self.ligandfilestring)
             self.runoptions["ligand"] = StringIO(form["LIGANDFILE"])
 
-        if self.pdbfilename[-4:] == ".pdb":
-            self.pqrfilename = f"{self.pdbfilename[:-4]}.pqr"
+        pdbpath_root, pdbpath_ext = splitext(self.pdbfilename)
+        if pdbpath_ext == ".pdb":
+            self.pqrfilename = f"{pdbpath_root}.pqr"
         else:
             self.pqrfilename = f"{self.pdbfilename}.pqr"
 
@@ -230,7 +232,7 @@ class WebOptions:
         if "ffout" in self.runoptions:
             command_line.append(f"--ffout={self.runoptions['ffout'].upper()}")
 
-        for idx in ("chain", "typemap", "neutraln", "neutralc", "verbose"):
+        for idx in ("keep-chain", "typemap", "neutraln", "neutralc"):
             if self.runoptions[idx]:
                 command_line.append("--" + idx)
 
