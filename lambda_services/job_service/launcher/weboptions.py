@@ -13,7 +13,7 @@ class WebOptionsError(Exception):
 class WebOptions:
     """Helper class for gathering and querying options selected by the user"""
 
-    def __init__(self, job_tag, form):
+    def __init__(self, job_tag: str, form: dict):
         """
         Gleans all information about the user selected options and uploaded
         files.
@@ -31,7 +31,7 @@ class WebOptions:
         self.runoptions["opt"] = "OPT" in form
 
         if "FF" in form:
-            self.ff = form["FF"].lower()
+            self.ff: str = form["FF"].lower()
         else:
             raise WebOptionsError("Force field type missing from form.")
 
@@ -225,10 +225,10 @@ class WebOptions:
             command_line.append(f"--userff={self.userfffilename}")
             command_line.append(f"--usernames={self.usernamesfilename}")
         else:
-            command_line.append(f"--ff={self.ff}")
+            command_line.append(f"--ff={self.ff.upper()}")
 
         if "ffout" in self.runoptions:
-            command_line.append(f"--ffout={self.runoptions['ffout']}")
+            command_line.append(f"--ffout={self.runoptions['ffout'].upper()}")
 
         for idx in ("chain", "typemap", "neutraln", "neutralc", "verbose"):
             if self.runoptions[idx]:
