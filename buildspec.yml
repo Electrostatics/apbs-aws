@@ -9,6 +9,7 @@ phases:
     commands:
       - echo Build started on `date`
       - IMAGE_TAG=test
+      - printenv
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
       - ls -lR
