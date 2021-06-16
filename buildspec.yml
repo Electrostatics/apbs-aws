@@ -9,9 +9,6 @@ phases:
     commands:
       - echo Build started on `date`
       - IMAGE_TAG=test
-      - echo "CODEBUILD_BATCH_BUILD_IDENTIFIER = $CODEBUILD_BATCH_BUILD_IDENTIFIER"
-      - echo "CODEBUILD_BUILD_ID = $CODEBUILD_BUILD_ID"
-      - echo "CODEBUILD_BUILD_IMAGE = $CODEBUILD_BUILD_IMAGE"
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
       - ls -lR
@@ -25,6 +22,9 @@ phases:
       - cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/id.zip api_service
       - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zip-file fileb:///tmp/job.zip
       - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zip-file fileb:///tmp/id.zip
+      - echo "CODEBUILD_BATCH_BUILD_IDENTIFIER = $CODEBUILD_BATCH_BUILD_IDENTIFIER"
+      - echo "CODEBUILD_BUILD_ID = $CODEBUILD_BUILD_ID"
+      - echo "CODEBUILD_BUILD_IMAGE = $CODEBUILD_BUILD_IMAGE"
   post_build:
     commands:
       - echo Build completed on `date`
