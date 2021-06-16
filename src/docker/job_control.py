@@ -306,7 +306,7 @@ def update_environment(signal_number, frame):
     GLOBAL_VARS["MAX_TRIES"] = int(getenv("SQS_MAX_TRIES", "60"))
     GLOBAL_VARS["RETRY_TIME"] = int(getenv("SQS_RETRY_TIME", "15"))
     GLOBAL_VARS["LOG_LEVEL"] = int(getenv("LOG_LEVEL", str(INFO)))
-    GLOBAL_VARS["JOB_PATH"] = getenv("JOB_PATH", "/dev/shm/test/")
+    GLOBAL_VARS["JOB_PATH"] = getenv("JOB_PATH", "/var/tmp/")
     GLOBAL_VARS["S3_TOPLEVEL_BUCKET"] = getenv("OUTPUT_BUCKET")
     GLOBAL_VARS["QUEUE"] = getenv("JOB_QUEUE_NAME")
     _LOGGER.setLevel(GLOBAL_VARS["LOG_LEVEL"])
