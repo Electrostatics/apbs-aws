@@ -9,6 +9,9 @@ phases:
     commands:
       - echo Build started on `date`
       - IMAGE_TAG=test
+      - echo "CODEBUILD_BATCH_BUILD_IDENTIFIER = $CODEBUILD_BATCH_BUILD_IDENTIFIER"
+      - echo "CODEBUILD_BUILD_ID = $CODEBUILD_BUILD_ID"
+      - echo "CODEBUILD_BUILD_IMAGE = $CODEBUILD_BUILD_IMAGE"
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
       - ls -lR
