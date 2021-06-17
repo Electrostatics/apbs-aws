@@ -5,8 +5,9 @@ phases:
     commands:
       - echo Logging in to Amazon ECR...
       - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
-      - ID=$(aws codepipeline get-pipeline-state --region $AWS_DEFAULT_REGION --name $PIPELINE_NAME --query 'stageStates[?actionStates[?latestExecution.externalExecutionId==`'${CODEBUILD_BUILD_ID}'`]].latestExecution.pipelineExecutionId' --output text)
-      - TRIGGER=$(aws codepipeline list-pipeline-executions --pipeline $PIPELINE_NAME | jq -r ".pipelineExecutionSummaries[]|select(.pipelineExecutionId==\"$ID\")|.trigger.triggerType")
+      - export PIPELINE_NAME=`echo $CODEBUILD_INITIATOR | cut -c15-`
+      - export ID=$(aws codepipeline get-pipeline-state --region $AWS_DEFAULT_REGION --name $PIPELINE_NAME --query 'stageStates[?actionStates[?latestExecution.externalExecutionId==`'${CODEBUILD_BUILD_ID}'`]].latestExecution.pipelineExecutionId' --output text)
+      - export TRIGGER=$(aws codepipeline list-pipeline-executions --pipeline $PIPELINE_NAME | jq -r ".pipelineExecutionSummaries[]|select(.pipelineExecutionId==\"$ID\")|.trigger.triggerType")
       - echo Trigger is $TRIGGER, not Webhook means build all 
   build:
     commands:
