@@ -5,9 +5,10 @@ phases:
     commands:
       - echo Logging in to Amazon ECR...
       - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
-      - export PIPELINE_NAME=`echo $CODEBUILD_INITIATOR | cut -c15-`
+      - export PIPELINE_NAME=`echo $CODEBUILD_INITIATOR | cut -c14-`
       - export ID=$(aws codepipeline get-pipeline-state --region $AWS_DEFAULT_REGION --name $PIPELINE_NAME --query 'stageStates[?actionStates[?latestExecution.externalExecutionId==`'${CODEBUILD_BUILD_ID}'`]].latestExecution.pipelineExecutionId' --output text)
       - export TRIGGER=$(aws codepipeline list-pipeline-executions --pipeline $PIPELINE_NAME | jq -r ".pipelineExecutionSummaries[]|select(.pipelineExecutionId==\"$ID\")|.trigger.triggerType")
+      - export LAST_SUCCESSFUL_COMMIT_ID=$(aws codepipeline list-pipeline-executions --pipeline-name $PIPELINE_NAME | jq -r '[.pipelineExecutionSummaries[] | select(.status == "Succeeded") | .sourceRevisions[0].revisionId][0]')
       - echo Trigger is $TRIGGER, not Webhook means build all 
   build:
     commands:
@@ -16,20 +17,19 @@ phases:
       - printenv
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
+      - export IMAGE_TAG
       - ls -lR
-      - lasttime=$(aws ecr describe-images --region $AWS_DEFAULT_REGION --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG | jq -r '.imageDetails[0].imagePushedAt')
-      - dockerchange=$(find src/docker -newermt '@'$lasttime | wc -l)
-      - echo lasttime $lasttime $dockerchange
-      - if [ "$dockerchange" ]; then echo Building the Docker image... $dockerchange ; fi
-      - docker build -t $IMAGE_REPO_NAME:main.base src/docker
-      - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
-      - cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/job.zip job_service
-      - cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/id.zip api_service
-      - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zip-file fileb:///tmp/job.zip
-      - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zip-file fileb:///tmp/id.zip
-      - echo "CODEBUILD_BATCH_BUILD_IDENTIFIER = $CODEBUILD_BATCH_BUILD_IDENTIFIER"
-      - echo "CODEBUILD_BUILD_ID = $CODEBUILD_BUILD_ID"
-      - echo "CODEBUILD_BUILD_IMAGE = $CODEBUILD_BUILD_IMAGE"
+      # - lasttime=$(aws ecr describe-images --region $AWS_DEFAULT_REGION --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG | jq -r '.imageDetails[0].imagePushedAt')
+      # - dockerchange=$(find src/docker -newermt '@'$lasttime | wc -l)
+      # - echo lasttime $lasttime $dockerchange
+      # - if [ "$dockerchange" ]; then echo Building the Docker image... $dockerchange ; fi
+      # - docker build -t $IMAGE_REPO_NAME:main.base src/docker
+      # - docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+      # - cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/job.zip job_service
+      # - cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/id.zip api_service
+      # - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zip-file fileb:///tmp/job.zip
+      # - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zip-file fileb:///tmp/id.zip
+      - ./build_and_deploy.sh all # TODO: add conditional to use TRIGGER to determine command to use ('all' or 'changed')
   post_build:
     commands:
       - echo Build completed on `date`
