@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 show_help() {
     echo "SYNTAX:   ./build_and_update.sh COMMAND"
