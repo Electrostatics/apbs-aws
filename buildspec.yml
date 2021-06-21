@@ -18,7 +18,7 @@ phases:
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
       - export IMAGE_TAG
-      - ls -lR
+      - ls -lRa
       # - lasttime=$(aws ecr describe-images --region $AWS_DEFAULT_REGION --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG | jq -r '.imageDetails[0].imagePushedAt')
       # - dockerchange=$(find src/docker -newermt '@'$lasttime | wc -l)
       # - echo lasttime $lasttime $dockerchange
@@ -29,7 +29,8 @@ phases:
       # - cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/id.zip api_service
       # - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zip-file fileb:///tmp/job.zip
       # - aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zip-file fileb:///tmp/id.zip
-      - bash build_and_update.sh changed # TODO: add conditional to use TRIGGER to determine command to use ('all' or 'changed')
+      - git log --pretty=format:"%h %s" | head -20
+      - bash build_and_update.sh changed
   post_build:
     commands:
       - echo Build completed on `date`
