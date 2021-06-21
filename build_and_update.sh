@@ -29,8 +29,10 @@ build_docker() {
     docker build -t $IMAGE_REPO_NAME:main.base $CODEBUILD_SRC_DIR/src/docker
     docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
 
-    echo Pushing the Docker image...
+    echo "Pushing the Docker image..."
     docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+
+    #TODO: Restart running ECS task
 }
 
 
@@ -80,11 +82,11 @@ else
         all)
             build_all
             ;;
-        changed)
+        Webhook)
             build_changed
             ;;
         *)
-            show_help
+            build_all
             ;;
     esac
 fi
