@@ -14,8 +14,6 @@ SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
 JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION", "us-west-2")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
 
-# Initialize logger
-
 
 def get_job_info(
     job_tag: str, bucket_name: str, info_object_name: str
