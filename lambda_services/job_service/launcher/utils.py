@@ -125,9 +125,9 @@ def s3_object_exists(bucket_name: str, object_name: str) -> bool:
         )
         return True
     except ClientError as err:
-        if err.response["Error"]["Message"] == "NoSuchKey":
+        if err.response["Error"]["Code"] == "404":  # "NoSuchKey" error
             return False
-        elif err.response["Error"]["Message"] == "Forbidden":
+        elif err.response["Error"]["Code"] == "403":
             job_tag: str = _extract_job_tag_from_objectname(object_name)
             _LOGGER.warning(
                 "%s Received '%s' (%d) message on object HEAD: %s",

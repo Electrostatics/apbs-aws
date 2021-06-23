@@ -1,0 +1,168 @@
+[
+  {
+    "name": "apbs-direct",
+    "type": "apbs",
+    "upload": {
+      "input": [
+        "1fas.pqr",
+        "1fas.in"
+      ],
+      "output": []
+    },
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2021-05-16/sampleId/apbs-direct-job.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "support_files": [
+          "1fas.pqr"
+        ],
+        "filename": "1fas.in"
+      },
+      "metadata": {}
+    }
+  },
+  {
+    "name": "apbs-post_pdb2pqr",
+    "type": "apbs",
+    "upload": {
+      "input": [],
+      "output": [
+        "1fas.pqr",
+        "sampleId.in"
+      ]
+    },
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2021-05-16/sampleId/apbs-post_pdb2pqr-job.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "type": "mg-auto",
+        "calcenergy": "total",
+        "calcforce": "no",
+        "output_scalar": [
+          "writepot"
+        ],
+        "writeformat": "dx",
+        "hiddencheck": "local",
+        "mol": "1",
+        "pdb2pqrid": "7sytp83mi5",
+        "cgcent": "mol",
+        "fgcent": "mol",
+        "solvetype": "lpbe",
+        "bcfl": "sdh",
+        "chgm": "spl2",
+        "srfm": "smol",
+        "charge0": "",
+        "charge1": "",
+        "charge2": "",
+        "conc0": "",
+        "conc1": "",
+        "conc2": "",
+        "radius0": "",
+        "radius1": "",
+        "radius2": "",
+        "pdie": 2,
+        "sdie": 78.54,
+        "sdens": 10,
+        "srad": 1.4,
+        "swin": 0.3,
+        "temp": 298.15,
+        "dimenx": 129,
+        "dimeny": 97,
+        "dimenz": 97,
+        "fglenx": 57.123999999999995,
+        "fgleny": 45.73,
+        "fglenz": 56.153,
+        "cglenx": 63.11079999999999,
+        "cgleny": 45.73,
+        "cglenz": 61.4601,
+        "fgcentid": 1,
+        "cgcentid": 1,
+        "ofrac": 0.1,
+        "glenx": 63.11079999999999,
+        "gleny": 45.73,
+        "glenz": 61.4601,
+        "pdimex": 1,
+        "pdimey": 1,
+        "pdimez": 1,
+        "gcent": ""
+      },
+      "metadata": {}
+    }
+  },
+  {
+    "name": "pdb2pqr-v1-basic",
+    "type": "pdb2pqr",
+    "upload": {
+      "input": [],
+      "output": []
+    },
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2021-05-16/sampleId/pdb2pqr-sample-job.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "invoke_method": "v1",
+        "PDBFILE": "",
+        "USERFFFILE": "",
+        "NAMESFILE": "",
+        "LIGANDFILE": "",
+        "PDBID": "1fas",
+        "PDBSOURCE": "ID",
+        "PH": 7,
+        "PKACALCMETHOD": "propka",
+        "FF": "parse",
+        "FFOUT": "internal",
+        "OPTIONS": [
+          "atomsnotclose",
+          "optimizeHnetwork",
+          "makeapbsin",
+          "removewater"
+        ],
+        "DEBUMP": "atomsnotclose",
+        "OPT": "optimizeHnetwork",
+        "INPUT": "makeapbsin",
+        "DROPWATER": "removewater"
+      },
+      "metadata": {
+        "cli": {
+          "command": "python pdb2pqr.py --ph-calc-method=propka --with-ph=7 --ff=parse  --apbs-input --drop-water 1fas.pdb 1fas.pqr"
+        }
+      }
+    }
+  }
+]

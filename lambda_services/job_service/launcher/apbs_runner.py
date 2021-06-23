@@ -27,6 +27,7 @@ class Runner(JobSetup):
         if "filename" in form:
             self.infile_name = form["filename"]
             self.infile_support_filenames = form["support_files"]
+
         elif form is not None:
 
             if "output_scalar" in form:
