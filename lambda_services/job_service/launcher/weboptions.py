@@ -194,7 +194,7 @@ class WebOptions:
 
         if self.otheroptions["apbs"]:
             command_line.append(
-                f"--apbs-input={splitext(self.pqrfilename[0])}.in"
+                f"--apbs-input={splitext(self.pqrfilename)[0]}.in"
             )
 
         if self.otheroptions["whitespace"]:
