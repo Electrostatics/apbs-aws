@@ -72,7 +72,7 @@
       "input_files": [
         "https://files.rcsb.org/download/1fas.pdb"
       ],
-      "command_line_args": "--with-ph=7.0 --ph-calc-method=propka --drop-water --apbs-input --ff=parse --verbose  1fas.pdb sampleId.pqr",
+      "command_line_args": "--with-ph=7.0 --titration-state-method=propka --drop-water --apbs-input=sampleId.in --ff=PARSE  1fas.pdb sampleId.pqr",
       "max_run_time": 2700
     },
     "initial_status": {
