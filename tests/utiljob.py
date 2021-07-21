@@ -8,8 +8,13 @@ from os import getenv
 from sys import stdout
 
 _LOGGER = getLogger(__name__)
+LOGGER_FORMAT = (
+    "[%(levelname)s] "
+    "[%(filename)s:%(lineno)s:%(funcName)s()] "
+    "%(message)s"
+)
 basicConfig(
-    format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+    format=LOGGER_FORMAT,
     level=int(getenv("LOG_LEVEL", str(INFO))),
     handlers=[StreamHandler(stdout)],
 )

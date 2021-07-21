@@ -26,7 +26,7 @@ to the biomedical community.
 """
 
 from sys import version_info
-from setuptools import find_packages, setup
+from setuptools import setup
 
 # NOTE: The following reads the version number and makes
 #       if available to the packaging tools before installation.

@@ -11,7 +11,7 @@ from sys import stdout
 from typing import List
 
 from jobinterface import JobInterface
-from utiljob import get_contents, JOBTYPE
+from utiljob import get_contents, LOGGER_FORMAT, JOBTYPE
 
 
 class ApbsJob(JobInterface):
@@ -42,7 +42,7 @@ class ApbsJob(JobInterface):
         self.job_type = JOBTYPE.APBS.name.lower()
         self._logger = getLogger(__class__.__name__)
         basicConfig(
-            format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            format=LOGGER_FORMAT,
             level=int(getenv("LOG_LEVEL", str(INFO))),
             handlers=[StreamHandler(stdout)],
         )

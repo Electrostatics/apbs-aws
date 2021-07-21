@@ -10,7 +10,7 @@ from typing import List
 from sys import stdout
 
 from jobinterface import JobInterface
-from utiljob import get_contents, JOBTYPE
+from utiljob import get_contents, LOGGER_FORMAT, JOBTYPE
 
 
 class Pdb2PqrJob(JobInterface):
@@ -41,7 +41,7 @@ class Pdb2PqrJob(JobInterface):
         self.job_type = JOBTYPE.PDB2PQR.name.lower()
         self._logger = getLogger(__class__.__name__)
         basicConfig(
-            format="[%(levelname)s] [%(filename)s:%(lineno)s:%(funcName)s()] %(message)s",
+            format=LOGGER_FORMAT,
             level=int(getenv("LOG_LEVEL", str(INFO))),
             handlers=[StreamHandler(stdout)],
         )
