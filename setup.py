@@ -63,6 +63,7 @@ setup(
             "black",
             "boto3",
             "coverage",
+            "docker",
             "flake8",
             "moto",
             "pandas >= 1.0",
