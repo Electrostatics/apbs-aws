@@ -2,6 +2,7 @@
 
 from io import StringIO
 from .utils import sanitize_file_name
+from os.path import splitext
 
 
 class WebOptionsError(Exception):
@@ -13,7 +14,7 @@ class WebOptionsError(Exception):
 class WebOptions:
     """Helper class for gathering and querying options selected by the user"""
 
-    def __init__(self, job_tag, form):
+    def __init__(self, job_tag: str, form: dict):
         """
         Gleans all information about the user selected options and uploaded
         files.
@@ -31,7 +32,7 @@ class WebOptions:
         self.runoptions["opt"] = "OPT" in form
 
         if "FF" in form:
-            self.ff = form["FF"].lower()
+            self.ff: str = form["FF"].lower()
         else:
             raise WebOptionsError("Force field type missing from form.")
 
@@ -127,8 +128,7 @@ class WebOptions:
         if "FFOUT" in form and form["FFOUT"] != "internal":
             self.runoptions["ffout"] = form["FFOUT"]
 
-        self.runoptions["chain"] = "CHAIN" in form
-        self.runoptions["typemap"] = "TYPEMAP" in form
+        self.runoptions["keep-chain"] = "CHAIN" in form
         self.runoptions["neutraln"] = "NEUTRALN" in form
         self.runoptions["neutralc"] = "NEUTRALC" in form
         self.runoptions["drop_water"] = "DROPWATER" in form
@@ -153,8 +153,9 @@ class WebOptions:
             # self.runoptions['ligand'] = StringIO(self.ligandfilestring)
             self.runoptions["ligand"] = StringIO(form["LIGANDFILE"])
 
-        if self.pdbfilename[-4:] == ".pdb":
-            self.pqrfilename = f"{self.pdbfilename[:-4]}.pqr"
+        pdbpath_root, pdbpath_ext = splitext(self.pdbfilename)
+        if pdbpath_ext == ".pdb":
+            self.pqrfilename = f"{pdbpath_root}.pqr"
         else:
             self.pqrfilename = f"{self.pdbfilename}.pqr"
 
@@ -171,30 +172,6 @@ class WebOptions:
         """Returns argument suitable for runPDB2PQR"""
         return self.runoptions.copy()
 
-    def get_options(self) -> dict:
-        """Returns all options for reporting to Google analytics"""
-        options = self.runoptions.copy()
-        options.update(self.otheroptions)
-
-        options["ff"] = self.ff
-
-        options["pdb"] = self.pdbfilename
-
-        # propkaOptions is redundant.
-        if "ph_calc_options" in options:
-            del options["ph_calc_options"]
-
-        if "ligand" in options:
-            options["ligand"] = self.ligandfilename
-
-        if "userff" in options:
-            options["userff"] = self.userfffilename
-
-        if "usernames" in options:
-            options["usernames"] = self.usernamesfilename
-
-        return options
-
     def get_command_line(self) -> str:
         command_line = []
 
@@ -209,14 +186,16 @@ class WebOptions:
 
         if "ph_calc_method" in self.runoptions:
             command_line.append(
-                f"--ph-calc-method={self.runoptions['ph_calc_method']}"
+                f"--titration-state-method={self.runoptions['ph_calc_method']}"
             )
 
         if self.runoptions["drop_water"]:
             command_line.append("--drop-water")
 
         if self.otheroptions["apbs"]:
-            command_line.append("--apbs-input")
+            command_line.append(
+                f"--apbs-input={splitext(self.pqrfilename)[0]}.in"
+            )
 
         if self.otheroptions["whitespace"]:
             command_line.append("--whitespace")
@@ -225,12 +204,12 @@ class WebOptions:
             command_line.append(f"--userff={self.userfffilename}")
             command_line.append(f"--usernames={self.usernamesfilename}")
         else:
-            command_line.append(f"--ff={self.ff}")
+            command_line.append(f"--ff={self.ff.upper()}")
 
         if "ffout" in self.runoptions:
-            command_line.append(f"--ffout={self.runoptions['ffout']}")
+            command_line.append(f"--ffout={self.runoptions['ffout'].upper()}")
 
-        for idx in ("chain", "typemap", "neutraln", "neutralc", "verbose"):
+        for idx in ("keep-chain", "neutraln", "neutralc"):
             if self.runoptions[idx]:
                 command_line.append("--" + idx)
 

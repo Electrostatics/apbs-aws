@@ -293,7 +293,8 @@ def apbs_infile_creator(job_tag, apbs_options: dict) -> str:
             # ion charge {charge} conc {conc} radius {radius}
             apbsinput_io.write(
                 f"\tion charge {apbs_options[ch_str]} "
-                f"conc {apbs_options[conc_str]} radius {apbs_options[rad_str]}\n"
+                f"conc {apbs_options[conc_str]} "
+                f"radius {apbs_options[rad_str]}\n"
             )
 
     if apbs_options["writeCharge"]:

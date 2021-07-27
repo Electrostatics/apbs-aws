@@ -1,12 +1,13 @@
 """Tests for interpreting and handling job configuration submissions."""
 # NOTE: importing entire job_service us to modify module's global variables
-from lambda_services.job_service import job_service
-from typing import Union
-from time import time
 from datetime import date
 from json import dumps, load, loads
+from pathlib import Path
+from time import time
+from typing import Union
 from moto import mock_s3, mock_sqs
 from boto3 import client
+from lambda_services.job_service import job_service
 import pytest
 
 
@@ -106,7 +107,9 @@ def test_get_job_info(initialize_input_bucket):
     s3_client, bucket_name = initialize_input_bucket
 
     # Read sample input JSON file into dict
-    input_name = "lambda_services/tests/input_data/sample_web-pdb2pqr-job.json"
+    input_name = Path.cwd() / Path(
+        "tests/input_data/sample_web-pdb2pqr-job.json"
+    )
     expected_pdb2pqr_job_info: dict
     with open(input_name) as fin:
         expected_pdb2pqr_job_info = load(fin)
@@ -250,7 +253,7 @@ def test_interpret_job_submission_invalid(
     job_date = "2021-05-16"
 
     # Upload JSON for invalid jobtype
-    input_name = "lambda_services/tests/input_data/invalid-job.json"
+    input_name = Path.cwd() / Path("tests/input_data/invalid-job.json")
     invalid_job_info: dict
     with open(input_name) as fin:
         invalid_job_info = load(fin)
@@ -261,8 +264,8 @@ def test_interpret_job_submission_invalid(
 
     # Setup dict with expected S3 trigger content
     s3_event: dict
-    s3_event_filepath = (
-        "lambda_services/tests/input_data/invalid_job-s3_trigger.json"
+    s3_event_filepath = Path.cwd() / Path(
+        "tests/input_data/invalid_job-s3_trigger.json"
     )
     with open(s3_event_filepath) as fin:
         s3_event = load(fin)
@@ -335,11 +338,11 @@ def initialize_s3_and_sqs_clients(
 INPUT_JOB_LIST: list = []
 EXPECTED_OUTPUT_LIST: list = []
 with open(
-    "lambda_services/tests/input_data/test-job_service-input.json"
+    Path.cwd() / Path("tests/input_data/test-job_service-input.json")
 ) as fin:
     INPUT_JOB_LIST = load(fin)
 with open(
-    "lambda_services/tests/expected_data/test-job_service-output.json"
+    Path.cwd() / Path("tests/expected_data/test-job_service-output.json")
 ) as fin:
     EXPECTED_OUTPUT_LIST = load(fin)
 
@@ -388,7 +391,7 @@ def test_interpret_job_submission_success(
     if "upload" in apbs_test_job:
         for file_name in apbs_test_job["upload"]["input"]:
             file_contents: str = open(
-                f"lambda_services/tests/input_data/{file_name}"
+                Path.cwd() / Path(f"tests/input_data/{file_name}")
             ).read()
             upload_data(
                 s3_client,
@@ -398,7 +401,7 @@ def test_interpret_job_submission_success(
             )
         for file_name in apbs_test_job["upload"]["output"]:
             file_contents: str = open(
-                f"lambda_services/tests/input_data/{file_name}"
+                Path.cwd() / Path(f"tests/input_data/{file_name}")
             ).read()
             upload_data(
                 s3_client,
