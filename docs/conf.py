@@ -13,7 +13,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-from lambda_services import __version__
+import lambda_services
 
 
 # -- Project information -----------------------------------------------------
@@ -22,7 +22,7 @@ project = "lambda_services"
 copyright = "2021, Nathan Baker"
 author = "Nathan Baker"
 
-release = __version__
+release = lambda_services._version.__version__
 
 # -- General configuration ---------------------------------------------------
 
