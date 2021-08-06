@@ -9,4 +9,4 @@ python:
         - test
         - dev
     - method: setuptools
-      path: package
+      path: .
