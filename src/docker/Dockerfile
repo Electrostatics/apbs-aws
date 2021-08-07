@@ -9,7 +9,7 @@ RUN apt update -y \
     # Install necessary packages via apt-get
     && apt install -y wget zip libreadline7 libgomp1 dumb-init python3 python3-boto3 python3-pip \
     # Install pdb2pqr3 via pip
-    && pip3 install pdb2pqr==3.1.0 \
+    && pip3 install pdb2pqr==3.2.0 \
     # Download APBS binary from GitHub release
     && wget https://github.com/Electrostatics/apbs-pdb2pqr/releases/download/vAPBS-3.0.0/APBS-3.0.0_Linux.zip \
     && unzip APBS-3.0.0_Linux.zip \
