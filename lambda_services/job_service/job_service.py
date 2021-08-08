@@ -3,12 +3,14 @@ from json import dumps, loads, JSONDecodeError
 from os import getenv
 from time import time
 from boto3 import client, resource
+from urllib3 import PoolManager
 from botocore.exceptions import ClientError
 from .launcher import pdb2pqr_runner, apbs_runner
 from .launcher.jobsetup import MissingFilesError
 from .launcher.utils import _LOGGER
 
 OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
+VERSION_URL = getenv("VERSION_URL")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
 JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION", "us-west-2")
@@ -66,6 +68,14 @@ def get_job_info(
         raise
 
 
+def get_version_info() -> dict:
+    # Download version info object from S3 via URL
+    http = PoolManager()
+    resp = http.request("GET", VERSION_URL)
+    version_info: dict = loads(resp.data)
+    return version_info
+
+
 def build_status_dict(
     job_id: str,
     job_tag: str,
@@ -105,6 +115,9 @@ def build_status_dict(
             "inputFiles": inputfile_list,
             "outputFiles": outputfile_list,
         },
+        "metadata": {
+            "versions": get_version_info()
+        }
     }
 
     # if message is not None:

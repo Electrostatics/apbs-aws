@@ -16,12 +16,14 @@ build_api_service() {
     echo "Updating Lambda function (API Service)"
     cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/id.zip api_service
     aws lambda update-function-code --function-name apbs-$IMAGE_TAG-id-L  --publish --zip-file fileb:///tmp/id.zip
+    # aws lambda update-function-configuration --function-name apbs-$IMAGE_TAG-id-L --environment "Variables={CODEBUILD_RESOLVED_SOURCE_VERSION=$CODEBUILD_RESOLVED_SOURCE_VERSION}"
 }
 
 build_job_service() {
     echo "Updating Lambda function (Job Service)"
     cd $CODEBUILD_SRC_DIR/lambda_services; zip -r /tmp/job.zip job_service
     aws lambda update-function-code --function-name apbs-$IMAGE_TAG-job-L --publish --zip-file fileb:///tmp/job.zip
+    # aws lambda update-function-configuration --function-name apbs-$IMAGE_TAG-job-L --environment "Variables={CODEBUILD_RESOLVED_SOURCE_VERSION=$CODEBUILD_RESOLVED_SOURCE_VERSION}"
 }
 
 build_docker() {    
