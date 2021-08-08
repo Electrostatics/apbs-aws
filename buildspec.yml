@@ -23,7 +23,7 @@ phases:
   post_build:
     commands:
       # Update version file on S3
-      - curl https://$VERSION_URL | jq --arg commit "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.aws|="\($commit)"' > versions.json
-      - aws s3 cp ./versions.json s3://$VERSION_URL
+      - curl https://$WEB_BUCKET_NAME.s3.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_TAG-info/$VERSION_PATH | jq --arg commit "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.aws|="\($commit)"' > versions.json
+      - aws s3 cp ./versions.json s3://$WEB_BUCKET_NAME.s3.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_TAG-info/$VERSION_PATH
       - aws lambda update-function-configuration --function-name apbs-$IMAGE_TAG-job-L --environment "Variables={CODEBUILD_RESOLVED_SOURCE_VERSION=$CODEBUILD_RESOLVED_SOURCE_VERSION}"
       - echo Build completed on `date`
