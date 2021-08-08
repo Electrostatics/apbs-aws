@@ -26,6 +26,6 @@ phases:
       - echo Updating build commit in s3://$WEB_BUCKET_NAME/$IMAGE_TAG-info/$VERSION_PATH
       - aws s3 cp s3://$WEB_BUCKET_NAME/$IMAGE_TAG-info/$VERSION_PATH versions.json
       - cat versions.json | jq --arg commit "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.aws|="\($commit)"' > versions.json
-      - aws s3 cp versions.json s3://$WEB_BUCKET_NAME.s3.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_TAG-info/$VERSION_PATH
+      - aws s3 cp versions.json s3://$WEB_BUCKET_NAME/$IMAGE_TAG-info/$VERSION_PATH
       - aws lambda update-function-configuration --function-name apbs-$IMAGE_TAG-job-L --environment "Variables={CODEBUILD_RESOLVED_SOURCE_VERSION=$CODEBUILD_RESOLVED_SOURCE_VERSION}"
       - echo Build completed on `date`
