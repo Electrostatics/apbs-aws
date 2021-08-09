@@ -69,6 +69,12 @@ def get_job_info(
 
 
 def get_version_info() -> dict:
+    """Download the current version information from AWS S3, returning a
+    dictionary with its contents
+
+    :return: a dictionary containing version information retrieved from S3
+    :rtype: dict
+    """
     # Download version info object from S3 via URL
     http = PoolManager()
     resp = http.request("GET", VERSION_URL)
@@ -115,9 +121,7 @@ def build_status_dict(
             "inputFiles": inputfile_list,
             "outputFiles": outputfile_list,
         },
-        "metadata": {
-            "versions": get_version_info()
-        }
+        "metadata": {"versions": get_version_info()},
     }
 
     # if message is not None:

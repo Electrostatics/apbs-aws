@@ -28,8 +28,5 @@ COPY  job_control.py /app/
 RUN chmod +x /app/job_control.py
 WORKDIR /app/run
 
-# Set git commit hash used for image
-# ENV CODEBUILD_RESOLVED_SOURCE_VERSION=${CODEBUILD_RESOLVED_SOURCE_VERSION}
-
 ENTRYPOINT [ "/usr/bin/dumb-init", "--" ]
 CMD [ "/app/job_control.py" ]
