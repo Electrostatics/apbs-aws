@@ -44,7 +44,7 @@ with open("README.md", "r") as fobj:
 setup(
     name="lambda_services",
     version=__version__,  # noqa: F821
-    author="Nathan Baker, Elvis Offer, Matt Macduff, and Darren Curtis.",
+    author="Nathan Baker, Elvis Offor, Matt Macduff, and Darren Curtis.",
     author_email="nathanandrewbaker@gmail.com",
     description=(
         "Automates many of the common tasks of preparing structures for "
@@ -66,7 +66,6 @@ setup(
             "docker",
             "flake8",
             "moto",
-            "pandas >= 1.0",
             "pylint",
             "pytest",
             "pytest-cov",
@@ -74,7 +73,6 @@ setup(
         ],
     },
     tests_require=[
-        "pandas >= 1.0",
         "pytest",
         "testfixtures",
     ],
