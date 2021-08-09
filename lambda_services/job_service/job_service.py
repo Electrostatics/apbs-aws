@@ -68,17 +68,24 @@ def get_job_info(
         raise
 
 
-def get_version_info() -> dict:
+def get_version_info(job_tag: str) -> dict:
     """Download the current version information from AWS S3, returning a
     dictionary with its contents
 
+    :param job_tag str: Unique ID for this job
     :return: a dictionary containing version information retrieved from S3
     :rtype: dict
     """
     # Download version info object from S3 via URL
+    _LOGGER.debug(
+        "%s Downloading version file from URL: %s", job_tag, VERSION_URL
+    )
     http = PoolManager()
     resp = http.request("GET", VERSION_URL)
+    _LOGGER.debug("%s HTTP status of versions file: %s", job_tag, resp.status)
+    _LOGGER.debug("%s Contents of version file: %s", job_tag, resp.data)
     version_info: dict = loads(resp.data)
+
     return version_info
 
 
