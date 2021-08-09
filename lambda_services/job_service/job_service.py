@@ -128,7 +128,7 @@ def build_status_dict(
             "inputFiles": inputfile_list,
             "outputFiles": outputfile_list,
         },
-        "metadata": {"versions": get_version_info()},
+        "metadata": {"versions": get_version_info(job_tag)},
     }
 
     # if message is not None:
