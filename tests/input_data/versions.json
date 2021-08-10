@@ -1,0 +1,5 @@
+{
+    "aws": "some_git_commit_sha",
+    "apbs": "3.0.0",
+    "pdb2pqr": "3.2.0"
+}

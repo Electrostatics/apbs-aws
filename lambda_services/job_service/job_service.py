@@ -86,43 +86,6 @@ def get_job_info(
     _LOGGER.info("%s Found job_info: %s", job_tag, job_info)
     return job_info
 
-    # object_response = {}
-    # try:
-    #     object_response = client("s3").get_object(
-    #         Bucket=bucket_name,
-    #         Key=info_object_name,
-    #     )
-    # except (ClientError) as err:
-    #     _LOGGER.exception(
-    #         "%s Unable to get object for Bucket, %s, and Key, %s: %s",
-    #         job_tag,
-    #         bucket_name,
-    #         info_object_name,
-    #         err,
-    #     )
-    #     raise
-
-    # # Convert content of JSON file to dict
-    # try:
-    #     job_info: dict = loads(object_response["Body"].read().decode("utf-8"))
-    #     _LOGGER.info("%s Found job_info: %s", job_tag, job_info)
-    #     return job_info
-    # except JSONDecodeError as jerr:
-    #     _LOGGER.exception(
-    #         "%s Can't decode JSON: %s, (%s)",
-    #         job_tag,
-    #         object_response,
-    #         jerr,
-    #     )
-    # except Exception as err:
-    #     _LOGGER.exception(
-    #         "%s Can't loads JSON: %s, (%s)",
-    #         job_tag,
-    #         object_response,
-    #         err,
-    #     )
-    #     raise
-
 
 def get_version_info(job_tag: str) -> dict:
     """Download the current version information from AWS S3, returning a
@@ -139,19 +102,11 @@ def get_version_info(job_tag: str) -> dict:
         VERSION_BUCKET,
         VERSION_KEY,
     )
-    # http = PoolManager()
-    # resp = http.request("GET", VERSION_URL)
-    # _LOGGER.debug(
-    #   "%s HTTP status of versions file: %s",
-    #   job_tag,
-    #   resp.status
-    # )
-    # version_info: dict = loads(resp.data)
-
     version_info: dict = get_s3_object_json(
         job_tag, VERSION_BUCKET, VERSION_KEY
     )
-    _LOGGER.debug("%s Contents of version file: %s", job_tag, version_info)
+
+    _LOGGER.debug("%s Current version info: %s", job_tag, version_info)
     return version_info
 
 
