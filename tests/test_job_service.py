@@ -102,6 +102,43 @@ def download_data(
     return s3_resp["Body"].read()
 
 
+def create_version_bucket_and_file(
+    bucket_name: str, region_name: str, version_key: str
+):
+    s3_client = client("s3")
+    s3_client.create_bucket(
+        Bucket=bucket_name,
+        CreateBucketConfiguration={
+            "LocationConstraint": region_name,
+        },
+    )
+    with open("tests/input_data/versions.json") as fin:
+        upload_data(s3_client, bucket_name, version_key, fin.read())
+
+
+@pytest.fixture
+def initialize_version_environment():
+    version_bucket = "pytest_version_bucket"
+    version_key = "info/versions.json"
+    region_name = "us-west-2"
+
+    with mock_s3():
+        create_version_bucket_and_file(
+            version_bucket, region_name, version_key
+        )
+
+        original_VERSION_BUCKET = job_service.VERSION_BUCKET
+        original_VERSION_KEY = job_service.VERSION_KEY
+        job_service.VERSION_BUCKET = version_bucket
+        job_service.VERSION_KEY = version_key
+
+        yield
+
+        # Reset state of environment variables
+        job_service.VERSION_BUCKET = original_VERSION_BUCKET
+        job_service.VERSION_KEY = original_VERSION_KEY
+
+
 def test_get_job_info(initialize_input_bucket):
     # Retrieve initialized AWS client and bucket name
     s3_client, bucket_name = initialize_input_bucket
@@ -130,7 +167,7 @@ def test_get_job_info(initialize_input_bucket):
     assert job_info == expected_pdb2pqr_job_info
 
 
-def test_build_status_dict_valid_job():
+def test_build_status_dict_valid_job(initialize_version_environment):
     """Test funciton for initial status creation for valid jobtypes"""
 
     # Valid job
@@ -161,7 +198,7 @@ def test_build_status_dict_valid_job():
     assert isinstance(status_dict[job_type]["outputFiles"], list)
 
 
-def test_build_status_dict_invalid_job():
+def test_build_status_dict_invalid_job(initialize_version_environment):
     """Test funciton for initial status creation for invalid jobtypes"""
 
     # Invalid job
@@ -242,6 +279,13 @@ def test_interpret_job_submission_invalid(
     ) = initialize_input_and_output_bucket
     sqs_client, queue_name, region_name = initialize_job_queue
 
+    # Initialize version-related variables
+    version_bucket = "pytest_version_bucket"
+    version_key = "info/versions.json"
+    create_version_bucket_and_file(version_bucket, region_name, version_key)
+    original_VERSION_BUCKET = job_service.VERSION_BUCKET
+    original_VERSION_KEY = job_service.VERSION_KEY
+
     # Retrieve original global variable names from module
     original_OUTPUT_BUCKET = job_service.OUTPUT_BUCKET
     original_SQS_QUEUE_NAME = job_service.SQS_QUEUE_NAME
@@ -274,6 +318,8 @@ def test_interpret_job_submission_invalid(
     job_service.SQS_QUEUE_NAME = queue_name
     job_service.OUTPUT_BUCKET = output_bucket_name
     job_service.JOB_QUEUE_REGION = region_name
+    job_service.VERSION_BUCKET = version_bucket
+    job_service.VERSION_KEY = version_key
     job_service.interpret_job_submission(s3_event, None)
 
     # Obtain SQS message
@@ -306,6 +352,8 @@ def test_interpret_job_submission_invalid(
     job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME
     job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
     job_service.JOB_QUEUE_REGION = original_JOB_QUEUE_REGION
+    job_service.VERSION_BUCKET = original_VERSION_BUCKET
+    job_service.VERSION_KEY = original_VERSION_KEY
 
 
 def initialize_s3_and_sqs_clients(
@@ -363,6 +411,8 @@ def test_interpret_job_submission_success(
 
     input_bucket_name = "pytest_input_bucket"
     output_bucket_name = "pytest_output_bucket"
+    version_bucket_name = "pytest_version_bucket"
+    version_object_key = "info/versions.json"
     queue_name = "pytest_sqs_job_queue"
     region_name = "us-west-2"
 
@@ -373,10 +423,16 @@ def test_interpret_job_submission_success(
         input_bucket_name, output_bucket_name, queue_name, region_name
     )
 
+    create_version_bucket_and_file(
+        version_bucket_name, region_name, version_object_key
+    )
+
     # Retrieve original global variable names from module
     original_OUTPUT_BUCKET = job_service.OUTPUT_BUCKET
     original_SQS_QUEUE_NAME = job_service.SQS_QUEUE_NAME
     original_JOB_QUEUE_REGION = job_service.JOB_QUEUE_REGION
+    original_VERSION_BUCKET = job_service.VERSION_BUCKET
+    original_VERSION_KEY = job_service.VERSION_KEY
 
     # Upload job JSON to input bucket
     job_object_name: str = s3_event["Records"][0]["s3"]["object"]["key"]
@@ -414,6 +470,8 @@ def test_interpret_job_submission_success(
     job_service.SQS_QUEUE_NAME = queue_name
     job_service.OUTPUT_BUCKET = output_bucket_name
     job_service.JOB_QUEUE_REGION = region_name
+    job_service.VERSION_BUCKET = version_bucket_name
+    job_service.VERSION_KEY = version_object_key
     job_service.interpret_job_submission(s3_event, None)
 
     # Obtain message from SQS and status from S3
@@ -441,6 +499,7 @@ def test_interpret_job_submission_success(
     """Check that status contains expected values"""
     assert status_object_data["jobid"] == expected_status["jobid"]
     assert status_object_data["jobtype"] == expected_status["jobtype"]
+    assert status_object_data["metadata"] == expected_status["metadata"]
     assert job_type in status_object_data
     assert status_object_data[job_type]["status"] == "pending"
     assert (
@@ -464,3 +523,5 @@ def test_interpret_job_submission_success(
     job_service.SQS_QUEUE_NAME = original_SQS_QUEUE_NAME
     job_service.OUTPUT_BUCKET = original_OUTPUT_BUCKET
     job_service.JOB_QUEUE_REGION = original_JOB_QUEUE_REGION
+    job_service.VERSION_BUCKET = original_VERSION_BUCKET
+    job_service.VERSION_KEY = original_VERSION_KEY

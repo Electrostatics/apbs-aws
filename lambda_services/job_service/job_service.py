@@ -3,16 +3,70 @@ from json import dumps, loads, JSONDecodeError
 from os import getenv
 from time import time
 from boto3 import client, resource
+
+# from urllib3 import PoolManager
 from botocore.exceptions import ClientError
 from .launcher import pdb2pqr_runner, apbs_runner
 from .launcher.jobsetup import MissingFilesError
 from .launcher.utils import _LOGGER
 
 OUTPUT_BUCKET = getenv("OUTPUT_BUCKET")
+# VERSION_URL = getenv("VERSION_URL")
+VERSION_BUCKET = getenv("VERSION_BUCKET")
+VERSION_KEY = getenv("VERSION_KEY")
 # Could use SQS URL below instead of a queue name; whichever is easier
 SQS_QUEUE_NAME = getenv("JOB_QUEUE_NAME")
 JOB_QUEUE_REGION = getenv("JOB_QUEUE_REGION", "us-west-2")
 JOB_MAX_RUNTIME = int(getenv("JOB_MAX_RUNTIME", 2000))
+
+
+def get_s3_object_json(job_tag: str, bucket_name: str, object_name: str):
+    """Retrieve JSON object from S3, and return as dict.
+
+    :param job_tag str: Unique ID for this job
+    :param bucket_name str: AWS S3 bucket to retrieve file from
+    :param object_name str: The name of the file to download
+    :return: A dictionary of the JSON object downloaded from S3
+    :rtype: dict
+    """
+    # Download job info object from S3
+    object_response = {}
+    try:
+        object_response = client("s3").get_object(
+            Bucket=bucket_name,
+            Key=object_name,
+        )
+    except (ClientError) as err:
+        _LOGGER.exception(
+            "%s Unable to get object for Bucket, %s, and Key, %s: %s",
+            job_tag,
+            bucket_name,
+            object_name,
+            err,
+        )
+        raise
+
+    # Convert content of JSON file to dict
+    try:
+        json_dict: dict = loads(object_response["Body"].read().decode("utf-8"))
+        _LOGGER.debug("%s Found JSON object data: %s", job_tag, json_dict)
+        return json_dict
+    except JSONDecodeError as jerr:
+        _LOGGER.exception(
+            "%s Can't decode JSON: %s, (%s)",
+            job_tag,
+            object_response,
+            jerr,
+        )
+        raise
+    except Exception as err:
+        _LOGGER.exception(
+            "%s Can't loads JSON: %s, (%s)",
+            job_tag,
+            object_response,
+            err,
+        )
+        raise
 
 
 def get_job_info(
@@ -28,42 +82,32 @@ def get_job_info(
     """
 
     # Download job info object from S3
-    object_response = {}
-    try:
-        object_response = client("s3").get_object(
-            Bucket=bucket_name,
-            Key=info_object_name,
-        )
-    except (ClientError) as err:
-        _LOGGER.exception(
-            "%s Unable to get object for Bucket, %s, and Key, %s: %s",
-            job_tag,
-            bucket_name,
-            info_object_name,
-            err,
-        )
-        raise
+    job_info: dict = get_s3_object_json(job_tag, bucket_name, info_object_name)
+    _LOGGER.info("%s Found job_info: %s", job_tag, job_info)
+    return job_info
 
-    # Convert content of JSON file to dict
-    try:
-        job_info: dict = loads(object_response["Body"].read().decode("utf-8"))
-        _LOGGER.info("%s Found job_info: %s", job_tag, job_info)
-        return job_info
-    except JSONDecodeError as jerr:
-        _LOGGER.exception(
-            "%s Can't decode JSON: %s, (%s)",
-            job_tag,
-            object_response,
-            jerr,
-        )
-    except Exception as err:
-        _LOGGER.exception(
-            "%s Can't loads JSON: %s, (%s)",
-            job_tag,
-            object_response,
-            err,
-        )
-        raise
+
+def get_version_info(job_tag: str) -> dict:
+    """Download the current version information from AWS S3, returning a
+    dictionary with its contents
+
+    :param job_tag str: Unique ID for this job
+    :return: a dictionary containing version information retrieved from S3
+    :rtype: dict
+    """
+    # Download version info object from S3 via URL
+    _LOGGER.debug(
+        "%s Downloading version file: %s/%s",
+        job_tag,
+        VERSION_BUCKET,
+        VERSION_KEY,
+    )
+    version_info: dict = get_s3_object_json(
+        job_tag, VERSION_BUCKET, VERSION_KEY
+    )
+
+    _LOGGER.debug("%s Current version info: %s", job_tag, version_info)
+    return version_info
 
 
 def build_status_dict(
@@ -105,6 +149,7 @@ def build_status_dict(
             "inputFiles": inputfile_list,
             "outputFiles": outputfile_list,
         },
+        "metadata": {"versions": get_version_info(job_tag)},
     }
 
     # if message is not None:
