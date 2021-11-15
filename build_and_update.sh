@@ -28,6 +28,7 @@ build_docker() {
     echo "Building the Docker image..."
     export APBS_VERSION=`cat versions.json | jq -r '.apbs'`
     export PDB2PQR_VERSION=`cat versions.json | jq -r '.pdb2pqr'`
+    echo docker build --build-arg PDB2PQR_VERSION=$PDB2PQR_VERSION --build-arg APBS_VERSION=$APBS_VERSION -t $IMAGE_REPO_NAME:main.base $CODEBUILD_SRC_DIR/src/docker
     docker build --build-arg PDB2PQR_VERSION=$PDB2PQR_VERSION --build-arg APBS_VERSION=$APBS_VERSION -t $IMAGE_REPO_NAME:main.base $CODEBUILD_SRC_DIR/src/docker
     docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
 
