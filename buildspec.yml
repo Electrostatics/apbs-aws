@@ -25,7 +25,11 @@ phases:
       # Update version file on S3
       - echo Updating build commit in s3://$WEB_BUCKET_NAME/$IMAGE_TAG-info/$VERSION_PATH
       - aws s3 cp s3://$WEB_BUCKET_NAME/$IMAGE_TAG-info/$VERSION_PATH versions.json
+      - cat versions.json
+      - echo cat versions.json PIPE jq --arg commit "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.aws|="\($commit)"'
+      - cat versions.json | jq --arg commit "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.aws|="\($commit)"'
       - cat versions.json | jq --arg commit "$CODEBUILD_RESOLVED_SOURCE_VERSION" '.aws|="\($commit)"' > versions.json
+      - cat versions.json
       - aws s3 cp versions.json s3://$WEB_BUCKET_NAME/$IMAGE_TAG-info/$VERSION_PATH
       # Complete the build
       - echo Build completed on `date`
