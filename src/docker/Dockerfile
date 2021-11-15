@@ -1,9 +1,9 @@
 
 # Start with Ubuntu 18.04 base image
-ARG PDB2PQR_VERSION=3.3.0
-ARG APBS_VERSION=3.0.0
-
 FROM public.ecr.aws/ubuntu/ubuntu:18.04 as job-controller-build
+
+ARG PDB2PQR_VERSION=3.3.0
+ARG APBS_VERSION=2.9.0
 
 ENV DEBIAN_FRONTEND="noninteractive"
 
