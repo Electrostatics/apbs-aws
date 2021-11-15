@@ -26,7 +26,9 @@ build_job_service() {
 
 build_docker() {    
     echo "Building the Docker image..."
-    docker build -t $IMAGE_REPO_NAME:main.base $CODEBUILD_SRC_DIR/src/docker
+    export APBS_VERSION=`cat versions.json | jq -r '.apbs'`
+    export PDB2PQR_VERSION=`cat versions.json | jq -r '.pdb2pqr'`
+    docker build --build-arg PDB2PQR_VERSION=$PDB2PQR_VERSION --build-arg APBS_VERSION=$APBS_VERSION -t $IMAGE_REPO_NAME:main.base $CODEBUILD_SRC_DIR/src/docker
     docker tag $IMAGE_REPO_NAME:main.base    $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
 
     echo "Pushing the Docker image..."
@@ -44,7 +46,7 @@ build_changed() {
 
     git diff --name-only $CODEBUILD_RESOLVED_SOURCE_VERSION $LAST_SUCCESSFUL_COMMIT_ID | while read file_path || [[ -n $file_path ]];
     do
-        if [[ $file_path == src/docker/* ]] && [[ $docker_changed -ne 1 ]]
+        if [[ $file_path == src/docker/* ]] || [[ $file_path == versions.json ]] && [[ $docker_changed -ne 1 ]]
         then
             docker_changed=1
             build_docker
