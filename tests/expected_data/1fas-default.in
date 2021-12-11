@@ -21,6 +21,6 @@ elec
 	temp 298.15
 	calcenergy total
 	calcforce no
-	write pot dx 1fas-pot
+	write pot dx sampleId-pot
 end
 quit
