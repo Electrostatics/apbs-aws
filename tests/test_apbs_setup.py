@@ -11,11 +11,23 @@ from lambda_services.job_service.launcher.utils import apbs_infile_creator
 @pytest.mark.parametrize(
     "pqr_file_name, form_input_filename, expected_infile_name,",
     [
-        pytest.param("1fas.pqr", "test_apbs_setup-1fas-default.json", "1fas-default.in", id="1fas-default"),
-        pytest.param("1fas.pqr", "test_apbs_setup-1fas-ion.json", "1fas-ion.in", id="1fas-ion"),
+        pytest.param(
+            "1fas.pqr",
+            "test_apbs_setup-1fas-default.json",
+            "1fas-default.in",
+            id="1fas-default",
+        ),
+        pytest.param(
+            "1fas.pqr",
+            "test_apbs_setup-1fas-ion.json",
+            "1fas-ion.in",
+            id="1fas-ion",
+        ),
     ],
 )
-def test_apbs_infile_creator(pqr_file_name: str, form_input_filename: str, expected_infile_name: str):
+def test_apbs_infile_creator(
+    pqr_file_name: str, form_input_filename: str, expected_infile_name: str
+):
 
     # Get path information
     expected_path: Path = REF_DIR / Path(expected_infile_name)
@@ -35,4 +47,4 @@ def test_apbs_infile_creator(pqr_file_name: str, form_input_filename: str, expec
     new_infile_contents: str = apbs_infile_creator(job_tag, apbs_options)
 
     # Compare contents with reference file
-    assert new_infile_contents == open(expected_path, 'r').read()
+    assert new_infile_contents == open(expected_path, "r").read()

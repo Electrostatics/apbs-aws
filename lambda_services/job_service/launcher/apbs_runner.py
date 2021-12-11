@@ -341,7 +341,11 @@ class Runner(JobSetup):
             charge_key: str = f"charge{i}"
             concentration_key: str = f"conc{i}"
             radius_key: str = f"radius{i}"
-            if form[charge_key] and form[concentration_key] and form[radius_key]:
+            if (
+                form[charge_key]
+                and form[concentration_key]
+                and form[radius_key]
+            ):
                 apbs_options[charge_key] = atof(form[charge_key])
                 apbs_options[concentration_key] = atof(form[concentration_key])
                 apbs_options[radius_key] = atof(form[radius_key])
