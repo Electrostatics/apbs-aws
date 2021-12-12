@@ -260,6 +260,19 @@ def apbs_infile_creator(job_tag, apbs_options: dict) -> str:
                 f"{apbs_options['gyCent']} {apbs_options['gzCent']}\n"
             )
 
+    for i in range(3):
+        charge_key: str = f"charge{i}"
+        concentration_key: str = f"conc{i}"
+        radius_key: str = f"radius{i}"
+        if (
+            (charge_key in apbs_options)
+            and (concentration_key in apbs_options)
+            and (radius_key in apbs_options)
+        ):
+            apbsinput_io.write(
+                f"\tion charge {apbs_options[charge_key]} conc {apbs_options[concentration_key]} radius {apbs_options[radius_key]}\n"
+            )
+
     apbsinput_io.write(f"\tmol {apbs_options['mol']}\n")
     apbsinput_io.write(f"\t{apbs_options['solveType']}\n")
     apbsinput_io.write(f"\tbcfl {apbs_options['boundaryConditions']}\n")

@@ -1,0 +1,26 @@
+read
+	mol pqr 1fas.pqr
+end
+elec
+	mg-auto
+	dime 129 97 97
+	cglen 63.1108 45.73 61.4601
+	fglen 57.124 45.73 56.153
+	cgcent mol 1
+	fgcent mol 1
+	mol 1
+	lpbe
+	bcfl sdh
+	pdie 2.0
+	sdie 78.54
+	srfm smol
+	chgm spl2
+	sdens 10.0
+	srad 1.4
+	swin 0.3
+	temp 298.15
+	calcenergy total
+	calcforce no
+	write pot dx sampleId-pot
+end
+quit
