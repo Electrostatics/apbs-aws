@@ -8,8 +8,8 @@ elec
 	fglen 57.124 45.73 56.153
 	cgcent mol 1
 	fgcent mol 1
-	ion charge 1 conc 0.15 radius 0.95
-	ion charge -1 conc 0.15 radius 1.81
+	ion charge 1 conc 0.15 radius 2.0
+	ion charge -1 conc 0.15 radius 2.0
 	mol 1
 	lpbe
 	bcfl sdh
