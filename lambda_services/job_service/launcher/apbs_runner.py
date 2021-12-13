@@ -337,6 +337,19 @@ class Runner(JobSetup):
                 apbs_options["gyCent"] = atoi(form["gycent"])
                 apbs_options["gzCent"] = atoi(form["gzcent"])
 
+        for i in range(3):
+            charge_key: str = f"charge{i}"
+            concentration_key: str = f"conc{i}"
+            radius_key: str = f"radius{i}"
+            if (
+                form[charge_key]
+                and form[concentration_key]
+                and form[radius_key]
+            ):
+                apbs_options[charge_key] = atof(form[charge_key])
+                apbs_options[concentration_key] = atof(form[concentration_key])
+                apbs_options[radius_key] = atof(form[radius_key])
+
         apbs_options["mol"] = atoi(form["mol"])
         apbs_options["solveType"] = form["solvetype"]
         apbs_options["boundaryConditions"] = form["bcfl"]
