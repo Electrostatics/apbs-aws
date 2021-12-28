@@ -18,8 +18,8 @@ phases:
       - IMAGE_TAG=test
       - branch=`echo $CODEBUILD_INITIATOR | awk -F'-' '{ print $NF }'`
       - if [ -n "$branch" ]; then IMAGE_TAG=$branch; fi
-      - export IMAGE_TAG
-      - bash build_and_update.sh $TRIGGER
+      - export IMAGE_TAG=demo
+      - bash build_and_update.sh $TRIGGER all
   post_build:
     commands:
       # Update version file on S3
