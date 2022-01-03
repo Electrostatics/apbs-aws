@@ -248,6 +248,8 @@
       environment_variables: 
         JOB_QUEUE_NAME: "{{ project }}-{{ deployment_group }}-job-q"
         OUTPUT_BUCKET: "{{ project }}-{{ deployment_group }}-output"
+        VERSION_BUCKET: "{{ web_bucket }}"
+        VERSION_KEY: "{{ deployment_group }}-info/info/versions.json"
       tags:
         Deployment: "{{ deployment_group }}"
     tags: 

@@ -1,6 +1,6 @@
-sudo python -m ensurepip --default-pip
+sudo python3 -m ensurepip --default-pip
 sudo amazon-linux-extras install -y ansible2
-pip install -r ansible/requirements.txt --user
+pip3 install -r ansible/requirements.txt --user
 
 if [ ! -d ~/.ansible/collections/ansible_collections/community/aws ] ; then
   ansible-galaxy collection install community.aws
