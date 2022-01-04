@@ -1,9 +1,12 @@
-# This workflow will create a new issue whenever a PDB2PQR/APBS release is made
+# This workflow will create a new issue whenever a APBS/PDB2PQR release is made
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Create Issue on Release (PLAYGROUND)
+name: Create Issues for New APBS/PDB2PQR Releases
 on:
   workflow_dispatch:
+
+  schedule:
+    - cron: 0 0 * * *
 
   push:
     paths:
