@@ -1,0 +1,33 @@
+# This workflow will create a new issue whenever a PDB2PQR/APBS release is made
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Create Issue on Release (PLAYGROUND)
+on:
+  workflow_dispatch:
+
+  push:
+    paths:
+        - '.github/workflows/create-issue-for-new-version.yml'
+
+  # release:
+  #   types:
+  #     - released
+
+jobs:
+  Create Release Issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Create issue to update to new APBS version if detected
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPOSITORY: electrostatics/apbs-aws
+        run: .github/scripts/create_issue_for_new_version.sh apbs
+
+      - name: Create issue to update to new PDB2PQR version if detected
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPOSITORY: electrostatics/apbs-aws
+        run: .github/scripts/create_issue_for_new_version.sh pdb2pqr
