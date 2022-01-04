@@ -14,7 +14,7 @@ on:
   #     - released
 
 jobs:
-  Create Release Issue:
+  Create-Issue-for-Detected-Release:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
