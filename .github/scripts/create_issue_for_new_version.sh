@@ -34,8 +34,8 @@ then
             --body "A new version of ${SOFTWARE^^} (\`$LATEST_VERSION\`) has been released. Please update \`$VERSION_FILE\` to \`\"$SOFTWARE\": \"$trimmed_version\"\`." \
             --repo "$TARGET_REPOSITORY" \
             --assignee Eo300 \
-            # --assignee Eo300,intendo,mmacduff
             --label "deployment"
+            # --assignee Eo300,intendo,mmacduff
     else
         echo "Issue not created. No change detected in ${SOFTWARE^^} version: $CURRENT_VERSION (current) -> $trimmed_version (latest release)"
     fi
