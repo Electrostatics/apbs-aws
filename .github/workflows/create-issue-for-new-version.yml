@@ -8,6 +8,7 @@ on:
   push:
     paths:
         - '.github/workflows/create-issue-for-new-version.yml'
+        - '.github/scripts/create_issue_for_new_version.sh'
 
   # release:
   #   types:
