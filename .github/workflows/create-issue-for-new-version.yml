@@ -3,8 +3,6 @@
 
 name: Create Issues for New APBS/PDB2PQR Releases
 on:
-  workflow_dispatch:
-
   schedule:
     - cron: 0 0 * * *
 
