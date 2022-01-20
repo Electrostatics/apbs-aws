@@ -37,4 +37,5 @@ nessus_agent_port: 8834
 nessus_agent_host: nessusmanager.pnl.gov
 nessus_agent_group: "ConnectedLinux" 
 #
+ansible_python_interpreter: /usr/bin/python3
 
