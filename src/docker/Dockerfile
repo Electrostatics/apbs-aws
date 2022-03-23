@@ -14,7 +14,7 @@ RUN apt update -y \
     # Install pdb2pqr3 via pip
     && pip3 install pdb2pqr==${PDB2PQR_VERSION} \
     # Download APBS binary from GitHub release
-    && wget https://github.com/Electrostatics/apbs-pdb2pqr/releases/download/vAPBS-${APBS_VERSION}/APBS-${APBS_VERSION}_Linux.zip \
+    && wget https://github.com/Electrostatics/apbs/releases/download/v${APBS_VERSION}/APBS-${APBS_VERSION}.Linux.zip \
     && unzip APBS-${APBS_VERSION}_Linux.zip \
     && rm APBS-${APBS_VERSION}_Linux.zip \
     && rm -r APBS-${APBS_VERSION}.Linux/share/apbs/examples \
