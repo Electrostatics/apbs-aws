@@ -232,7 +232,7 @@ class JobMetrics:
             self.end_time - self.start_time, 2
         )
         metrics["metrics"]["disk_storage_in_bytes"] = disk_usage
-        metrics["metrics"]["exit_code"] = f"{self.exit_code} "
+        metrics["metrics"]["exit_code"] = self.exit_code
         return metrics
 
     def write_metrics(self, job_tag: str, job_type: str, output_dir: str):
@@ -246,7 +246,13 @@ class JobMetrics:
         """
         self.output_dir = Path(output_dir)
         metrics = self.get_metrics()
-        _LOGGER.info("%s %s METRICS: %s", job_tag, job_type.upper(), metrics)
+        _LOGGER.info(
+            "%s %s METRICS: exit_code %s %s",
+            job_tag,
+            job_type.upper(),
+            metrics["metrics"]["exit_code"],
+            metrics,
+        )
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(metrics, indent=4))
 
