@@ -232,7 +232,7 @@ class JobMetrics:
             self.end_time - self.start_time, 2
         )
         metrics["metrics"]["disk_storage_in_bytes"] = disk_usage
-        metrics["metrics"]["exit_code"] = self.exit_code
+        metrics["metrics"]["exit_code"] = f"{self.exit_code} "
         return metrics
 
     def write_metrics(self, job_tag: str, job_type: str, output_dir: str):
