@@ -246,7 +246,13 @@ class JobMetrics:
         """
         self.output_dir = Path(output_dir)
         metrics = self.get_metrics()
-        _LOGGER.info("%s %s METRICS: %s", job_tag, job_type.upper(), metrics)
+        _LOGGER.info(
+            "%s %s METRICS: exit_code %s %s",
+            job_tag,
+            job_type.upper(),
+            metrics["metrics"]["exit_code"],
+            metrics,
+        )
         with open(f"{job_type}-metrics.json", "w") as fout:
             fout.write(dumps(metrics, indent=4))
 
