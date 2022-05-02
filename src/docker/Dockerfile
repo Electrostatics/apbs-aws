@@ -1,6 +1,6 @@
 
 # Start with Ubuntu 18.04 base image
-FROM public.ecr.aws/ubuntu/ubuntu:18.04 as job-controller-build
+FROM public.ecr.aws/ubuntu/ubuntu:20.04 as job-controller-build
 
 ARG PDB2PQR_VERSION=3.3.0
 ARG APBS_VERSION=2.9.0
