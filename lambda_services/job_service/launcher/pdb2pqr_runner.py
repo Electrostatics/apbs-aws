@@ -108,17 +108,16 @@ class Runner(JobSetup):
         if self.weboptions.user_did_upload:
             # Update input files
             self.add_input_file(self.weboptions.pdbfilename)
-        else:
-            if splitext(self.weboptions.pdbfilename)[1] != ".pdb":
-                self.weboptions.pdbfilename = (
-                    self.weboptions.pdbfilename + ".pdb"
-                )  # add pdb extension to pdbfilename
+        elif splitext(self.weboptions.pdbfilename)[1] != ".pdb":
+            self.weboptions.pdbfilename = (
+                self.weboptions.pdbfilename + ".pdb"
+            )  # add pdb extension to pdbfilename
 
-                # Add url to RCSB PDB file to input file list
-                self.add_input_file(
-                    f"https://files.rcsb.org/download/"
-                    f"{self.weboptions.pdbfilename}"
-                )
+            # Add url to RCSB PDB file to input file list
+            self.add_input_file(
+                f"https://files.rcsb.org/download/"
+                f"{self.weboptions.pdbfilename}"
+            )
 
         # Check for userff, names, ligand files to add to input_file list
         if hasattr(self.weboptions, "ligandfilename"):
