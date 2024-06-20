@@ -1,7 +1,9 @@
 """This file contains utilities to handle options from the GUI."""
 
 from io import StringIO
-from .utils import sanitize_file_name
+from typing import List
+from .utils import _LOGGER, sanitize_file_name
+from .s3_utils import S3CopyPayload
 from os.path import splitext
 
 
@@ -31,6 +33,8 @@ class WebOptions:
         self.runoptions["debump"] = "DEBUMP" in form
         self.runoptions["opt"] = "OPT" in form
 
+        self.files_copy_queue: List[S3CopyPayload] = []
+
         if "FF" in form:
             self.ff: str = form["FF"].lower()
         else:
@@ -54,9 +58,7 @@ class WebOptions:
             # self.pdbfile = StringIO(self.pdbfilestring)
             # self.pdbfilename = sanitizeFileName(files["PDB"].filename)
             # pass filename through client
-            self.pdbfilename = sanitize_file_name(
-                self.job_tag, form["PDBFILE"]
-            )  # pass filename through client
+            self.pdbfilename = self._sanitize_uploaded_file(form["PDBFILE"])
             # print("filename: "+self.pdbfilename)
         else:
             raise WebOptionsError(
@@ -99,8 +101,8 @@ class WebOptions:
             # if "USERFF") and form["USERFF"].filename:
             # self.userfffilename = sanitizeFileName(form["USERFF"].filename)
             if "USERFFFILE" in form and form["USERFFFILE"] != "":
-                self.userfffilename = sanitize_file_name(
-                    self.job_tag, form["USERFFFILE"]
+                self.userfffilename = self._sanitize_uploaded_file(
+                    form["USERFFFILE"]
                 )
                 # self.userffstring = form["USERFF"]
                 self.runoptions["userff"] = StringIO(form["USERFFFILE"])
@@ -113,8 +115,8 @@ class WebOptions:
 
             # if form.has_key("USERNAMES") and form["USERNAMES"].filename:
             if "NAMESFILE" in form and form["NAMESFILE"] != "":
-                self.usernamesfilename = sanitize_file_name(
-                    self.job_tag, form["NAMESFILE"]
+                self.usernamesfilename = self._sanitize_uploaded_file(
+                    form["NAMESFILE"]
                 )
                 # self.usernamesstring = form["USERNAMES"]
                 self.runoptions["usernames"] = StringIO(form["NAMESFILE"])
@@ -142,8 +144,8 @@ class WebOptions:
         # if form.has_key("LIGAND") and form['LIGAND'].filename:
         # self.ligandfilename=sanitizeFileName(form["LIGAND"].filename)
         if "LIGANDFILE" in form and form["LIGANDFILE"] != "":
-            self.ligandfilename = sanitize_file_name(
-                self.job_tag, form["LIGANDFILE"]
+            self.ligandfilename = self._sanitize_uploaded_file(
+                form["LIGANDFILE"]
             )
             # ligandfilestring = form["LIGAND"]
             # for Windows and Mac style newline compatibility for pdb2pka
@@ -224,6 +226,37 @@ class WebOptions:
         command_line.append(self.pqrfilename)
 
         return " ".join(command_line)
+
+    def _sanitize_uploaded_file(self, orig_filename: str):
+        """Helper to sanitize a filename, adding to the list of files to later create copies for in S3
+
+        Args:
+            orig_filename (str): Name of the source file
+        """
+        sanitized_filename = sanitize_file_name(self.job_tag, orig_filename)
+        if orig_filename != sanitized_filename:
+            self._add_to_copy_queue(orig_filename, sanitized_filename)
+        return sanitized_filename
+
+    def _add_to_copy_queue(self, source_filename: str, dest_filename: str):
+        """Add to the list of file objects to later create copies for.
+
+        Args:
+            source_filename (str): Name of source file
+            dest_filename (str): Name of destination file
+        """
+        original_object_name = f"{self.job_tag}/{source_filename}"
+        destination_object_name = f"{self.job_tag}/{dest_filename}"
+
+        _LOGGER.debug(
+            "%s Adding payload to S3 copy queue (source: '%s', destination: '%s')",
+            self.job_tag,
+            original_object_name,
+            destination_object_name,
+        )
+        self.files_copy_queue.append(
+            S3CopyPayload(original_object_name, destination_object_name)
+        )
 
     def __contains__(self, item):
         """Helper for checking for the presence of an option"""

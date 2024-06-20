@@ -33,7 +33,7 @@ def apbs_logger():
 _LOGGER = apbs_logger()
 
 
-def sanitize_file_name(job_tag, file_name):
+def sanitize_file_name(job_tag: str, file_name: str):
     """Make sure that a file name does not have any special characters in it.
 
     Args:
@@ -50,7 +50,7 @@ def sanitize_file_name(job_tag, file_name):
     # fileName = fileName.replace('-', '_')
     if orig_name != file_name:
         _LOGGER.warning(
-            "%s Sanatized filename from '%s' to '%s'",
+            "%s Sanitized filename from '%s' to '%s'",
             job_tag,
             orig_name,
             file_name,
@@ -58,6 +58,7 @@ def sanitize_file_name(job_tag, file_name):
     return file_name
 
 
+# TODO: Move to S3Utils class
 def _extract_job_tag_from_objectname(s3_object_name: str) -> str:
     """Parse an S3 object key and return the job tag.
 
@@ -83,6 +84,7 @@ def _extract_job_tag_from_objectname(s3_object_name: str) -> str:
     return job_tag
 
 
+# TODO: Move to S3Utils class
 def s3_download_file_str(bucket_name: str, object_name: str) -> str:
     job_tag = _extract_job_tag_from_objectname(object_name)
     try:
@@ -103,6 +105,7 @@ def s3_download_file_str(bucket_name: str, object_name: str) -> str:
         raise
 
 
+# TODO: Move to S3Utils class
 def s3_put_object(bucket_name: str, object_name: str, body):
     job_tag = _extract_job_tag_from_objectname(object_name)
     s3_client = client("s3")
@@ -116,6 +119,7 @@ def s3_put_object(bucket_name: str, object_name: str, body):
     )
 
 
+# TODO: Move to S3Utils class
 def s3_object_exists(bucket_name: str, object_name: str) -> bool:
     s3_client = client("s3")
     try:

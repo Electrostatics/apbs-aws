@@ -4,6 +4,7 @@ from os.path import splitext
 
 from .jobsetup import JobSetup
 from .utils import _LOGGER
+from .s3_utils import S3Utils
 from .weboptions import WebOptions, WebOptionsError
 
 
@@ -41,16 +42,32 @@ class Runner(JobSetup):
             # Instantiate self.weboptions if job is web submission
             if self.invoke_method in ("v1", "gui"):
                 self.weboptions = WebOptions(self.job_tag, form)
-
         except WebOptionsError:
             raise
 
-    def prepare_job(self):
+    def prepare_job(self, input_bucket_name: str = None):
         """Setup the job to run from the GUI or the command line."""
         job_id = self.job_id
 
         if self.invoke_method in ["gui", "v1"]:
             command_line_args = self.version_1_job(job_id)
+
+            # Copy all the sanitized files from the file queue
+            for payload in self.weboptions.files_copy_queue:
+                _LOGGER.info(
+                    "%s Copying original object '%s' to object with sanitized name '%s' (bucket: %s)",
+                    self.job_tag,
+                    payload.source_object,
+                    payload.dest_object,
+                    payload.bucket_name,
+                )
+                S3Utils.copy_object(
+                    self.job_tag,
+                    input_bucket_name,
+                    payload.source_object,
+                    payload.dest_object,
+                )
+
         elif self.invoke_method in ["cli", "v2"]:
             command_line_args = self.version_2_job()
         self.command_line_args = command_line_args
