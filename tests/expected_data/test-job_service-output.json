@@ -120,9 +120,9 @@
       "job_type": "pdb2pqr",
       "bucket_name": "pytest_input_bucket",
       "input_files": [
-        "2024-06-21/sampleId/1fas_test_sanitization.pdb"
+        "2024-06-21/sampleId/sanitization_test_1fas.pdb"
       ],
-      "command_line_args": "--with-ph=7.0 --titration-state-method=propka --drop-water --apbs-input=sampleId.in --ff=PARSE  1fas_test_sanitization.pdb sampleId.pqr",
+      "command_line_args": "--with-ph=7.0 --titration-state-method=propka --drop-water --apbs-input=sampleId.in --ff=PARSE  sanitization_test_1fas.pdb sampleId.pqr",
       "max_run_time": 2700
     },
     "initial_status": {
@@ -134,8 +134,50 @@
         "endTime": null,
         "subtasks": [],
         "inputFiles": [
-          "2024-06-21/sampleId/1fas_test_sanitization.pdb"
+          "2024-06-21/sampleId/sanitization_test_1fas.pdb"
         ],
+        "outputFiles": []
+      },
+      "metadata": {
+        "versions": {
+          "aws": "some_git_commit_sha",
+          "apbs": "3.4.1",
+          "pdb2pqr": "3.6.1"
+        }
+      }
+    }
+  },
+  {
+    "name": "pdb2pqr-v1-sanitize-filename-for-all-uploadable-input-files",
+    "sqs_message": {
+      "job_date": "2024-06-21",
+      "job_id": "sampleId",
+      "job_tag": "2024-06-21/sampleId",
+      "job_type": "pdb2pqr",
+      "bucket_name": "pytest_input_bucket",
+      "input_files": [
+        "2024-06-21/sampleId/sanitization_test_1hpx.pdb",
+        "2024-06-21/sampleId/sanitization_test_1HPX-ligand.mol2",
+        "2024-06-21/sampleId/sanitization_test_custom-ff.dat",
+        "2024-06-21/sampleId/sanitization_test_custom-ff.names"
+    ],
+    "command_line_args": "--with-ph=7.0 --titration-state-method=propka --drop-water --apbs-input=sampleId.in --userff=sanitization_test_custom-ff.dat --usernames=sanitization_test_custom-ff.names --ligand=sanitization_test_1HPX-ligand.mol2  sanitization_test_1hpx.pdb sampleId.pqr",
+      "max_run_time": 2700
+    },
+    "initial_status": {
+      "jobid": "sampleId",
+      "jobtype": "pdb2pqr",
+      "pdb2pqr": {
+        "status": "pending",
+        "startTime": 1719012533.260683,
+        "endTime": null,
+        "subtasks": [],
+        "inputFiles": [
+          "2024-06-21/sampleId/sanitization_test_1hpx.pdb",
+          "2024-06-21/sampleId/sanitization_test_1HPX-ligand.mol2",
+          "2024-06-21/sampleId/sanitization_test_custom-ff.dat",
+          "2024-06-21/sampleId/sanitization_test_custom-ff.names"
+      ],
         "outputFiles": []
       },
       "metadata": {
