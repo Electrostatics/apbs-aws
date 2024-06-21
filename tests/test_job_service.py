@@ -1,12 +1,16 @@
 """Tests for interpreting and handling job configuration submissions."""
+
 # NOTE: importing entire job_service us to modify module's global variables
 from datetime import date
 from json import dumps, load, loads
 from pathlib import Path
+from sys import stderr
 from time import time
 from typing import Union
-from moto import mock_s3, mock_sqs
+
+from moto import mock_aws
 from boto3 import client
+from botocore.exceptions import ClientError
 from lambda_services.job_service import job_service
 import pytest
 
@@ -15,7 +19,7 @@ import pytest
 def initialize_input_bucket():
     """Create an input bucket to perform test. Returns name of bucket"""
     bucket_name = "pytest_input_bucket"
-    with mock_s3():
+    with mock_aws():
         s3_client = client("s3")
         s3_client.create_bucket(
             Bucket=bucket_name,
@@ -30,7 +34,7 @@ def initialize_input_bucket():
 def initialize_output_bucket():
     """Create an output bucket to perform test. Returns name of bucket"""
     bucket_name = "pytest_output_bucket"
-    with mock_s3():
+    with mock_aws():
         s3_client = client("s3")
         s3_client.create_bucket(
             Bucket=bucket_name,
@@ -49,7 +53,7 @@ def initialize_input_and_output_bucket():
     """
     input_bucket_name = "pytest_input_bucket"
     output_bucket_name = "pytest_output_bucket"
-    with mock_s3():
+    with mock_aws():
         s3_client = client("s3")
         s3_client.create_bucket(
             Bucket=input_bucket_name,
@@ -74,7 +78,7 @@ def initialize_job_queue():
     """
     queue_name = "pytest_sqs_job_queue"
     region_name = "us-west-2"
-    with mock_sqs():
+    with mock_aws():
         sqs_client = client("sqs", region_name=region_name)
         sqs_client.create_queue(QueueName=queue_name)
         yield sqs_client, queue_name, region_name
@@ -102,6 +106,19 @@ def download_data(
     return s3_resp["Body"].read()
 
 
+def object_exists(s3_client, bucket_name: str, object_name: str) -> bool:
+    """
+    Use S3 to check if an object exists.
+    Returns True or False.
+    """
+    try:
+        s3_client.head_object(Bucket=bucket_name, Key=object_name)
+        return True
+    except ClientError as err:
+        print(err, file=stderr)
+        return False
+
+
 def create_version_bucket_and_file(
     bucket_name: str, region_name: str, version_key: str
 ):
@@ -122,7 +139,7 @@ def initialize_version_environment():
     version_key = "info/versions.json"
     region_name = "us-west-2"
 
-    with mock_s3():
+    with mock_aws():
         create_version_bucket_and_file(
             version_bucket, region_name, version_key
         )
@@ -395,11 +412,11 @@ with open(
     EXPECTED_OUTPUT_LIST = load(fin)
 
 
-@mock_s3
-@mock_sqs
+@mock_aws
 @pytest.mark.parametrize(
     "apbs_test_job,expected_output",
     list(zip(INPUT_JOB_LIST, EXPECTED_OUTPUT_LIST)),
+    ids=[f"{x['name']}" for x in INPUT_JOB_LIST],
 )
 def test_interpret_job_submission_success(
     apbs_test_job: dict, expected_output: dict
@@ -510,7 +527,18 @@ def test_interpret_job_submission_success(
         status_object_data[job_type]["outputFiles"]
         == expected_status[job_type]["outputFiles"]
     )
-    # Checking type here since startTime is determined at runtime
+
+    # Check that the input files listed are present in S3 if not URLs
+    for input_file in status_object_data[job_type]["inputFiles"]:
+        if "https" in input_file:
+            continue
+        assert object_exists(s3_client, input_bucket_name, input_file)
+
+    # Check that the output files listed are present in S3
+    for output_file in status_object_data[job_type]["outputFiles"]:
+        assert object_exists(s3_client, output_bucket_name, output_file)
+
+    # Only checking type here since startTime is determined at runtime
     assert isinstance(status_object_data[job_type]["startTime"], float)
     assert status_object_data[job_type]["endTime"] is None
 

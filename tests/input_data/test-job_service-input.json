@@ -164,5 +164,58 @@
         }
       }
     }
+  },
+  {
+    "name": "pdb2pqr-v1-basic-sanitize-input-filename",
+    "type": "pdb2pqr",
+    "upload": {
+      "input": [
+        "1fas test sanitization.pdb"
+      ],
+      "output": []
+    },
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2024-06-21/sampleId/pdb2pqr-job-sanitize.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "PDBFILE": "1fas test sanitization.pdb",
+        "USERFFFILE": "",
+        "NAMESFILE": "",
+        "LIGANDFILE": "",
+        "PDBID": "",
+        "PDBSOURCE": "UPLOAD",
+        "PH": 7,
+        "PKACALCMETHOD": "propka",
+        "FF": "parse",
+        "FFOUT": "internal",
+        "OPTIONS": [
+          "atomsnotclose",
+          "optimizeHnetwork",
+          "makeapbsin",
+          "removewater"
+        ],
+        "DEBUMP": "atomsnotclose",
+        "OPT": "optimizeHnetwork",
+        "INPUT": "makeapbsin",
+        "DROPWATER": "removewater"
+      },
+      "metadata": {
+        "cli": {
+          "command": "pdb2pqr30 --titration-state-method=propka --with-ph=7 --ff=PARSE --apbs-input=1fas test sanitization.in  --drop-water 1fas test sanitization.pdb 1fas test sanitization.pqr"
+        }
+      }
+    }
   }
 ]
