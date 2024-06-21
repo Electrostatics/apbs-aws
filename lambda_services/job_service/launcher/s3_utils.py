@@ -22,7 +22,7 @@ class S3Utils:
 
         # Use S3 client to copy object
         _LOGGER.debug(
-            "%s Copying file: %s (bucket: %s) - Destination: %s (bucket: %s)",
+            "%s Copying file: '%s' (bucket: %s) - Destination: '%s' (bucket: %s)",
             job_tag,
             source_object_name,
             source_bucket_name,

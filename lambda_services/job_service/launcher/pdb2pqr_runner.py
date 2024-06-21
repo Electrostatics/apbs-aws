@@ -55,7 +55,7 @@ class Runner(JobSetup):
             # Copy all the sanitized files from the file queue
             for payload in self.weboptions.files_copy_queue:
                 _LOGGER.info(
-                    "%s Copying original object '%s' to object with sanitized name '%s' (bucket: %s)",
+                    "%s Copying original object '%s' to sanitized object name '%s' (bucket: %s)",
                     self.job_tag,
                     payload.source_object,
                     payload.dest_object,
