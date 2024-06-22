@@ -70,6 +70,7 @@ setup(
             "pytest",
             "pytest-cov",
             "testfixtures",
+            "sphinx-rtd-theme",
         ],
     },
     tests_require=[
