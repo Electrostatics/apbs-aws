@@ -4,8 +4,6 @@ from io import StringIO
 from logging import getLevelName, getLogger, Formatter, INFO
 from re import split
 from os import getenv
-from boto3 import client
-from botocore.exceptions import ClientError
 
 
 def apbs_logger():
@@ -56,93 +54,6 @@ def sanitize_file_name(job_tag: str, file_name: str):
             file_name,
         )
     return file_name
-
-
-# TODO: Move to S3Utils class
-def _extract_job_tag_from_objectname(s3_object_name: str) -> str:
-    """Parse an S3 object key and return the job tag.
-
-    Args:
-        s3_object_name (str): An S3 object key, prefixed with date and job_id
-
-    Returns:
-        str: the job tag, extracted from the S3 object key
-    """
-    objectname_split: list = s3_object_name.split("/")
-    job_tag: str
-    if len(objectname_split) >= 3:
-        job_tag = f"{objectname_split[-3]}/{objectname_split[-2]}"
-    else:
-        # NOTE: (Eo300) should we raise error here instead?
-        job_tag = s3_object_name
-        _LOGGER.warn(
-            "%s Couldn't extract job tag from object name '%s'. "
-            "Returning object name as job_tag.",
-            job_tag,
-            s3_object_name,
-        )
-    return job_tag
-
-
-# TODO: Move to S3Utils class
-def s3_download_file_str(bucket_name: str, object_name: str) -> str:
-    job_tag = _extract_job_tag_from_objectname(object_name)
-    try:
-        s3_client = client("s3")
-        s3_response: dict = s3_client.get_object(
-            Bucket=bucket_name,
-            Key=object_name,
-        )
-        return s3_response["Body"].read().decode("utf-8")
-    except Exception as err:
-        _LOGGER.exception(
-            "%s ERROR downloading '%s' from bucket '%s': %s",
-            job_tag,
-            object_name,
-            bucket_name,
-            err,
-        )
-        raise
-
-
-# TODO: Move to S3Utils class
-def s3_put_object(bucket_name: str, object_name: str, body):
-    job_tag = _extract_job_tag_from_objectname(object_name)
-    s3_client = client("s3")
-    _ = s3_client.put_object(
-        Bucket=bucket_name,
-        Key=object_name,
-        Body=body,
-    )
-    _LOGGER.debug(
-        "%s Putting file: %s (bucket: %s)", job_tag, object_name, bucket_name
-    )
-
-
-# TODO: Move to S3Utils class
-def s3_object_exists(bucket_name: str, object_name: str) -> bool:
-    s3_client = client("s3")
-    try:
-        _ = s3_client.head_object(
-            Bucket=bucket_name,
-            Key=object_name,
-        )
-        return True
-    except ClientError as err:
-        if err.response["Error"]["Code"] == "404":  # "NoSuchKey" error
-            return False
-        elif err.response["Error"]["Code"] == "403":
-            job_tag: str = _extract_job_tag_from_objectname(object_name)
-            _LOGGER.warning(
-                "%s Received '%s' (%d) message on object HEAD: %s",
-                job_tag,
-                err.response["Error"]["Message"],
-                err.response["ResponseMetadata"]["HTTPStatusCode"],
-                object_name,
-            )
-            return False
-        else:
-            raise
 
 
 def apbs_extract_input_files(job_tag, infile_text):
