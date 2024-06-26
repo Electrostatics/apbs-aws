@@ -4,14 +4,13 @@ from io import StringIO
 from locale import atof, atoi
 from os.path import splitext
 
+from .s3_utils import S3Utils
+
 from .jobsetup import JobSetup, MissingFilesError
 from .utils import (
     _LOGGER,
     apbs_extract_input_files,
     apbs_infile_creator,
-    s3_download_file_str,
-    s3_object_exists,
-    s3_put_object,
 )
 
 
@@ -65,7 +64,9 @@ class Runner(JobSetup):
 
             # Check S3 for .in file existence; add to missing list if not
             self.add_input_file(infile_name)
-            if not s3_object_exists(input_bucket_name, infile_object_name):
+            if not S3Utils.object_exists(
+                input_bucket_name, infile_object_name
+            ):
                 _LOGGER.error(
                     "%s Missing APBS input file '%s'",
                     job_tag,
@@ -80,7 +81,7 @@ class Runner(JobSetup):
             for name in expected_files_list:
                 object_name = f"{job_tag}/{name}"
                 self.add_input_file(str(name))
-                if not s3_object_exists(input_bucket_name, object_name):
+                if not S3Utils.object_exists(input_bucket_name, object_name):
                     _LOGGER.error(
                         "%s Missing APBS input file '%s'",
                         job_tag,
@@ -107,7 +108,7 @@ class Runner(JobSetup):
             apbs_options = self.apbs_options
 
             # Get text for infile string
-            infile_str = s3_download_file_str(
+            infile_str = S3Utils.download_file_str(
                 output_bucket_name, f"{job_tag}/{infile_name}"
             )
 
@@ -120,7 +121,7 @@ class Runner(JobSetup):
             new_infile_contents = apbs_infile_creator(job_tag, apbs_options)
 
             # Get contents of PQR file from PDB2PQR run
-            pqrfile_text = s3_download_file_str(
+            pqrfile_text = S3Utils.download_file_str(
                 output_bucket_name, f"{job_tag}/{pqr_file_name}"
             )
 
@@ -143,7 +144,7 @@ class Runner(JobSetup):
                     )
 
                     # Send original PQR file (with water) to S3 output bucket
-                    s3_put_object(
+                    S3Utils.put_object(
                         output_bucket_name,
                         f"{job_tag}/{water_pqrname}",
                         pqrfile_text.encode("utf-8"),
@@ -167,7 +168,7 @@ class Runner(JobSetup):
                 job_tag,
                 f"{job_tag}/{apbs_options['tempFile']}",
             )
-            s3_put_object(
+            S3Utils.put_object(
                 input_bucket_name,
                 f"{job_tag}/{apbs_options['tempFile']}",
                 new_infile_contents.encode("utf-8"),
@@ -177,7 +178,7 @@ class Runner(JobSetup):
                 job_tag,
                 f"{job_tag}/{pqr_file_name}",
             )
-            s3_put_object(
+            S3Utils.put_object(
                 input_bucket_name,
                 f"{job_tag}/{pqr_file_name}",
                 pqrfile_text.encode("utf-8"),

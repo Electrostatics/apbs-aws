@@ -164,5 +164,116 @@
         }
       }
     }
+  },
+  {
+    "name": "pdb2pqr-v1-basic-sanitize-input-filename",
+    "type": "pdb2pqr",
+    "upload": {
+      "input": [
+        "sanitization test 1fas.pdb"
+      ],
+      "output": []
+    },
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2024-06-21/sampleId/pdb2pqr-job-sanitize.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "PDBFILE": "sanitization test 1fas.pdb",
+        "USERFFFILE": "",
+        "NAMESFILE": "",
+        "LIGANDFILE": "",
+        "PDBID": "",
+        "PDBSOURCE": "UPLOAD",
+        "PH": 7,
+        "PKACALCMETHOD": "propka",
+        "FF": "parse",
+        "FFOUT": "internal",
+        "OPTIONS": [
+          "atomsnotclose",
+          "optimizeHnetwork",
+          "makeapbsin",
+          "removewater"
+        ],
+        "DEBUMP": "atomsnotclose",
+        "OPT": "optimizeHnetwork",
+        "INPUT": "makeapbsin",
+        "DROPWATER": "removewater"
+      },
+      "metadata": {
+        "cli": {
+          "command": "pdb2pqr30 --titration-state-method=propka --with-ph=7 --ff=PARSE --apbs-input=sanitization test 1fas.in  --drop-water sanitization test 1fas.pdb sanitization test 1fas.pqr"
+        }
+      }
+    }
+  },
+  {
+    "name": "pdb2pqr-v1-sanitize-filename-for-all-uploadable-input-files",
+    "type": "pdb2pqr",
+    "upload": {
+      "input": [
+        "sanitization test 1hpx.pdb",
+        "sanitization test custom-ff.dat",
+        "sanitization test custom-ff.names",
+        "sanitization test 1HPX-ligand.mol2"
+      ],
+      "output": []
+    },
+    "trigger": {
+      "Records": [
+        {
+          "s3": {
+            "bucket": {
+              "name": "pytest_input_bucket"
+            },
+            "object": {
+              "key": "2024-06-21/sampleId/pdb2pqr-job-sanitize.json"
+            }
+          }
+        }
+      ]
+    },
+    "job": {
+      "form": {
+        "PDBFILE": "sanitization test 1hpx.pdb",
+        "USERFFFILE": "sanitization test custom-ff.dat",
+        "NAMESFILE": "sanitization test custom-ff.names",
+        "LIGANDFILE": "sanitization test 1HPX-ligand.mol2",
+        "PDBID": "",
+        "PDBSOURCE": "UPLOAD",
+        "PH": 7,
+        "PKACALCMETHOD": "propka",
+        "FF": "user",
+        "FFOUT": "internal",
+        "OPTIONS": [
+          "atomsnotclose",
+          "optimizeHnetwork",
+          "makeapbsin",
+          "removewater",
+          "assignfrommol2"
+        ],
+        "LIGANDCHECK": "assignfrommol2",
+        "DEBUMP": "atomsnotclose",
+        "OPT": "optimizeHnetwork",
+        "INPUT": "makeapbsin",
+        "DROPWATER": "removewater"
+      },
+      "metadata": {
+        "cli": {
+          "command": "pdb2pqr30 --titration-state-method=propka --with-ph=7 --ff=sanitization test custom-ff.dat --usernames=sanitization test custom-ff.names --ligand=sanitization test 1HPX-ligand.mol2 --apbs-input=sanitization test 1hpx.in  --drop-water sanitization test 1hpx.pdb sanitization test 1hpx.pqr"
+        }
+      }
+    }
   }
 ]

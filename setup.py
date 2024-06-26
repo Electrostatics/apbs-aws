@@ -35,8 +35,8 @@ from setuptools import setup
 with open("lambda_services/_version.py") as fobj:
     exec(fobj.read())
 
-if version_info[:2] < (3, 6):
-    raise RuntimeError("Python version >= 3.6 is required.")
+if version_info[:2] < (3, 8):
+    raise RuntimeError("Python version >= 3.8 is required.")
 
 with open("README.md", "r") as fobj:
     LONG_DESCRIPTION = fobj.read()
@@ -70,6 +70,7 @@ setup(
             "pytest",
             "pytest-cov",
             "testfixtures",
+            "sphinx-rtd-theme",
         ],
     },
     tests_require=[
@@ -87,10 +88,11 @@ setup(
         "Operating System :: MacOS",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Scientific/Engineering :: Chemistry",
     ],

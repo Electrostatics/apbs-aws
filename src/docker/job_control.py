@@ -13,7 +13,7 @@ from shutil import rmtree
 import signal
 from subprocess import run, CalledProcessError, PIPE
 from time import sleep, time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib import request
 from sys import stderr
 import sys
@@ -61,6 +61,7 @@ class JOBSTATUS(Enum):
     COMPLETE = 1
     RUNNING = 2
     UNKNOWN = 3
+    FAILED = 4
 
 
 class JobMetrics:
@@ -360,6 +361,7 @@ def update_status(
     jobtype: str,
     status: JOBSTATUS,
     output_files: List,
+    message: Optional[str] = None,
 ) -> Dict:
     """Update the status file in the S3 bucket for the current job.
 
@@ -376,9 +378,14 @@ def update_status(
     s3obj = ups3.Object(GLOBAL_VARS["S3_TOPLEVEL_BUCKET"], objectfile)
     statobj: dict = loads(s3obj.get()["Body"].read().decode("utf-8"))
 
+    # Update status and timestamps
     statobj[jobtype]["status"] = status.name.lower()
-    if status == JOBSTATUS.COMPLETE:
+    if status == JOBSTATUS.COMPLETE or status == JOBSTATUS.FAILED:
         statobj[jobtype]["endTime"] = time()
+
+    if status == JOBSTATUS.FAILED and message is not None:
+        statobj[jobtype]["message"] = message
+
     statobj[jobtype]["outputFiles"] = output_files
 
     object_response = {}
@@ -517,7 +524,16 @@ def run_job(
                     name,
                     error,
                 )
+                update_status(
+                    s3client,
+                    job_tag,
+                    job_type,
+                    JOBSTATUS.FAILED,
+                    [],
+                    "Failed to download input file. Job did not run.",
+                )
                 return cleanup_job(job_tag, rundir)
+
         else:
             try:
                 s3client.download_file(
@@ -530,6 +546,14 @@ def run_job(
                     job_tag,
                     file,
                     error,
+                )
+                update_status(
+                    s3client,
+                    job_tag,
+                    job_type,
+                    JOBSTATUS.FAILED,
+                    [],
+                    "Failed to download input file. Job did not run.",
                 )
                 return cleanup_job(job_tag, rundir)
 
