@@ -1,10 +1,11 @@
 """Tests for the generating unique IDs and S3 tokens."""
+
 from copy import copy
 from lambda_services.api_service.api_service import generate_id_and_tokens
-from moto import mock_s3
+from moto import mock_aws
 
 
-@mock_s3
+@mock_aws
 def test_generate_id_and_tokens():
     """Test token request with no existing Job ID."""
     test_api_gateway_event_without_jobid = {

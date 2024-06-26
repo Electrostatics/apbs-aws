@@ -1,4 +1,5 @@
 """Interpret APBS/PDBP2QR job configurations and submit to SQS."""
+
 from json import dumps, loads, JSONDecodeError
 from os import getenv
 from time import time
@@ -36,7 +37,7 @@ def get_s3_object_json(job_tag: str, bucket_name: str, object_name: str):
             Bucket=bucket_name,
             Key=object_name,
         )
-    except (ClientError) as err:
+    except ClientError as err:
         _LOGGER.exception(
             "%s Unable to get object for Bucket, %s, and Key, %s: %s",
             job_tag,
@@ -218,7 +219,7 @@ def interpret_job_submission(event: dict, context):
         #   - Use weboptions if from web
         #   - Interpret as is if using only command line args
         job_runner = pdb2pqr_runner.Runner(job_info_form, job_id, job_date)
-        job_command_line_args = job_runner.prepare_job()
+        job_command_line_args = job_runner.prepare_job(bucket_name)
 
     elif job_type in "apbs":
         # If APBS:
