@@ -42,12 +42,12 @@ jobs:
       - name: Upload coverage results
         run: bash <(curl -s https://codecov.io/bash)
       - name: Store coverage text results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-text
           path: coverage.txt
       - name: Store coverage HTML results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-html
           path: htmlcov/*
