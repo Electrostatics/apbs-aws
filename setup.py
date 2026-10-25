@@ -53,7 +53,7 @@ setup(
     ),
     long_description=LONG_DESCRIPTION,
     install_requires=[
-        "urllib3==1.26.3",
+        "urllib3==2.8.0",
     ],
     url="http://www.poissonboltzmann.org",
     python_requires=">=3.6",
