@@ -35,8 +35,8 @@ from setuptools import setup
 with open("lambda_services/_version.py") as fobj:
     exec(fobj.read())
 
-if version_info[:2] < (3, 8):
-    raise RuntimeError("Python version >= 3.8 is required.")
+if version_info[:2] < (3, 10):
+    raise RuntimeError("Python version >= 3.10 is required.")
 
 with open("README.md", "r") as fobj:
     LONG_DESCRIPTION = fobj.read()
@@ -53,10 +53,10 @@ setup(
     ),
     long_description=LONG_DESCRIPTION,
     install_requires=[
-        "urllib3==1.26.3",
+        "urllib3==2.8.0",
     ],
     url="http://www.poissonboltzmann.org",
-    python_requires=">=3.6",
+    python_requires=">=3.10",
     extras_require={
         "dev": ["check-manifest"],
         "test": [
@@ -88,11 +88,11 @@ setup(
         "Operating System :: MacOS",
         "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Scientific/Engineering :: Chemistry",
     ],
